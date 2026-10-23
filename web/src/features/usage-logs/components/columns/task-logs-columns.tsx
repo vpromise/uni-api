@@ -41,7 +41,6 @@ import {
   createChannelColumn,
   createProgressColumn,
 } from './column-helpers'
-
 function TaskDetailsCell(props: {
   log: TaskLog
   isAdmin: boolean
@@ -49,7 +48,6 @@ function TaskDetailsCell(props: {
 }) {
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
-
   return (
     <>
       <div className='flex max-w-[220px] flex-col items-start gap-1'>
@@ -82,7 +80,6 @@ function TaskDetailsCell(props: {
     </>
   )
 }
-
 export function useTaskLogsColumns(
   isAdmin: boolean,
   isRoot: boolean
@@ -96,7 +93,6 @@ export function useTaskLogsColumns(
         cell: ({ row }) => {
           const log = row.original
           const submitTime = row.getValue('submit_time') as number
-
           return (
             <div className='flex min-w-0 flex-col gap-0.5'>
               <span className='truncate font-mono text-xs tabular-nums'>
@@ -115,10 +111,11 @@ export function useTaskLogsColumns(
         size: 180,
       },
     ]
-
     if (isAdmin) {
       columns.push(
-        createChannelColumn<TaskLog>({ headerLabel: t('Channel') }),
+        createChannelColumn<TaskLog>({
+          headerLabel: t('Channel'),
+        }),
         {
           id: 'user',
           header: t('User'),
@@ -131,7 +128,6 @@ export function useTaskLogsColumns(
             } = useUsageLogsContext()
             const log = row.original
             const displayName = log.username || String(log.user_id || '?')
-
             return (
               <button
                 type='button'
@@ -197,7 +193,6 @@ export function useTaskLogsColumns(
         }
       )
     }
-
     columns.push(
       {
         accessorKey: 'task_id',
@@ -223,7 +218,9 @@ export function useTaskLogsColumns(
             </div>
           )
         },
-        meta: { mobileTitle: true },
+        meta: {
+          mobileTitle: true,
+        },
       },
       createDurationColumn<TaskLog>({
         submitTimeKey: 'submit_time',
@@ -250,7 +247,9 @@ export function useTaskLogsColumns(
           )
         },
       },
-      createProgressColumn<TaskLog>({ headerLabel: t('Progress') }),
+      createProgressColumn<TaskLog>({
+        headerLabel: t('Progress'),
+      }),
       {
         id: 'artifacts',
         header: t('Artifacts'),
@@ -275,7 +274,6 @@ export function useTaskLogsColumns(
         maxSize: 240,
       }
     )
-
     return columns
   }, [t, isAdmin, isRoot])
 }

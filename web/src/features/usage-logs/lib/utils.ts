@@ -22,8 +22,6 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   getAllLogs,
   getUserLogs,
-  getAllMidjourneyLogs,
-  getUserMidjourneyLogs,
   getAllTaskLogs,
   getUserTaskLogs,
 } from '../api'
@@ -36,10 +34,8 @@ import type {
   GetLogsParams,
   GetLogsResponse,
   FetchLogsConfig,
-  GetMidjourneyLogsParams,
   GetTaskLogsParams,
 } from '../types'
-
 export { buildQueryParams } from './query-params'
 
 // ============================================================================
@@ -77,13 +73,19 @@ export function isPerCallBilling(modelPrice?: number): boolean {
 /**
  * Get default time range (today 00:00:00 to now + 1 hour)
  */
-export function getDefaultTimeRange(): { start: Date; end: Date } {
+export function getDefaultTimeRange(): {
+  start: Date
+  end: Date
+} {
   const now = new Date()
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)
   const end = new Date(now.getTime() + 3600 * 1000) // +1 hour
 
-  return { start, end }
+  return {
+    start,
+    end,
+  }
 }
 
 /**
@@ -100,18 +102,18 @@ function timestampToSeconds(ms: number): number {
 function buildTimeRangeParams(
   searchParams: Record<string, unknown>,
   useMilliseconds: boolean
-): { start_timestamp?: number; end_timestamp?: number } {
+): {
+  start_timestamp?: number
+  end_timestamp?: number
+} {
   const hasTimeParams = searchParams.startTime ?? searchParams.endTime
   const defaultTimeRange = !hasTimeParams ? getDefaultTimeRange() : null
-
   const convertTimestamp = (timestamp: number) =>
     useMilliseconds ? timestamp : timestampToSeconds(timestamp)
-
   const getTimestamp = (paramTime?: unknown, defaultTime?: Date) => {
     const time = (paramTime as number) || defaultTime?.getTime()
     return time ? convertTimestamp(time) : undefined
   }
-
   return {
     start_timestamp: getTimestamp(
       searchParams.startTime,
@@ -138,7 +140,6 @@ export function buildBaseParams(config: {
   end_timestamp?: number
 } {
   const { page, pageSize, searchParams, useMilliseconds = false } = config
-
   return {
     p: page,
     page_size: pageSize,
@@ -158,7 +159,10 @@ export function buildApiParams(config: {
   page: number
   pageSize: number
   searchParams: Record<string, unknown>
-  columnFilters?: Array<{ id: string; value: unknown }>
+  columnFilters?: Array<{
+    id: string
+    value: unknown
+  }>
   isAdmin: boolean
 }): GetLogsParams {
   const { page, pageSize, searchParams, columnFilters = [], isAdmin } = config
@@ -169,7 +173,6 @@ export function buildApiParams(config: {
       const type = Number(raw)
       return Number.isFinite(type) ? type : undefined
     }
-
     if (Array.isArray(value) && value.length === 1) {
       return parseType(value[0])
     }
@@ -183,21 +186,45 @@ export function buildApiParams(config: {
   const params: GetLogsParams = {
     p: page,
     page_size: pageSize,
-    ...(searchParams.type ? { type: processType(searchParams.type) } : {}),
-    ...(searchParams.model ? { model_name: String(searchParams.model) } : {}),
-    ...(searchParams.token ? { token_name: String(searchParams.token) } : {}),
-    ...(searchParams.group ? { group: String(searchParams.group) } : {}),
+    ...(searchParams.type
+      ? {
+          type: processType(searchParams.type),
+        }
+      : {}),
+    ...(searchParams.model
+      ? {
+          model_name: String(searchParams.model),
+        }
+      : {}),
+    ...(searchParams.token
+      ? {
+          token_name: String(searchParams.token),
+        }
+      : {}),
+    ...(searchParams.group
+      ? {
+          group: String(searchParams.group),
+        }
+      : {}),
     ...(isAdmin && searchParams.channel
-      ? { channel: Number(searchParams.channel) || 0 }
+      ? {
+          channel: Number(searchParams.channel) || 0,
+        }
       : {}),
     ...(isAdmin && searchParams.username
-      ? { username: String(searchParams.username) }
+      ? {
+          username: String(searchParams.username),
+        }
       : {}),
     ...(searchParams.requestId
-      ? { request_id: String(searchParams.requestId) }
+      ? {
+          request_id: String(searchParams.requestId),
+        }
       : {}),
     ...(searchParams.upstreamRequestId
-      ? { upstream_request_id: String(searchParams.upstreamRequestId) }
+      ? {
+          upstream_request_id: String(searchParams.upstreamRequestId),
+        }
       : {}),
     ...buildTimeRangeParams(searchParams, false),
   }
@@ -206,7 +233,6 @@ export function buildApiParams(config: {
   if (columnFilters.length > 0) {
     columnFilters.forEach(({ id, value }) => {
       if (value === undefined || value === null || value === '') return
-
       switch (id) {
         case 'type':
           params.type = processType(value)
@@ -229,7 +255,6 @@ export function buildApiParams(config: {
       }
     })
   }
-
   return params
 }
 
@@ -245,7 +270,6 @@ export async function fetchLogsByCategory(
 ): Promise<GetLogsResponse> {
   const { logCategory, isAdmin, page, pageSize, searchParams, columnFilters } =
     config
-
   if (logCategory === 'common') {
     const params = buildApiParams({
       page,
@@ -262,25 +286,16 @@ export async function fetchLogsByCategory(
     page,
     pageSize,
     searchParams,
-    useMilliseconds: logCategory === 'drawing',
+    useMilliseconds: false,
   })
-
   const paramsWithFilter = {
     ...baseParams,
-    ...(logCategory === 'drawing'
-      ? { mj_id: searchParams.filter as string | undefined }
-      : {}),
     ...(logCategory === 'task'
-      ? { task_id: searchParams.filter as string | undefined }
+      ? {
+          task_id: searchParams.filter as string | undefined,
+        }
       : {}),
   }
-
-  if (logCategory === 'drawing') {
-    return isAdmin
-      ? await getAllMidjourneyLogs(paramsWithFilter as GetMidjourneyLogsParams)
-      : await getUserMidjourneyLogs(paramsWithFilter as GetMidjourneyLogsParams)
-  }
-
   // task logs
   return isAdmin
     ? await getAllTaskLogs(paramsWithFilter as GetTaskLogsParams)

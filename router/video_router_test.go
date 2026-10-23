@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
+func TestGetOpenAIVideoRouteRendersSoraTask(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	previousDB := model.DB
@@ -42,7 +42,7 @@ func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
 
 	require.NoError(t, database.Create(&model.User{
 		Id:          91,
-		Username:    "jimeng-fetch-user",
+		Username:    "sora-fetch-user",
 		Role:        common.RoleCommonUser,
 		Status:      common.UserStatusEnabled,
 		Quota:       100,
@@ -52,27 +52,27 @@ func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
 	require.NoError(t, database.Create(&model.Token{
 		Id:             1,
 		UserId:         91,
-		Key:            "jimengfetch",
+		Key:            "sorafetch",
 		Status:         common.TokenStatusEnabled,
-		Name:           "jimeng fetch",
+		Name:           "sora fetch",
 		ExpiredTime:    -1,
 		UnlimitedQuota: true,
 	}).Error)
 	require.NoError(t, database.Create(&model.Channel{
-		Id:     17,
-		Type:   constant.ChannelTypeJimeng,
+		Id: 17, Type: constant.ChannelTypeOpenAI,
+
 		Key:    "unused",
 		Status: common.ChannelStatusEnabled,
-		Name:   "jimeng fetch",
-		Models: "jimeng_vgfm_t2v_l20",
+		Name:   "sora fetch",
+		Models: "sora-2",
 		Group:  "default",
 	}).Error)
 
 	task := &model.Task{
 		CreatedAt: 1710000000,
 		UpdatedAt: 1710000060,
-		TaskID:    "task_jimeng_public",
-		Platform:  constant.TaskPlatform("jimeng"),
+		TaskID:    "task_sora_public",
+		Platform:  constant.TaskPlatform("sora"),
 		UserId:    91,
 		Group:     "default",
 		ChannelId: 17,
@@ -82,22 +82,14 @@ func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
 			ResultURL: "data:video/mp4;base64,ZGF0YQ==",
 		},
 	}
-	task.SetData(map[string]any{
-		"code": 10000,
-		"data": map[string]any{
-			"status":    "done",
-			"task_id":   "jimeng-private-1",
-			"video_url": "https://cdn.example/video.mp4",
-		},
-		"message": "success",
-	})
+	task.SetData(map[string]any{"id": "sora-private-1", "status": "completed", "model": "sora-2"})
 	require.NoError(t, database.Create(task).Error)
 
 	engine := gin.New()
 	SetVideoRouter(engine)
 	SetTaskPluginProtocolRouter(engine)
-	request := httptest.NewRequest(http.MethodGet, "/v1/videos/task_jimeng_public", nil)
-	request.Header.Set("Authorization", "Bearer sk-jimengfetch")
+	request := httptest.NewRequest(http.MethodGet, "/v1/videos/task_sora_public", nil)
+	request.Header.Set("Authorization", "Bearer sk-sorafetch")
 	recorder := httptest.NewRecorder()
 
 	engine.ServeHTTP(recorder, request)
@@ -112,14 +104,14 @@ func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
 		CompletedAt int64  `json:"completed_at"`
 	}
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
-	assert.Equal(t, "task_jimeng_public", response.ID)
+	assert.Equal(t, "task_sora_public", response.ID)
 	assert.Equal(t, "video", response.Object)
 	assert.Equal(t, "completed", response.Status)
 	assert.Equal(t, 100, response.Progress)
 	assert.Equal(t, int64(1710000000), response.CreatedAt)
 	assert.Equal(t, int64(1710000060), response.CompletedAt)
 	assert.NotContains(t, recorder.Body.String(), "cdn.example")
-	assert.NotContains(t, recorder.Body.String(), "jimeng-private-1")
+	assert.NotContains(t, recorder.Body.String(), "sora-private-1")
 
 	for _, testCase := range []struct {
 		name          string
@@ -129,12 +121,12 @@ func TestGetOpenAIVideoRouteRendersJimengTask(t *testing.T) {
 	}{
 		{name: "missing credential rejected", wantStatus: http.StatusUnauthorized},
 		{name: "access rejected", query: "?access=not-a-video-credential", wantStatus: http.StatusUnauthorized},
-		{name: "bearer accepted", authorization: "Bearer sk-jimengfetch", wantStatus: http.StatusOK},
+		{name: "bearer accepted", authorization: "Bearer sk-sorafetch", wantStatus: http.StatusOK},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			request := httptest.NewRequest(
 				http.MethodGet,
-				"/v1/videos/task_jimeng_public/content"+testCase.query,
+				"/v1/videos/task_sora_public/content"+testCase.query,
 				nil,
 			)
 			if testCase.authorization != "" {

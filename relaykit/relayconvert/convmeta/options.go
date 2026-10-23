@@ -8,7 +8,6 @@ import "github.com/QuantumNous/new-api/relaykit/types"
 // directly. Zero value = every adaptation disabled, no defaults applied.
 type Options struct {
 	Claude ClaudeOptions
-	Gemini GeminiOptions
 
 	// ToolLossPolicy controls whether a cross-protocol conversion may omit or
 	// approximate built-in-tool semantics. The zero value uses the allow
@@ -17,16 +16,6 @@ type Options struct {
 	// conversion never reject regardless of this field.
 	ToolLossPolicy types.ConversionLossPolicy
 
-	// OpenRouterDialect marks the upstream as OpenRouter's OpenAI-compatible
-	// surface, which accepts extra fields (reasoning config, cache_control on
-	// system parts) that converters emit only for that dialect. The host sets
-	// it from the channel type.
-	OpenRouterDialect bool
-
-	// WebSearch encodes hosted web search for the upstream dialect. Nil, or a
-	// nil result, keeps the default: web_search_options on Chat and the native
-	// hosted tool on Responses, Claude, and Gemini. The host sets it from the
-	// channel adaptor's Init.
 	WebSearch WebSearchEncoder
 
 	// PreserveThinkingSuffix reports models whose -thinking/-nothinking/effort
@@ -34,8 +23,6 @@ type Options struct {
 	// Nil means "never preserve".
 	PreserveThinkingSuffix func(modelName string) bool
 
-	// PreserveEffortTail reports real model IDs whose names already end in an
-	// effort-like token (for example qwen-max). Nil means "never preserve".
 	PreserveEffortTail func(modelName string) bool
 }
 
@@ -66,54 +53,11 @@ type ClaudeOptions struct {
 	WebSearchToolVersion string
 }
 
-type GeminiOptions struct {
-	// ThinkingAdapterEnabled is the host thinking-suffix adapter toggle. The
-	// host and gemini_chat request conversion pass it to
-	// reasoning.ParseGeminiModelSuffix, so -thinking, -nothinking,
-	// -thinking-<budget>, and effort tails such as -high on gemini-* names
-	// become reasoning intent only while it is on; when off the model name is
-	// sent verbatim. Explicit @ modifiers are unaffected.
-	ThinkingAdapterEnabled bool
-	// ThinkingAdapterBudgetTokensPercentage sizes thinkingBudget as a fraction
-	// of maxOutputTokens when the adapter fires.
-	ThinkingAdapterBudgetTokensPercentage float64
-	// FunctionCallThoughtSignatureEnabled attaches thoughtSignature bypass
-	// values to function-call parts.
-	FunctionCallThoughtSignatureEnabled bool
-	// SupportsImagine reports whether the model supports image generation
-	// (switches response modalities). Nil means "never".
-	SupportsImagine func(modelName string) bool
-	// SupportsJSONSchema reports whether the upstream accepts JSON Schema in
-	// parametersJsonSchema and responseJsonSchema for the model. A schema that
-	// Gemini's typed Schema cannot hold without loss is then sent there
-	// unchanged; otherwise it is cleaned to the typed Schema and the loss is
-	// reported as a diagnostic. Nil means "never".
-	SupportsJSONSchema func(modelName string) bool
-	// SafetySetting returns the harm threshold for a category. Nil or empty
-	// return means no safetySettings are attached.
-	SafetySetting func(category string) string
-}
-
 func (o *ClaudeOptions) DefaultMaxTokensFor(modelName string) (int, bool) {
 	if o == nil || o.DefaultMaxTokens == nil {
 		return 0, false
 	}
 	return o.DefaultMaxTokens(modelName), true
-}
-
-func (o *GeminiOptions) SupportsImagineModel(modelName string) bool {
-	return o != nil && o.SupportsImagine != nil && o.SupportsImagine(modelName)
-}
-
-func (o *GeminiOptions) SupportsJSONSchemaModel(modelName string) bool {
-	return o != nil && o.SupportsJSONSchema != nil && o.SupportsJSONSchema(modelName)
-}
-
-func (o *GeminiOptions) SafetySettingFor(category string) string {
-	if o == nil || o.SafetySetting == nil {
-		return ""
-	}
-	return o.SafetySetting(category)
 }
 
 func (o *Options) ShouldPreserveThinkingSuffix(modelName string) bool {

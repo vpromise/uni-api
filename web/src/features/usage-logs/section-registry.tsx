@@ -28,19 +28,12 @@ const USAGE_LOGS_SECTIONS = [
     build: () => null, // Content is rendered directly in the page component
   },
   {
-    id: 'drawing',
-    titleKey: 'Drawing Logs',
-    build: () => null, // Content is rendered directly in the page component
-  },
-  {
     id: 'task',
     titleKey: 'Task Logs',
     build: () => null, // Content is rendered directly in the page component
   },
 ] as const
-
 export type UsageLogsSectionId = (typeof USAGE_LOGS_SECTIONS)[number]['id']
-
 const usageLogsRegistry = createSectionRegistry<
   UsageLogsSectionId,
   Record<string, never>,
@@ -51,7 +44,6 @@ const usageLogsRegistry = createSectionRegistry<
   basePath: '/usage-logs',
   urlStyle: 'path',
 })
-
 export const USAGE_LOGS_SECTION_IDS = usageLogsRegistry.sectionIds
 export const USAGE_LOGS_DEFAULT_SECTION = usageLogsRegistry.defaultSection
 

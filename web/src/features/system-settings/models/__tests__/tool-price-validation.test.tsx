@@ -22,7 +22,6 @@ import i18next from 'i18next'
 import { beforeAll, describe, expect, test } from 'vitest'
 
 import { ToolPriceSettings } from '../tool-price-settings'
-
 describe('tool price validation', () => {
   beforeAll(() => {
     i18next.addResourceBundle('en', 'translation', {
@@ -31,69 +30,67 @@ describe('tool price validation', () => {
       'Tool identifier': 'Tool identifier',
     })
   })
-
   test('blocks an empty price without converting it to an explicit zero', () => {
     const queryClient = new QueryClient({
-      defaultOptions: { mutations: { retry: false } },
+      defaultOptions: {
+        mutations: {
+          retry: false,
+        },
+      },
     })
-
     render(
       <QueryClientProvider client={queryClient}>
         <ToolPriceSettings defaultValue='{"web_search":10}' />
       </QueryClientProvider>
     )
-
     const priceInput = screen.getByRole('spinbutton', {
       name: 'Price ($/1K calls): web_search',
     })
-    const saveButton = screen.getByRole('button', { name: 'Save tool prices' })
-
-    fireEvent.change(priceInput, { target: { value: '' } })
-
+    const saveButton = screen.getByRole('button', {
+      name: 'Save tool prices',
+    })
+    fireEvent.change(priceInput, {
+      target: {
+        value: '',
+      },
+    })
     expect(priceInput).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByText('Please enter a valid number')).toBeInTheDocument()
     expect(saveButton).toBeDisabled()
-
-    fireEvent.change(priceInput, { target: { value: '0' } })
-
+    fireEvent.change(priceInput, {
+      target: {
+        value: '0',
+      },
+    })
     expect(priceInput).toHaveAttribute('aria-invalid', 'false')
     expect(saveButton).toBeEnabled()
-
-    fireEvent.change(priceInput, { target: { value: '0.04' } })
-
+    fireEvent.change(priceInput, {
+      target: {
+        value: '0.04',
+      },
+    })
     expect(priceInput).toHaveValue(0.04)
     expect(priceInput).toBeValid()
     expect(saveButton).toBeEnabled()
-
-    fireEvent.change(priceInput, { target: { value: '0.0001' } })
+    fireEvent.change(priceInput, {
+      target: {
+        value: '0.0001',
+      },
+    })
     expect(priceInput).toBeValid()
-
-    fireEvent.change(priceInput, { target: { value: '0.00001' } })
+    fireEvent.change(priceInput, {
+      target: {
+        value: '0.00001',
+      },
+    })
     expect((priceInput as HTMLInputElement).validity.stepMismatch).toBe(true)
-
-    fireEvent.change(priceInput, { target: { value: '-0.04' } })
-
+    fireEvent.change(priceInput, {
+      target: {
+        value: '-0.04',
+      },
+    })
     expect(priceInput).toHaveAttribute('aria-invalid', 'true')
     expect(saveButton).toBeDisabled()
-
-    queryClient.clear()
-  })
-
-  test('shows the DeepSeek Search and Fetch prices for a config saved before they existed', () => {
-    const queryClient = new QueryClient()
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ToolPriceSettings defaultValue='{"web_search":10}' />
-      </QueryClientProvider>
-    )
-
-    for (const key of ['deepseek_search', 'deepseek_fetch']) {
-      expect(
-        screen.getByRole('spinbutton', { name: `Price ($/1K calls): ${key}` })
-      ).toHaveValue(0.75)
-    }
-
     queryClient.clear()
   })
 })

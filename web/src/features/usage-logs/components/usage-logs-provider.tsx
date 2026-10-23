@@ -23,10 +23,8 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import type { ChannelAffinityInfo } from '../types'
-
 export type LogsViewScope = 'all' | 'self'
 export type LogsViewAccess = 'self' | 'admin' | 'root'
-
 export function resolveLogsViewAccess(
   role: number,
   viewScope: LogsViewScope
@@ -34,7 +32,6 @@ export function resolveLogsViewAccess(
   if (viewScope !== 'all' || role < ROLE.ADMIN) return 'self'
   return role === ROLE.SUPER_ADMIN ? 'root' : 'admin'
 }
-
 interface UsageLogsContextValue {
   selectedUserId: number | null
   setSelectedUserId: (userId: number | null) => void
@@ -49,11 +46,9 @@ interface UsageLogsContextValue {
   viewScope: LogsViewScope
   setViewScope: (scope: LogsViewScope) => void
 }
-
 const UsageLogsContext = createContext<UsageLogsContextValue | undefined>(
   undefined
 )
-
 export function UsageLogsProvider({ children }: { children: ReactNode }) {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false)
@@ -62,7 +57,6 @@ export function UsageLogsProvider({ children }: { children: ReactNode }) {
   const [affinityDialogOpen, setAffinityDialogOpen] = useState(false)
   const [sensitiveVisible, setSensitiveVisible] = useState(true)
   const [viewScope, setViewScope] = useState<LogsViewScope>('all')
-
   return (
     <UsageLogsContext.Provider
       value={{
@@ -84,7 +78,6 @@ export function UsageLogsProvider({ children }: { children: ReactNode }) {
     </UsageLogsContext.Provider>
   )
 }
-
 export function useUsageLogsContext() {
   const context = useContext(UsageLogsContext)
   if (!context) {
@@ -108,7 +101,6 @@ export function useLogsViewScope() {
   const viewAccess = resolveLogsViewAccess(role, viewScope)
   const isAdminView = viewAccess !== 'self'
   const isRootView = viewAccess === 'root'
-
   return {
     canManageScope,
     viewScope,

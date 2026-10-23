@@ -149,3 +149,16 @@ func TestClaudeMessagesRequestToOpenAIChatKeepsParallelToolResultsContiguous(t *
 	require.NotNil(t, parts[0].GetImageMedia())
 	assert.Equal(t, dataURL, parts[0].GetImageMedia().Url)
 }
+
+func TestClaudeSystemBlocksSurviveChatConversion(t *testing.T) {
+	request := dto.ClaudeRequest{Model: "gpt-test", System: []dto.ClaudeMediaMessage{
+		{Type: "text", Text: lo.ToPtr("system ")},
+		{Type: "text", Text: lo.ToPtr("rules")},
+	}, Messages: []dto.ClaudeMessage{{Role: "user", Content: "hello"}}}
+	result, err := ClaudeMessagesRequestToOpenAIChat(t.Context(), request, &convmeta.Values{})
+	require.NoError(t, err)
+	require.Len(t, result.Messages, 2)
+	assert.Equal(t, "system", result.Messages[0].Role)
+	assert.Equal(t, "system rules", result.Messages[0].StringContent())
+	assert.Equal(t, "user", result.Messages[1].Role)
+}

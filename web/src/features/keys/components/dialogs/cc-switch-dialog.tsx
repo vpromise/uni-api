@@ -29,32 +29,46 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { getUserModels } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
-
 const APP_CONFIGS = {
   claude: {
     label: 'Claude',
     defaultName: 'My Claude',
     modelFields: [
-      { key: 'model', labelKey: 'Primary Model', required: true },
-      { key: 'haikuModel', labelKey: 'Haiku Model', required: false },
-      { key: 'sonnetModel', labelKey: 'Sonnet Model', required: false },
-      { key: 'opusModel', labelKey: 'Opus Model', required: false },
+      {
+        key: 'model',
+        labelKey: 'Primary Model',
+        required: true,
+      },
+      {
+        key: 'haikuModel',
+        labelKey: 'Haiku Model',
+        required: false,
+      },
+      {
+        key: 'sonnetModel',
+        labelKey: 'Sonnet Model',
+        required: false,
+      },
+      {
+        key: 'opusModel',
+        labelKey: 'Opus Model',
+        required: false,
+      },
     ],
   },
   codex: {
     label: 'Codex',
     defaultName: 'My Codex',
-    modelFields: [{ key: 'model', labelKey: 'Primary Model', required: true }],
-  },
-  gemini: {
-    label: 'Gemini',
-    defaultName: 'My Gemini',
-    modelFields: [{ key: 'model', labelKey: 'Primary Model', required: true }],
+    modelFields: [
+      {
+        key: 'model',
+        labelKey: 'Primary Model',
+        required: true,
+      },
+    ],
   },
 } as const
-
 type AppType = keyof typeof APP_CONFIGS
-
 function getServerAddress(): string {
   try {
     const raw = localStorage.getItem('status')
@@ -67,7 +81,6 @@ function getServerAddress(): string {
   }
   return window.location.origin
 }
-
 function buildCCSwitchURL(
   app: string,
   name: string,
@@ -89,51 +102,44 @@ function buildCCSwitchURL(
   params.set('enabled', 'true')
   return `ccswitch://v1/import?${params.toString()}`
 }
-
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   tokenKey: string
 }
-
 export function CCSwitchDialog(props: Props) {
   const { t } = useTranslation()
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
   const [models, setModels] = useState<Record<string, string>>({})
-
   const { data: modelsData } = useQuery({
     queryKey: ['user-models-ccswitch'],
     queryFn: async () => requireServerSuccess(await getUserModels()),
     enabled: props.open,
     staleTime: 5 * 60 * 1000,
   })
-
   const modelOptions = useMemo(() => {
     const items = modelsData?.data ?? []
-    return items.map((m) => ({ value: m, label: m }))
+    return items.map((m) => ({
+      value: m,
+      label: m,
+    }))
   }, [modelsData?.data])
-
   useEffect(() => {
     if (props.open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setModels({})
-
       setApp('claude')
-
       setName(APP_CONFIGS.claude.defaultName)
     }
   }, [props.open])
-
   const currentConfig = APP_CONFIGS[app]
-
   const handleAppChange = (val: string) => {
     const appVal = val as AppType
     setApp(appVal)
     setName(APP_CONFIGS[appVal].defaultName)
     setModels({})
   }
-
   const handleSubmit = () => {
     if (!models.model) {
       toast.warning(t('Please select a primary model'))
@@ -146,7 +152,6 @@ export function CCSwitchDialog(props: Props) {
     window.open(url, '_blank')
     props.onOpenChange(false)
   }
-
   return (
     <Dialog
       open={props.open}
@@ -209,7 +214,10 @@ export function CCSwitchDialog(props: Props) {
               options={modelOptions}
               value={models[field.key] || ''}
               onValueChange={(v) =>
-                setModels((prev) => ({ ...prev, [field.key]: v ?? '' }))
+                setModels((prev) => ({
+                  ...prev,
+                  [field.key]: v ?? '',
+                }))
               }
               placeholder={t('Select or enter model name')}
               emptyText={t('No models found')}

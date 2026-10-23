@@ -34,28 +34,27 @@ import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
-
 type SidebarModuleConfig = {
   enabled: boolean
   [key: string]: boolean
 }
-
 type SidebarModulesConfig = Record<string, SidebarModuleConfig>
-
 type SectionDef = {
   key: string
   title: string
   description: string
-  modules: { key: string; title: string; description: string }[]
+  modules: {
+    key: string
+    title: string
+    description: string
+  }[]
 }
-
 export function SidebarModulesCard() {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState<SidebarModulesConfig>({})
   const currentUser = useAuthStore((s) => s.auth.user)
   const setUser = useAuthStore((s) => s.auth.setUser)
-
   const sectionDefs: SectionDef[] = [
     {
       key: 'chat',
@@ -100,11 +99,6 @@ export function SidebarModulesCard() {
           description: t('Login, security and access records'),
         },
         {
-          key: 'midjourney',
-          title: t('Drawing Logs'),
-          description: t('Drawing task records'),
-        },
-        {
           key: 'task',
           title: t('Task Logs'),
           description: t('System task records'),
@@ -134,7 +128,6 @@ export function SidebarModulesCard() {
       ],
     },
   ]
-
   const loadConfig = useCallback(async () => {
     try {
       const res = await api.get('/api/user/self')
@@ -145,7 +138,9 @@ export function SidebarModulesCard() {
       } else {
         const defaults: SidebarModulesConfig = {}
         for (const sec of sectionDefs) {
-          defaults[sec.key] = { enabled: true }
+          defaults[sec.key] = {
+            enabled: true,
+          }
           for (const mod of sec.modules) defaults[sec.key][mod.key] = true
         }
         setConfig(defaults)
@@ -155,18 +150,18 @@ export function SidebarModulesCard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
   useEffect(() => {
     loadConfig()
   }, [loadConfig])
-
   const toggleSection = (sectionKey: string, val: boolean) => {
     setConfig((prev) => ({
       ...prev,
-      [sectionKey]: { ...prev[sectionKey], enabled: val },
+      [sectionKey]: {
+        ...prev[sectionKey],
+        enabled: val,
+      },
     }))
   }
-
   const toggleModule = (
     sectionKey: string,
     moduleKey: string,
@@ -174,10 +169,12 @@ export function SidebarModulesCard() {
   ) => {
     setConfig((prev) => ({
       ...prev,
-      [sectionKey]: { ...prev[sectionKey], [moduleKey]: val },
+      [sectionKey]: {
+        ...prev[sectionKey],
+        [moduleKey]: val,
+      },
     }))
   }
-
   const handleSave = async () => {
     setLoading(true)
     try {
@@ -189,7 +186,10 @@ export function SidebarModulesCard() {
         // Sync to auth-store so useSidebarConfig re-runs and the sidebar
         // updates immediately without needing a page refresh.
         if (currentUser) {
-          setUser({ ...currentUser, sidebar_modules: serialized })
+          setUser({
+            ...currentUser,
+            sidebar_modules: serialized,
+          })
         }
         toast.success(t('Saved successfully'))
       } else {
@@ -201,17 +201,17 @@ export function SidebarModulesCard() {
       setLoading(false)
     }
   }
-
   const handleReset = () => {
     const defaults: SidebarModulesConfig = {}
     for (const sec of sectionDefs) {
-      defaults[sec.key] = { enabled: true }
+      defaults[sec.key] = {
+        enabled: true,
+      }
       for (const mod of sec.modules) defaults[sec.key][mod.key] = true
     }
     setConfig(defaults)
     toast.success(t('Reset to default configuration'))
   }
-
   return (
     <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
       <CardHeader className='border-b p-3 !pb-3 sm:p-5 sm:!pb-5'>
@@ -253,9 +253,7 @@ export function SidebarModulesCard() {
                 {section.modules.map((mod) => (
                   <div
                     key={mod.key}
-                    className={`flex min-h-16 items-center justify-between rounded-lg border p-3 ${
-                      sectionEnabled ? '' : 'opacity-50'
-                    }`}
+                    className={`flex min-h-16 items-center justify-between rounded-lg border p-3 ${sectionEnabled ? '' : 'opacity-50'}`}
                   >
                     <div className='mr-2 min-w-0'>
                       <p className='truncate text-sm font-medium'>

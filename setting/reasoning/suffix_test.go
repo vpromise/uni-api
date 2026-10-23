@@ -16,69 +16,65 @@ func TestCanonicalBillingModelNames(t *testing.T) {
 	}{
 		{
 			name: "thinking on",
-			in:   "qwen3-max@thinking:on",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:on",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "shuffled temperature and thinking",
-			in:   "qwen3-max@temperature:0.2@thinking:on",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@temperature:0.2@thinking:on",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "thinking first then temperature",
-			in:   "qwen3-max@thinking:on@temperature:0.2",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:on@temperature:0.2",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "budget normalizes to on",
-			in:   "qwen3-max@thinking:8192",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:8192",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "minus one normalizes to on",
-			in:   "qwen3-max@thinking:-1",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:-1",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "adaptive normalizes to on",
-			in:   "qwen3-max@thinking:adaptive",
-			want: []string{"qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:adaptive",
+			want: []string{"gpt-custom@thinking:on"},
 		},
 		{
 			name: "thinking off",
-			in:   "qwen3-max@thinking:off",
-			want: []string{"qwen3-max@thinking:off"},
+			in:   "gpt-custom@thinking:off",
+			want: []string{"gpt-custom@thinking:off"},
 		},
 		{
 			name: "effort none becomes thinking off",
-			in:   "qwen3-max@effort:none",
-			want: []string{"qwen3-max@thinking:off"},
+			in:   "gpt-custom@effort:none",
+			want: []string{"gpt-custom@thinking:off"},
 		},
 		{
 			name: "effort high implies thinking on",
-			in:   "qwen3-max@effort:high",
-			want: []string{"qwen3-max@effort:high@thinking:on", "qwen3-max@thinking:on"},
+			in:   "gpt-custom@effort:high",
+			want: []string{"gpt-custom@effort:high@thinking:on", "gpt-custom@thinking:on"},
 		},
 		{
 			name: "effort and thinking keys sorted",
-			in:   "qwen3-max@thinking:on@effort:high@temperature:0.2",
-			want: []string{"qwen3-max@effort:high@thinking:on", "qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:on@effort:high@temperature:0.2",
+			want: []string{"gpt-custom@effort:high@thinking:on", "gpt-custom@thinking:on"},
 		},
 		{
 			name: "duplicate last wins then normalize",
-			in:   "qwen3-max@thinking:off@thinking:on@effort:low@effort:high",
-			want: []string{"qwen3-max@effort:high@thinking:on", "qwen3-max@thinking:on"},
+			in:   "gpt-custom@thinking:off@thinking:on@effort:low@effort:high",
+			want: []string{"gpt-custom@effort:high@thinking:on", "gpt-custom@thinking:on"},
 		},
 		{
 			name: "legacy thinking alias",
 			in:   "claude-3-7-sonnet-thinking",
 			want: []string{"claude-3-7-sonnet@thinking:on"},
 		},
-		{
-			name: "legacy thinking budget matches explicit budget",
-			in:   "gemini-2.5-flash-thinking-8192",
-			want: []string{"gemini-2.5-flash@thinking:on"},
-		},
+
 		{
 			name: "legacy nothinking",
 			in:   "claude-3-7-sonnet-nothinking",
@@ -86,15 +82,12 @@ func TestCanonicalBillingModelNames(t *testing.T) {
 		},
 		{
 			name: "temperature only has no reasoning state",
-			in:   "qwen3-max@temperature:0.7",
+			in:   "gpt-custom@temperature:0.7",
 			want: nil,
 		},
 	}
 
-	geminiSettings := model_setting.GetGeminiSettings()
-	oldGemini := geminiSettings.ThinkingAdapterEnabled
-	geminiSettings.ThinkingAdapterEnabled = true
-	t.Cleanup(func() { geminiSettings.ThinkingAdapterEnabled = oldGemini })
+	t.Cleanup(func() {})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,10 +95,6 @@ func TestCanonicalBillingModelNames(t *testing.T) {
 		})
 	}
 
-	assert.Equal(t,
-		CanonicalBillingModelNames("gemini-2.5-flash@thinking:8192"),
-		CanonicalBillingModelNames("gemini-2.5-flash-thinking-8192"),
-	)
 	assert.Equal(t, "gpt-5.1-codex-max", BaseModelName("gpt-5.1-codex-max"))
 	assert.Empty(t, CanonicalBillingModelNames("gpt-5.1-codex-max"))
 }
@@ -117,7 +106,7 @@ func TestParseOpenAIReasoningEffortPreservesCodexMax(t *testing.T) {
 }
 
 func TestBaseModelNameStripsModifiers(t *testing.T) {
-	require.Equal(t, "qwen3-max", BaseModelName("qwen3-max@thinking:on@temperature:0.2"))
+	require.Equal(t, "gpt-custom", BaseModelName("gpt-custom@thinking:on@temperature:0.2"))
 }
 
 func TestExemptAtNameIsOpaqueForBillingIdentity(t *testing.T) {
@@ -129,6 +118,6 @@ func TestExemptAtNameIsOpaqueForBillingIdentity(t *testing.T) {
 	const model = "opaque@sha256:deadbeef"
 	assert.Equal(t, model, BaseModelName(model))
 	assert.Empty(t, CanonicalBillingModelNames(model))
-	assert.Equal(t, "kimi-k2-thinking", BaseModelName("kimi-k2-thinking"))
-	assert.Empty(t, CanonicalBillingModelNames("kimi-k2-thinking"))
+	assert.Equal(t, "custom-base-thinking", BaseModelName("custom-base-thinking"))
+	assert.Empty(t, CanonicalBillingModelNames("custom-base-thinking"))
 }

@@ -13,12 +13,9 @@ var EffortSuffixes = []string{"-max", "-xhigh", "-high", "-medium", "-low", "-mi
 
 var OpenAIEffortSuffixes = []string{"-max", "-xhigh", "-high", "-medium", "-low", "-minimal", "-none"}
 
-var DeepSeekV4EffortSuffixes = []string{"-none", "-low", "-max"}
-
 var (
 	legacyOpenAIModelPattern = regexp.MustCompile(`^(gpt-[a-z0-9][a-z0-9._-]*|o[1-9][a-z0-9._-]*)$`)
 	legacyClaudeModelPattern = regexp.MustCompile(`^claude-[a-z0-9][a-z0-9._-]*$`)
-	legacyGeminiModelPattern = regexp.MustCompile(`^gemini-[a-z0-9][a-z0-9._-]*$`)
 )
 
 type ModelModifier struct {
@@ -175,20 +172,6 @@ func isKnownClaudeModel(modelName string) bool {
 	return false
 }
 
-// ParseGeminiModelSuffix is the gemini-* counterpart of ParseClaudeModelSuffix
-// and honours allowSuffixAlias the same way.
-func ParseGeminiModelSuffix(modelName string, allowSuffixAlias bool) (string, Intent, bool, error) {
-	prefix, bare := splitModelNamespace(modelName)
-	if !strings.HasPrefix(bare, "gemini-") {
-		return modelName, Intent{}, false, nil
-	}
-	base, intent, found, err := parseProviderModelSuffix(bare, "gemini-", allowSuffixAlias, true)
-	if err != nil || !found || !legacyGeminiModelPattern.MatchString(base) {
-		return modelName, Intent{}, false, err
-	}
-	return prefix + base, intent, true, nil
-}
-
 // ParseKnownProviderModelSuffix extracts a canonical intent only when the
 // origin identifies a provider family whose suffix vocabulary is defined by
 // relaykit. Unknown OpenAI-compatible model names are deliberately untouched.
@@ -197,9 +180,7 @@ func ParseKnownProviderModelSuffix(modelName string, allowSuffixAlias bool) (str
 	if strings.HasPrefix(bare, "claude-") {
 		return ParseClaudeModelSuffix(modelName, allowSuffixAlias)
 	}
-	if strings.HasPrefix(bare, "gemini-") {
-		return ParseGeminiModelSuffix(modelName, allowSuffixAlias)
-	}
+
 	return modelName, Intent{}, false, nil
 }
 
@@ -213,11 +194,6 @@ func splitModelNamespace(modelName string) (string, string) {
 func lastModelPathSegment(modelName string) string {
 	_, bare := splitModelNamespace(modelName)
 	return bare
-}
-
-func TrimGeminiThinkingSuffix(modelName string) (string, bool) {
-	baseModel, _, ok, err := ParseGeminiModelSuffix(modelName, true)
-	return baseModel, ok && err == nil
 }
 
 // parseProviderModelSuffix recognises a provider family's naked model-name
@@ -272,22 +248,4 @@ func parseProviderModelSuffix(modelName string, requiredPrefix string, allowSuff
 		intent.IncludeThoughts = &value
 	}
 	return baseModel, intent, true, nil
-}
-
-// ParseDeepSeekV4ThinkingSuffix maps the -none/-low/-max tails of
-// deepseek-flash and deepseek-v4-* onto DeepSeek's thinking switch and
-// effort. A bare name keeps DeepSeek's default (thinking on, effort high).
-func ParseDeepSeekV4ThinkingSuffix(modelName string) (baseModel string, thinkingType string, effort string, ok bool) {
-	baseModel, suffix, ok := TrimEffortSuffixWithSuffixes(modelName, DeepSeekV4EffortSuffixes)
-	if !ok || baseModel != "deepseek-flash" && !strings.HasPrefix(baseModel, "deepseek-v4-") {
-		return modelName, "", "", false
-	}
-	switch suffix {
-	case "none":
-		return baseModel, "disabled", "", true
-	case "low", "max":
-		return baseModel, "enabled", suffix, true
-	default:
-		return modelName, "", "", false
-	}
 }

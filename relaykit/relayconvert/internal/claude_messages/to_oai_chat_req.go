@@ -19,13 +19,6 @@ const (
 	webSearchMaxUsesHigh   = 10
 )
 
-type openRouterRequestReasoning struct {
-	Enabled   *bool  `json:"enabled,omitempty"`
-	Effort    string `json:"effort,omitempty"`
-	MaxTokens int    `json:"max_tokens,omitempty"`
-	Exclude   bool   `json:"exclude,omitempty"`
-}
-
 func ClaudeMessagesRequestToOpenAIChat(ctx context.Context, claudeRequest dto.ClaudeRequest, info convmeta.Meta) (*dto.GeneralOpenAIRequest, error) {
 	openAIRequest := dto.GeneralOpenAIRequest{
 		Model:       claudeRequest.Model,
@@ -48,49 +41,20 @@ func ClaudeMessagesRequestToOpenAIChat(ctx context.Context, claudeRequest dto.Cl
 		return nil, reasoning.AsClientError(err)
 	}
 
-	isOpenRouter := convmeta.OptionsOf(info).OpenRouterDialect
-	if isOpenRouter {
-		if effort := claudeRequest.GetEfforts(); effort != "" {
-			effortBytes, _ := kitutil.Marshal(effort)
-			openAIRequest.Verbosity = effortBytes
-		}
-		if !reasoningIntent.IsEmpty() {
-			var reasoningConfig openRouterRequestReasoning
-			disabled := reasoningIntent.Mode == reasoning.ModeDisabled || reasoningIntent.Effort == reasoning.EffortNone
-			enabled := !disabled
-			reasoningConfig.Enabled = &enabled
-			if enabled && reasoningIntent.BudgetTokens != nil && reasoningIntent.Mode != reasoning.ModeAdaptive {
-				reasoningConfig = openRouterRequestReasoning{
-					Enabled:   &enabled,
-					MaxTokens: *reasoningIntent.BudgetTokens,
-				}
-			} else if enabled {
-				reasoningConfig.Effort = string(reasoning.EffectiveEffort(reasoningIntent))
-			}
-			if reasoningIntent.IncludeThoughts != nil {
-				reasoningConfig.Exclude = !*reasoningIntent.IncludeThoughts
-			}
-			reasoningJSON, err := kitutil.Marshal(reasoningConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal reasoning: %w", err)
-			}
-			openAIRequest.Reasoning = reasoningJSON
-		}
-	} else {
-		if err := reasoning.ApplyToOpenAIChat(&openAIRequest, reasoningIntent); err != nil {
-			return nil, reasoning.AsClientError(err)
-		}
-		if info != nil {
-			// Keep the outgoing -thinking suffix so a cascaded downstream
-			// new-api can recover reasoning intent from the model name. This
-			// is an emission-side policy, not converter-side suffix parsing.
-			thinkingSuffix := "-thinking"
-			if strings.HasSuffix(info.GetOriginModelName(), thinkingSuffix) &&
-				!strings.HasSuffix(openAIRequest.Model, thinkingSuffix) {
-				openAIRequest.Model = openAIRequest.Model + thinkingSuffix
-			}
+	if err := reasoning.ApplyToOpenAIChat(&openAIRequest, reasoningIntent); err != nil {
+		return nil, reasoning.AsClientError(err)
+	}
+	if info != nil {
+		// Keep the outgoing -thinking suffix so a cascaded downstream
+		// new-api can recover reasoning intent from the model name. This
+		// is an emission-side policy, not converter-side suffix parsing.
+		thinkingSuffix := "-thinking"
+		if strings.HasSuffix(info.GetOriginModelName(), thinkingSuffix) &&
+			!strings.HasSuffix(openAIRequest.Model, thinkingSuffix) {
+			openAIRequest.Model = openAIRequest.Model + thinkingSuffix
 		}
 	}
+
 	if info != nil && effectiveEffort != "" {
 		info.SetReasoningEffort(string(effectiveEffort))
 	}
@@ -130,28 +94,16 @@ func ClaudeMessagesRequestToOpenAIChat(ctx context.Context, claudeRequest dto.Cl
 				openAIMessage := dto.Message{
 					Role: "system",
 				}
-				isOpenRouterClaude := isOpenRouter && strings.HasPrefix(convmeta.UpstreamModelName(info), "anthropic/claude")
-				if isOpenRouterClaude {
-					systemMediaMessages := make([]dto.MediaContent, 0, len(systems))
-					for _, system := range systems {
-						message := dto.MediaContent{
-							Type:         "text",
-							Text:         system.GetText(),
-							CacheControl: system.CacheControl,
-						}
-						systemMediaMessages = append(systemMediaMessages, message)
+
+				var systemStr strings.Builder
+				for _, system := range systems {
+					if system.Text != nil {
+						systemStr.WriteString(*system.Text)
 					}
-					openAIMessage.SetMediaContent(systemMediaMessages)
-				} else {
-					var systemStr strings.Builder
-					for _, system := range systems {
-						if system.Text != nil {
-							systemStr.WriteString(*system.Text)
-						}
-					}
-					openAIMessage.SetStringContent(systemStr.String())
 				}
+				openAIMessage.SetStringContent(systemStr.String())
 				openAIMessages = append(openAIMessages, openAIMessage)
+
 			}
 		}
 	}

@@ -175,7 +175,7 @@ func normalizeIntent(intent Intent) (Intent, []types.ConversionDiagnostic, error
 			intent.BudgetTokens = &budget
 		}
 		if budget == 0 {
-			if intent.Mode == ModeEnabled || intent.Mode == ModeAdaptive || (intent.Effort != "" && intent.Effort != EffortNone) {
+			if intent.Mode == ModeEnabled || intent.Mode == ModeAdaptive || intent.Effort != "" && intent.Effort != EffortNone {
 				diagnostics = append(diagnostics, reasoningDiagnostic(
 					"explicit_fields_conflict",
 					"a zero thinking budget disables thinking; the enabling mode or effort was ignored",
@@ -280,13 +280,6 @@ func MergeExplicitAndSuffix(explicit Intent, suffix Intent, model string) (Inten
 	return merged, diagnostics, nil
 }
 
-// MergeExplicit combines two structured representations of the same request.
-// primary wins wherever they disagree; callers pass the more specific
-// representation first. A numeric budget and an effort may coexist: Claude and
-// OpenRouter expose both controls, and keeping both is what lets an in-memory
-// OpenAI pivot preserve an exact budget for budget-based targets while
-// retaining an effort for level-based targets. Disagreements are reported as
-// explicit_fields_conflict diagnostics.
 func MergeExplicit(primary Intent, secondary Intent, model string) (Intent, []types.ConversionDiagnostic, error) {
 	primary, diagnostics, err := normalizeIntent(primary)
 	if err != nil {
@@ -351,7 +344,7 @@ func MergeExplicit(primary Intent, secondary Intent, model string) (Intent, []ty
 	return merged, append(diagnostics, mergedDiagnostics...), nil
 }
 
-type openRouterReasoning struct {
+type nestedReasoning struct {
 	Enabled   *bool  `json:"enabled,omitempty"`
 	Effort    string `json:"effort,omitempty"`
 	MaxTokens *int   `json:"max_tokens,omitempty"`
@@ -380,7 +373,7 @@ func FromOpenAIChat(req *dto.GeneralOpenAIRequest) (Intent, []types.ConversionDi
 
 	var diagnostics []types.ConversionDiagnostic
 	if len(req.Reasoning) > 0 {
-		var raw openRouterReasoning
+		var raw nestedReasoning
 		if err := kitutil.Unmarshal(req.Reasoning, &raw); err != nil {
 			return Intent{}, nil, fmt.Errorf("invalid reasoning config: %w", err)
 		}
@@ -488,7 +481,7 @@ func ApplyToOpenAIResponses(req *dto.OpenAIResponsesRequest, intent Intent) erro
 
 	if effort := EffectiveEffort(intent); effort != "" {
 		summary := "detailed"
-		if effort == EffortNone || (intent.IncludeThoughts != nil && !*intent.IncludeThoughts) {
+		if effort == EffortNone || intent.IncludeThoughts != nil && !*intent.IncludeThoughts {
 			summary = ""
 		}
 		req.Reasoning = &dto.Reasoning{
@@ -619,37 +612,6 @@ func FromClaude(req *dto.ClaudeRequest) (Intent, []types.ConversionDiagnostic, e
 	return normalized, append(diagnostics, normalizeDiagnostics...), nil
 }
 
-// FromGemini reads a native thinkingConfig. A config carrying both a budget
-// and a level is rejected here because the intent alone cannot tell which one
-// the target model accepts; NormalizeGeminiThinkingConfig resolves that pair
-// first whenever the model's dialect is known.
-func FromGemini(req *dto.GeminiChatRequest) (Intent, []types.ConversionDiagnostic, error) {
-	if req == nil || req.GenerationConfig.ThinkingConfig == nil {
-		return Intent{}, nil, nil
-	}
-	config := req.GenerationConfig.ThinkingConfig
-	if config.ThinkingBudget != nil && config.ThinkingLevel != "" {
-		return Intent{}, nil, fmt.Errorf("%w: Gemini thinkingBudget and thinkingLevel cannot both be set", ErrEffortConflict)
-	}
-	intent := Intent{
-		BudgetTokens:    config.ThinkingBudget,
-		IncludeThoughts: config.IncludeThoughts,
-		Source:          SourceNative,
-		BudgetSource:    SourceNative,
-	}
-	if config.ThinkingLevel != "" {
-		effort, err := ParseEffort(config.ThinkingLevel)
-		if err != nil {
-			return Intent{}, nil, err
-		}
-		intent.Effort = effort
-		intent.Mode = ModeEnabled
-		if effort == EffortNone {
-			intent.Mode = ModeDisabled
-		}
-	}
-	return normalizeIntent(intent)
-}
 
 func EffectiveEffort(intent Intent) Effort {
 	intent, _, err := normalizeIntent(intent)

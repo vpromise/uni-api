@@ -44,27 +44,28 @@ import {
   type SidebarModulesAdminConfig,
   serializeSidebarModulesAdmin,
 } from './config'
-
 type SidebarModulesSectionProps = {
   config: SidebarModulesAdminConfig
   initialSerialized: string
 }
-
 type SidebarFormValues = SidebarModulesAdminConfig
-
 const toTitleCase = (value: string) =>
   value
     .replaceAll(/[_-]+/g, ' ')
     .replaceAll(/\b\w/g, (char) => char.toUpperCase())
-
 export function SidebarModulesSection({
   config,
   initialSerialized,
 }: SidebarModulesSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
-
-  const sectionMeta: Record<string, { title: string; description: string }> = {
+  const sectionMeta: Record<
+    string,
+    {
+      title: string
+      description: string
+    }
+  > = {
     chat: {
       title: t('Chat area'),
       description: t('Playground experiments and live conversations.'),
@@ -82,10 +83,15 @@ export function SidebarModulesSection({
       description: t('Global configuration and administrative tools.'),
     },
   }
-
   const moduleMeta: Record<
     string,
-    Record<string, { title: string; description: string }>
+    Record<
+      string,
+      {
+        title: string
+        description: string
+      }
+    >
   > = {
     chat: {
       playground: {
@@ -113,10 +119,6 @@ export function SidebarModulesSection({
       audit: {
         title: t('Audit Logs'),
         description: t('Login, security and access records'),
-      },
-      midjourney: {
-        title: t('Drawing logs'),
-        description: t('History of MjProxy-style image tasks.'),
       },
       task: {
         title: t('Task logs'),
@@ -165,33 +167,26 @@ export function SidebarModulesSection({
     },
   }
   const formDefaults = useMemo(() => config, [config])
-
   const form = useForm<SidebarFormValues>({
     defaultValues: formDefaults,
   })
-
   useEffect(() => {
     form.reset(formDefaults)
   }, [formDefaults, form])
-
   const onSubmit = async (values: SidebarFormValues) => {
     const serialized = serializeSidebarModulesAdmin(values)
     if (serialized === initialSerialized) {
       return
     }
-
     await updateOption.mutateAsync({
       key: 'SidebarModulesAdmin',
       value: serialized,
     })
   }
-
   const resetToDefault = () => {
     form.reset(SIDEBAR_MODULES_DEFAULT)
   }
-
   const sections = Object.entries(config)
-
   return (
     <SettingsSection title={t('Sidebar modules')}>
       <Form {...form}>
@@ -211,7 +206,6 @@ export function SidebarModulesSection({
             const modules = Object.entries(sectionConfig).filter(
               ([moduleKey]) => moduleKey !== 'enabled'
             )
-
             return (
               <SettingsControlGroup key={sectionKey}>
                 <FormField

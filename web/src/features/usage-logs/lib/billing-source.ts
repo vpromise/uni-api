@@ -20,7 +20,6 @@ import type {
   PlanRecord,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
-
 interface BillingSourceVisibilityInput {
   isAdmin: boolean
   /** Admin view only: every system plan. */

@@ -22,17 +22,6 @@ import (
 type Adaptor struct {
 }
 
-func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	if request == nil {
-		return nil, errors.New("request is nil")
-	}
-	result, err := service.ConvertRequest(c, info, types.RelayFormatClaude, request)
-	if err != nil {
-		return nil, err
-	}
-	return result.Value, nil
-}
-
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
 	if request.MaxTokens != nil && *request.MaxTokens == 0 {
 		request.MaxTokens = nil
@@ -51,9 +40,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 		defaultMaxTokens := uint(model_setting.GetClaudeSettings().GetDefaultMaxTokens(request.Model))
 		request.MaxTokens = &defaultMaxTokens
 	}
-	// ApplyClaudeThinkingModel no longer rewrites request.Model. Do not write
-	// a still-suffixed name back over the entry-normalized UpstreamModelName
-	// (AWS/Vertex look up getAwsModelID / claudeModelMap from that field).
+
 	if info.UpstreamModelName == "" {
 		info.UpstreamModelName = request.Model
 	}
@@ -134,10 +121,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return nil, err
 	}
 	return result.Value, nil
-}
-
-func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	return nil, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {

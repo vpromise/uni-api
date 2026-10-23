@@ -73,30 +73,10 @@ func TestImageTokensMatchUpstreamUsage(t *testing.T) {
 		{"claude-sonnet-5", 2000, 1500, "", 3891},
 		{"claude-sonnet-5", 3840, 2160, "", 4787},
 		{"claude-sonnet-5", 4096, 512, "", 1107},
-		// Gemini 2.x tiles.
-		{"gemini-2.5-flash", 384, 384, "", 258},
-		{"gemini-2.5-flash", 385, 385, "", 1290},
-		{"gemini-2.5-flash", 769, 769, "", 1290},
-		{"gemini-2.5-flash", 1536, 768, "", 1806},
-		{"gemini-2.5-flash", 1537, 768, "", 2322},
-		{"gemini-2.5-flash", 1920, 1080, "", 1806},
-		{"gemini-2.5-flash", 2000, 2000, "", 2580},
-		{"gemini-2.5-flash", 2304, 768, "", 2838},
-		{"gemini-2.5-flash", 3000, 1000, "", 2838},
-		{"gemini-2.5-flash", 2500, 2500, "", 3354},
-		{"gemini-2.5-flash", 4000, 3000, "", 3354},
-		// Gemini 3 bills by media resolution (documented values; measured 2-9% lower).
-		// An OpenAI detail level is not a Gemini media resolution.
-		{"gemini-3.7-flash", 1000, 1000, "", 1120},
-		{"gemini-3.7-flash", 1000, 1000, "MEDIA_RESOLUTION_LOW", 280},
-		{"gemini-3.7-flash", 1000, 1000, "media_resolution_medium", 560},
-		{"gemini-3.7-flash", 3840, 2160, "MEDIA_RESOLUTION_ULTRA_HIGH", 2240},
-		{"gemini-3.7-flash", 1000, 1000, "low", 1120},
+
 		// Unknown sizes assume 1024x1024.
 		{"gpt-5.6-sol", 0, 0, "", 1229},
 		{"claude-opus-4-7", 0, 0, "", 37*37 + 3},
-		{"gemini-2.5-flash", -1, 0, "", 1290},
-		{"deepseek-v4", 1000, 1000, "", 520},
 	} {
 		got := ImageTokens(tc.model, Image{Width: tc.w, Height: tc.h, Detail: tc.detail})
 		assert.Equal(t, tc.want, got, "%s %dx%d detail=%q", tc.model, tc.w, tc.h, tc.detail)
@@ -110,7 +90,6 @@ func TestImageTokensBoundForgedSizes(t *testing.T) {
 	// The largest square within the visual-token budget: 39x39 and 69x69 patches.
 	assert.Equal(t, 39*39+4, ImageTokens("claude-sonnet-4-6", Image{Width: huge, Height: huge}))
 	assert.Equal(t, 69*69+3, ImageTokens("claude-opus-5-5", Image{Width: huge, Height: huge}))
-	assert.Equal(t, 13*258, ImageTokens("gemini-2.5-pro", Image{Width: huge, Height: huge}))
 }
 
 func TestImageNeedsSize(t *testing.T) {
@@ -118,7 +97,5 @@ func TestImageNeedsSize(t *testing.T) {
 	assert.True(t, ImageNeedsSize("gpt-4o", "high"))
 	assert.False(t, ImageNeedsSize("gpt-4o", "low"))
 	assert.True(t, ImageNeedsSize("claude-haiku-4-5", ""))
-	assert.True(t, ImageNeedsSize("gemini-2.5-flash", ""))
-	assert.False(t, ImageNeedsSize("gemini-3.7-flash", ""))
 	assert.False(t, ImageNeedsSize("deepseek-v4", ""))
 }

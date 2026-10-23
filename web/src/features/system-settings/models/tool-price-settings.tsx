@@ -29,9 +29,7 @@ import { Field, FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 
 import { useUpdateOption } from '../hooks/use-update-option'
-
 const OPTION_KEY = 'tool_price_setting.prices'
-
 const DEFAULT_PRICES: Record<string, number> = {
   web_search: 10.0,
   web_search_preview: 10.0,
@@ -40,55 +38,38 @@ const DEFAULT_PRICES: Record<string, number> = {
   'web_search_preview:gpt-4o-mini*': 25.0,
   'web_search_preview:gpt-4.1-mini*': 25.0,
   file_search: 2.5,
-  google_search: 14.0,
-  'google_search:gemini-2.5*': 0.0,
-  'google_search:gemini-2.0*': 0.0,
-  'google_search:gemini-1.5*': 0.0,
-  'google_search_grounded_prompt:gemini-2.5*': 35.0,
-  'google_search_grounded_prompt:gemini-2.0*': 35.0,
-  'google_search_grounded_prompt:gemini-1.5*': 35.0,
   image_generation: 150.0,
-  search_std: 10.0,
-  search_pro: 30.0,
-  search_pro_sogou: 50.0,
-  search_pro_quark: 50.0,
-  search_strategy_turbo: 3.0,
-  search_strategy_max: 4.0,
-  search_strategy_agent: 4.0,
-  search_strategy_agent_max: 4.0,
-  bing_web_search: 14.0,
-  'web_search:grok*': 5.0,
-  x_search_posts: 5.0,
-  x_search_profiles: 10.0,
-  deepseek_search: 0.75,
-  deepseek_fetch: 0.75,
 }
-
 type ToolPriceRow = {
   id: number
   key: string
   price: string
 }
-
 function parseToolPrice(value: string): number | null {
-  if (value.trim() === '') return null
+  if (value.trim() === '') {
+    return null
+  }
   const price = Number(value)
-  if (!Number.isFinite(price) || price < 0) return null
+  if (!Number.isFinite(price) || price < 0) {
+    return null
+  }
   return price
 }
-
 function rowsToObject(rows: ToolPriceRow[]): Record<string, number> {
   const prices: Record<string, number> = {}
   for (const row of rows) {
     const k = row.key.trim()
-    if (!k) continue
+    if (!k) {
+      continue
+    }
     const price = parseToolPrice(row.price)
-    if (price === null) continue
+    if (price === null) {
+      continue
+    }
     prices[k] = price
   }
   return prices
 }
-
 function objectToRows(prices: Record<string, number>): ToolPriceRow[] {
   return Object.entries(prices).map(([key, price], index) => ({
     id: index + 1,
@@ -96,11 +77,14 @@ function objectToRows(prices: Record<string, number>): ToolPriceRow[] {
     price: String(price),
   }))
 }
-
 function parseInitialPrices(
   rawValue: string | undefined
 ): Record<string, number> {
-  if (!rawValue) return { ...DEFAULT_PRICES }
+  if (!rawValue) {
+    return {
+      ...DEFAULT_PRICES,
+    }
+  }
   try {
     const parsed = JSON.parse(rawValue) as unknown
     if (
@@ -125,13 +109,13 @@ function parseInitialPrices(
   } catch {
     // fall through to defaults
   }
-  return { ...DEFAULT_PRICES }
+  return {
+    ...DEFAULT_PRICES,
+  }
 }
-
 type ToolPriceSettingsProps = {
   defaultValue: string
 }
-
 export const ToolPriceSettings = memo(function ToolPriceSettings({
   defaultValue,
 }: ToolPriceSettingsProps) {
@@ -142,7 +126,6 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
   const [jsonText, setJsonText] = useState('')
   const [jsonError, setJsonError] = useState('')
   const [nextRowId, setNextRowId] = useState(1)
-
   useEffect(() => {
     const prices = parseInitialPrices(defaultValue)
     const initialRows = objectToRows(prices)
@@ -151,7 +134,6 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
     setJsonError('')
     setNextRowId(initialRows.length + 1)
   }, [defaultValue])
-
   const currentPrices = useMemo(() => rowsToObject(rows), [rows])
   const invalidRowIds = useMemo(
     () =>
@@ -162,13 +144,11 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
       ),
     [rows]
   )
-
   const syncFromRows = useCallback((nextRows: ToolPriceRow[]) => {
     setRows(nextRows)
     setJsonText(JSON.stringify(rowsToObject(nextRows), null, 2))
     setJsonError('')
   }, [])
-
   const handleJsonChange = useCallback(
     (text: string) => {
       setJsonText(text)
@@ -200,29 +180,36 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
     },
     [t]
   )
-
   const updateRow = useCallback(
     (id: number, field: 'key' | 'price', value: string) => {
       syncFromRows(
-        rows.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+        rows.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                [field]: value,
+              }
+            : r
+        )
       )
     },
     [rows, syncFromRows]
   )
-
   const addRow = useCallback(() => {
-    const newRow: ToolPriceRow = { id: nextRowId, key: '', price: '0' }
+    const newRow: ToolPriceRow = {
+      id: nextRowId,
+      key: '',
+      price: '0',
+    }
     setNextRowId((prev) => prev + 1)
     syncFromRows([...rows, newRow])
   }, [nextRowId, rows, syncFromRows])
-
   const removeRow = useCallback(
     (id: number) => {
       syncFromRows(rows.filter((r) => r.id !== id))
     },
     [rows, syncFromRows]
   )
-
   const resetToDefault = useCallback(() => {
     const initialRows = objectToRows(DEFAULT_PRICES)
     setRows(initialRows)
@@ -230,7 +217,6 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
     setJsonError('')
     setNextRowId(initialRows.length + 1)
   }, [])
-
   const handleCopyJson = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(jsonText)
@@ -239,7 +225,6 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
       toast.error(t('Failed to copy'))
     }
   }, [jsonText, t])
-
   const handleSave = useCallback(async () => {
     if (invalidRowIds.size > 0) {
       toast.error(t('Please enter a valid number'))
@@ -254,11 +239,9 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
       value: JSON.stringify(currentPrices),
     })
   }, [currentPrices, editMode, invalidRowIds.size, jsonError, t, updateOption])
-
   const toggleEditMode = useCallback(() => {
     setEditMode((prev) => (prev === 'visual' ? 'json' : 'visual'))
   }, [])
-
   return (
     <div className='space-y-4'>
       <Alert>

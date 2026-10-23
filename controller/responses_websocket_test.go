@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
+
 	"bufio"
 	"context"
 	"errors"
@@ -27,9 +30,9 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/config"
-	"github.com/alicebob/miniredis/v2"
+
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
+
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -649,75 +652,6 @@ func TestResponsesWebSocketReusesConnectionAndSettlesEachRequest(t *testing.T) {
 func TestResponsesWebSocketDialsNativeResponsesChannelTypes(t *testing.T) {
 	type upstreamTarget struct {
 		Path, Authorization, QueryKey string
-	}
-	queryAuthRoute := dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{
-		IncomingPath: "/v1/responses", UpstreamPath: "/upstream/responses",
-		Auth: &dto.AdvancedCustomRouteAuth{Type: dto.AdvancedCustomAuthTypeQuery, Name: "api_key", Value: "{api_key}"},
-	}}}}
-	bearer := func(key string) upstreamTarget {
-		return upstreamTarget{Path: "/v1/responses", Authorization: "Bearer " + key}
-	}
-	for _, tc := range []struct {
-		name          string
-		channelType   int
-		otherSettings dto.ChannelOtherSettings
-		want          func(key string) upstreamTarget
-	}{
-		{name: "new api", channelType: constant.ChannelTypeNewAPI, want: bearer},
-		{name: "sub2api", channelType: constant.ChannelTypeSub2API, want: bearer},
-		{name: "advanced custom query auth", channelType: constant.ChannelTypeAdvancedCustom, otherSettings: queryAuthRoute, want: func(key string) upstreamTarget {
-			return upstreamTarget{Path: "/upstream/responses", QueryKey: key}
-		}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			const terminal = `{"type":"response.completed","response":{"id":"first","status":"completed","usage":{"input_tokens":1000,"output_tokens":10,"total_tokens":1010}}}`
-			targets := make(chan upstreamTarget, 2)
-			observe := func(r *http.Request) {
-				targets <- upstreamTarget{Path: r.URL.Path, Authorization: r.Header.Get("Authorization"), QueryKey: r.URL.Query().Get("api_key")}
-			}
-			fixture := newResponsesWSBillingTest(t, `tier("request", fixed(0.002))`, func(ws *websocket.Conn, r *http.Request) {
-				observe(r)
-				if _, _, err := ws.ReadMessage(); !assert.NoError(t, err) {
-					return
-				}
-				if !assert.NoError(t, ws.WriteMessage(websocket.TextMessage, []byte(terminal))) {
-					return
-				}
-				_, _, _ = ws.ReadMessage()
-			})
-			fixture.httpUpstream = func(w http.ResponseWriter, r *http.Request) {
-				observe(r)
-				w.Header().Set("Content-Type", "text/event-stream")
-				_, _ = fmt.Fprintf(w, "data: %s\n\ndata: [DONE]\n\n", terminal)
-			}
-			fixture.channel.SetOtherSettings(tc.otherSettings)
-			require.NoError(t, model.DB.Model(fixture.channel).Updates(map[string]any{"type": tc.channelType, "settings": fixture.channel.OtherSettings}).Error)
-
-			require.NoError(t, fixture.client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","model":"ws-billing","input":"hi"}`)))
-			assert.Equal(t, "response.completed", readResponsesWSTestEvent(t, fixture.client)["type"])
-			assert.Equal(t, tc.want("upstream-first"), <-targets)
-
-			request, err := http.NewRequest(http.MethodPost, fixture.gatewayURL+"/v1/responses", strings.NewReader(`{"model":"ws-billing","input":"hi","stream":true}`))
-			require.NoError(t, err)
-			request.Header.Set("Authorization", "Bearer sk-"+fixture.token.Key)
-			request.Header.Set("Content-Type", "application/json")
-			response, err := (&http.Client{Timeout: 3 * time.Second}).Do(request)
-			require.NoError(t, err)
-			body, err := io.ReadAll(response.Body)
-			require.NoError(t, err)
-			require.NoError(t, response.Body.Close())
-			assert.Equal(t, http.StatusOK, response.StatusCode)
-			assert.Contains(t, string(body), terminal)
-			select {
-			case <-fixture.httpDone:
-			case <-time.After(3 * time.Second):
-				t.Fatal("HTTP request did not finish")
-			}
-			// The polling multi-key channel rotates to its second key for the HTTP request.
-			assert.Equal(t, tc.want("upstream-second"), <-targets)
-			fixture.closeAndWait(t)
-			assertResponsesWSAccounting(t, fixture, []int{1000, 1000})
-		})
 	}
 }
 

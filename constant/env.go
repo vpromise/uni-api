@@ -1,7 +1,7 @@
 package constant
 
 var StreamingTimeout int
-var DifyDebug bool
+
 var MaxFileDownloadMB int
 var StreamScannerMaxBufferMB int
 var ForceStreamOption bool
@@ -11,7 +11,7 @@ var GetMediaTokenNotStream bool
 var UpdateTask bool
 var MaxRequestBodyMB int
 var AnonymousRequestBodyLimitKB int
-var AzureDefaultAPIVersion string
+
 var NotifyLimitCount int
 var NotificationLimitDurationMinute int
 var GenerateDefaultToken bool

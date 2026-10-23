@@ -18,27 +18,19 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { TASK_STATUS } from '../constants'
 import type {
-  AudioClip,
   TaskArtifact,
   TaskArtifactProjection,
   TaskArtifactsResponse,
   TaskLog,
   TaskPluginAuthor,
 } from '../types'
-
 const taskArtifactTypes = new Set(['image', 'video', 'audio', 'file'])
 const safeArtifactKeyPattern = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/
 const taskArtifactContentPathPattern =
   /\/v1\/tasks\/[^/]+\/artifacts\/[^/]+\/content$/
 const taskArtifactAccessTokenPattern = /^[A-Za-z0-9_-]{43}$/
 const maxTaskArtifacts = 64
-export type TaskPreviewMode =
-  | 'plugin'
-  | 'legacy-suno'
-  | 'legacy-video'
-  | 'discarded'
-  | 'none'
-
+export type TaskPreviewMode = 'plugin' | 'legacy-video' | 'discarded' | 'none'
 export class TaskArtifactApiError extends Error {
   constructor(
     message: string,
@@ -48,16 +40,13 @@ export class TaskArtifactApiError extends Error {
     this.name = 'TaskArtifactApiError'
   }
 }
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
-
 function parseContentUrl(value: unknown): string {
   if (typeof value !== 'string') {
     throw new TaskArtifactApiError('invalid_content_url')
   }
-
   const contentUrl = value.trim()
   if (
     contentUrl.length === 0 ||
@@ -73,7 +62,6 @@ function parseContentUrl(value: unknown): string {
       throw new TaskArtifactApiError('invalid_content_url')
     }
   }
-
   try {
     const url = new URL(contentUrl)
     const authorityStart = contentUrl.indexOf('//') + 2
@@ -107,12 +95,10 @@ function parseContentUrl(value: unknown): string {
     throw new TaskArtifactApiError('invalid_content_url')
   }
 }
-
 function parseTaskArtifact(value: unknown): TaskArtifact {
   if (!isRecord(value)) {
     throw new TaskArtifactApiError('invalid_artifact')
   }
-
   const key = typeof value.key === 'string' ? value.key : ''
   const type = typeof value.type === 'string' ? value.type : ''
   if (
@@ -122,7 +108,6 @@ function parseTaskArtifact(value: unknown): TaskArtifact {
   ) {
     throw new TaskArtifactApiError('invalid_artifact')
   }
-
   const artifact: TaskArtifact = {
     key,
     type: type as TaskArtifact['type'],
@@ -137,29 +122,6 @@ function parseTaskArtifact(value: unknown): TaskArtifact {
   }
   return artifact
 }
-
-// Legacy Suno tasks persisted their clip list as an array or as a JSON string
-// holding one. Only clips with an audio URL can be previewed.
-export function parseLegacyAudioClips(data: unknown): AudioClip[] {
-  let values: unknown[] = []
-  if (Array.isArray(data)) {
-    values = data
-  } else if (typeof data === 'string') {
-    try {
-      const parsed = JSON.parse(data)
-      values = Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  }
-  return values
-    .filter(
-      (value): value is AudioClip =>
-        isRecord(value) && typeof value.audio_url === 'string'
-    )
-    .slice(0, maxTaskArtifacts)
-}
-
 export function parseTaskArtifactsResponse(
   response: TaskArtifactsResponse
 ): TaskArtifactProjection {
@@ -169,7 +131,6 @@ export function parseTaskArtifactsResponse(
       response.code
     )
   }
-
   const rawArtifacts = response.data?.artifacts
   if (rawArtifacts != null && !Array.isArray(rawArtifacts)) {
     throw new TaskArtifactApiError('invalid_artifact_response')
@@ -178,7 +139,6 @@ export function parseTaskArtifactsResponse(
   if (artifactValues.length > maxTaskArtifacts) {
     throw new TaskArtifactApiError('invalid_artifact_response')
   }
-
   const artifacts = artifactValues.map(parseTaskArtifact)
   const keys = new Set<string>()
   for (const artifact of artifacts) {
@@ -187,20 +147,17 @@ export function parseTaskArtifactsResponse(
     }
     keys.add(artifact.key)
   }
-  const projection: TaskArtifactProjection = { artifacts }
+  const projection: TaskArtifactProjection = {
+    artifacts,
+  }
   if (response.data?.legacy_content_url != null) {
     projection.legacyContentUrl = parseContentUrl(
       response.data.legacy_content_url
     )
   }
-  if (response.data?.legacy_audio_clips != null) {
-    projection.legacyAudioClips = parseLegacyAudioClips(
-      response.data.legacy_audio_clips
-    )
-  }
+
   return projection
 }
-
 export function shouldLoadTaskArtifacts(
   log: TaskLog,
   dialogOpen: boolean
@@ -211,7 +168,6 @@ export function shouldLoadTaskArtifacts(
     log.result_discarded !== true
   )
 }
-
 export function resolveTaskPreviewMode(
   log: TaskLog,
   hasProjectedArtifacts = false
@@ -222,11 +178,9 @@ export function resolveTaskPreviewMode(
   if (log.result_discarded === true) return 'discarded'
   if (hasProjectedArtifacts) return 'plugin'
   if (log.admin_info?.task_plugin) return 'plugin'
-  if (log.platform === 'suno') return 'legacy-suno'
   if (log.legacy_video_available) return 'legacy-video'
   return 'plugin'
 }
-
 export function getSafePluginAuthorUrl(
   author?: TaskPluginAuthor
 ): string | undefined {

@@ -31,24 +31,25 @@ export const channelInfoSchema = z.object({
   multi_key_polling_index: z.number().default(0),
   multi_key_mode: z.enum(['random', 'polling']).default('random'),
 })
-
 export type ChannelInfo = z.infer<typeof channelInfoSchema>
-
 export const channelSchema = z.object({
   id: z.number(),
   type: z.number(),
   key: z.string(),
   openai_organization: z.string().nullish(),
   test_model: z.string().nullish(),
-  status: z.number(), // 1: enabled, 0: manual disabled, 2: auto disabled
+  status: z.number(),
+  // 1: enabled, 0: manual disabled, 2: auto disabled
   name: z.string(),
   weight: z.number().nullish(),
   created_time: z.number(),
   test_time: z.number(),
-  response_time: z.number(), // in milliseconds
+  response_time: z.number(),
+  // in milliseconds
   base_url: z.string().nullish(),
   other: z.string().default(''),
-  balance: z.number().default(0), // in USD
+  balance: z.number().default(0),
+  // in USD
   balance_updated_time: z.number(),
   models: z.string().default(''),
   group: z.string().default('default'),
@@ -72,7 +73,6 @@ export const channelSchema = z.object({
   }),
   settings: z.string().default('{}'), // other_settings JSON
 })
-
 export type Channel = z.infer<typeof channelSchema>
 
 // ============================================================================
@@ -93,14 +93,7 @@ export interface ChannelSettings {
   http2_connection_shards?: number
   tls_insecure_skip_verify?: boolean
 }
-
 export interface ChannelOtherSettings {
-  azure_responses_version?: string
-  vertex_key_type?: 'json' | 'api_key'
-  vertex_project_id?: string
-  openrouter_enterprise?: boolean
-  aws_key_type?: 'ak_sk' | 'api_key'
-  aws_api_type?: 'invoke_model' | 'mantle'
   allow_service_tier?: boolean
   disable_store?: boolean
   allow_safety_identifier?: boolean
@@ -108,49 +101,13 @@ export interface ChannelOtherSettings {
   allow_inference_geo?: boolean
   allow_speed?: boolean
   claude_beta_query?: boolean
-  ollama_openai_chat?: boolean
   disable_task_polling_sleep?: boolean
   upstream_model_update_check_enabled?: boolean
   upstream_model_update_auto_sync_enabled?: boolean
   upstream_model_update_ignored_models?: string[]
   upstream_model_update_last_check_time?: number
   upstream_model_update_last_detected_models?: string[]
-  advanced_custom?: AdvancedCustomConfig
 }
-
-export interface AdvancedCustomConfig {
-  advanced_routes?: AdvancedCustomRoute[]
-}
-
-export interface AdvancedCustomRoute {
-  incoming_path?: string
-  upstream_path?: string
-  converter?: AdvancedCustomConverter
-  models?: string[]
-  auth?: AdvancedCustomRouteAuth
-  pass_through_body_enabled?: boolean
-}
-
-export interface AdvancedCustomRouteAuth {
-  type?: AdvancedCustomAuthType
-  name?: string
-  value?: string
-}
-
-export type AdvancedCustomConverter =
-  | 'none'
-  | 'anthropic_messages_to_openai_chat_completions'
-  | 'openai_chat_completions_to_anthropic_messages'
-  | 'openai_chat_completions_to_openai_responses'
-  | 'openai_responses_to_openai_chat_completions'
-  | 'openai_responses_to_gemini_generate_content'
-  | 'gemini_generate_content_to_openai_chat_completions'
-  | 'openai_chat_completions_to_gemini_generate_content'
-  | 'claude_messages_to_openai_responses'
-  | 'gemini_generate_content_to_openai_responses'
-
-export type AdvancedCustomAuthType = 'none' | 'header' | 'query'
-
 // ============================================================================
 // API Response Types
 // ============================================================================
@@ -166,7 +123,6 @@ export interface GetChannelsResponse {
     type_counts?: Record<string, number>
   }
 }
-
 export interface SearchChannelsResponse {
   success: boolean
   message?: string
@@ -176,13 +132,11 @@ export interface SearchChannelsResponse {
     type_counts?: Record<string, number>
   }
 }
-
 export interface GetChannelResponse {
   success: boolean
   message?: string
   data?: Channel
 }
-
 export interface ChannelOpsResponse {
   success: boolean
   message?: string
@@ -194,7 +148,6 @@ export interface ChannelOpsResponse {
     }
   }
 }
-
 export interface ChannelTestResponse {
   success: boolean
   message?: string
@@ -205,7 +158,6 @@ export interface ChannelTestResponse {
     error?: string
   }
 }
-
 export interface ChannelBalanceResponse {
   success: boolean
   message?: string
@@ -213,13 +165,11 @@ export interface ChannelBalanceResponse {
   currency?: string
   raw_response?: string
 }
-
 export interface FetchModelsResponse {
   success: boolean
   message?: string
   data?: string[]
 }
-
 export interface CopyChannelResponse {
   success: boolean
   message?: string
@@ -239,7 +189,6 @@ export interface KeyStatus {
   reason?: string
   key_preview?: string
 }
-
 export type MultiKeyConfirmAction = {
   type:
     | 'enable'
@@ -250,7 +199,6 @@ export type MultiKeyConfirmAction = {
     | 'delete-disabled'
   keyIndex?: number
 }
-
 export interface MultiKeyStatusResponse {
   success: boolean
   message?: string
@@ -277,9 +225,7 @@ export type ChannelSortBy =
   | 'balance'
   | 'response_time'
   | 'test_time'
-
 export type ChannelSortOrder = 'asc' | 'desc'
-
 export interface GetChannelsParams {
   p?: number
   page_size?: number
@@ -291,7 +237,6 @@ export interface GetChannelsParams {
   sort_by?: ChannelSortBy
   sort_order?: ChannelSortOrder
 }
-
 export interface SearchChannelsParams {
   keyword?: string
   group?: string
@@ -305,16 +250,13 @@ export interface SearchChannelsParams {
   p?: number
   page_size?: number
 }
-
 export interface ChannelTestParams {
   test_model?: string
 }
-
 export interface CopyChannelParams {
   suffix?: string
   reset_balance?: boolean
 }
-
 export interface MultiKeyManageParams {
   channel_id: number
   action:
@@ -330,16 +272,13 @@ export interface MultiKeyManageParams {
   page_size?: number
   status?: number // 1=enabled, 2=manual_disabled, 3=auto_disabled
 }
-
 export interface BatchDeleteParams {
   ids: number[]
 }
-
 export interface BatchSetTagParams {
   ids: number[]
   tag: string | null
 }
-
 export interface TagOperationParams {
   tag: string
   new_tag?: string

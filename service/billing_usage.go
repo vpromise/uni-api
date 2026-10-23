@@ -12,8 +12,6 @@ const (
 	usageBillingPathOpenAIEstimated    = "billing-usage-openai-estimated"
 	usageBillingPathAnthropic          = "billing-usage-anthropic"
 	usageBillingPathAnthropicEstimated = "billing-usage-anthropic-estimated"
-	usageBillingPathGemini             = "billing-usage-gemini"
-	usageBillingPathGeminiEstimated    = "billing-usage-gemini-estimated"
 )
 
 func effectiveBillingUsage(usage *dto.Usage) *dto.Usage {
@@ -43,11 +41,7 @@ func usageBillingPathForLog(isLocalCountTokens bool, usage *dto.Usage) string {
 			return usageBillingPathAnthropicEstimated
 		}
 		return usageBillingPathAnthropic
-	case dto.BillingUsageSemanticGemini:
-		if usage.BillingUsage.Estimated {
-			return usageBillingPathGeminiEstimated
-		}
-		return usageBillingPathGemini
+
 	}
 
 	return usageBillingPathUpstream

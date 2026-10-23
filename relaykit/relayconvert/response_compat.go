@@ -1,12 +1,10 @@
 package relayconvert
 
 import (
-	"fmt"
-
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
+
 	oaichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_chat"
 	oairesponses "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_responses"
 )
@@ -23,12 +21,6 @@ type ResponsesBufferedAccumulator = oairesponses.ResponsesBufferedAccumulator
 // Claude stream is being converted to the Responses protocol.
 type ClaudeHostedStreamBridge struct {
 	bridge *claudemessages.ClaudeHostedStreamBridge
-}
-
-// GeminiHostedStreamBridge accumulates Gemini grounding queries until the
-// upstream stream ends, then emits one canonical Responses web-search call.
-type GeminiHostedStreamBridge struct {
-	bridge *geminichat.GeminiHostedStreamBridge
 }
 
 func NormalizeCacheCreationSplit(totalTokens int, tokens5m int, tokens1h int) (int, int) {
@@ -57,29 +49,6 @@ func NewClaudeToChatStreamState() *ClaudeToChatStreamState {
 
 func NewClaudeHostedStreamBridge() *ClaudeHostedStreamBridge {
 	return &ClaudeHostedStreamBridge{bridge: claudemessages.NewClaudeHostedStreamBridge()}
-}
-
-func NewGeminiHostedStreamBridge() *GeminiHostedStreamBridge {
-	return &GeminiHostedStreamBridge{bridge: geminichat.NewGeminiHostedStreamBridge()}
-}
-
-func (b *GeminiHostedStreamBridge) Observe(response *dto.GeminiChatResponse) {
-	if b == nil || b.bridge == nil {
-		return
-	}
-	b.bridge.Observe(response)
-}
-
-func (b *GeminiHostedStreamBridge) Finalize(state *ResponseStreamState) ([]ChatToResponsesStreamEvent, error) {
-	if b == nil || b.bridge == nil || state == nil {
-		return nil, nil
-	}
-	for _, stepState := range state.stepStates {
-		if streamState, ok := stepState.(*ChatToResponsesStreamState); ok {
-			return b.bridge.Finalize(streamState)
-		}
-	}
-	return nil, fmt.Errorf("Gemini hosted stream bridge requires a Chat-to-Responses stream state")
 }
 
 func (b *ClaudeHostedStreamBridge) Convert(response *dto.ClaudeResponse, state *ResponseStreamState) ([]ChatToResponsesStreamEvent, bool, error) {
@@ -123,26 +92,6 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 
 func FinalizeClaudeStreamBillingUsage(claudeInfo *ClaudeResponseInfo) {
 	claudemessages.FinalizeClaudeStreamBillingUsage(claudeInfo)
-}
-
-func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info convmeta.Meta) *dto.GeminiChatResponse {
-	return oaichat.ResponseOpenAI2Gemini(openAIResponse, info)
-}
-
-func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamResponse, info convmeta.Meta) *dto.GeminiChatResponse {
-	return oaichat.StreamResponseOpenAI2Gemini(openAIResponse, info)
-}
-
-func UsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTokens int) *dto.Usage {
-	return geminichat.UsageFromGeminiMetadata(metadata, fallbackPromptTokens)
-}
-
-func ResponseGeminiChat2OpenAI(id string, created int64, response *dto.GeminiChatResponse) *dto.OpenAITextResponse {
-	return geminichat.ResponseGeminiChat2OpenAI(id, created, response)
-}
-
-func StreamResponseGeminiChat2OpenAI(geminiResponse *dto.GeminiChatResponse) (*dto.ChatCompletionsStreamResponse, bool) {
-	return geminichat.StreamResponseGeminiChat2OpenAI(geminiResponse)
 }
 
 func ChatCompletionsResponseToResponsesResponse(resp *dto.OpenAITextResponse, id string) (*dto.OpenAIResponsesResponse, *dto.Usage, error) {

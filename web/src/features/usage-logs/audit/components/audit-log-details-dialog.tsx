@@ -34,7 +34,6 @@ import type { AuditLog } from '../api'
 import { auditFieldLabel, buildAuditDetails } from '../lib/audit-details'
 import { AuditDetailFields } from './audit-detail-fields'
 import { AuditDetailValue } from './audit-detail-value'
-
 export function AuditLogDetailsDialog(props: { entry: AuditLog }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -51,9 +50,18 @@ export function AuditLogDetailsDialog(props: { entry: AuditLog }) {
     scopeResources: scopes.data?.resources,
   })
   const identifiers = [
-    { label: t('Route'), value: props.entry.route },
-    { label: t('Request ID'), value: props.entry.request_id },
-    { label: t('Token identifier'), value: props.entry.token_ref },
+    {
+      label: t('Route'),
+      value: props.entry.route,
+    },
+    {
+      label: t('Request ID'),
+      value: props.entry.request_id,
+    },
+    {
+      label: t('Token identifier'),
+      value: props.entry.token_ref,
+    },
   ].filter((field) => !!field.value)
   const hasOperation =
     detail.actor ||

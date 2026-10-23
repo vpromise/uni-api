@@ -22,10 +22,9 @@ func AlphaSearchHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError
 	info.InitChannelMeta(c)
 
 	switch info.ChannelType {
-	case constant.ChannelTypeSub2API,
-		constant.ChannelTypeNewAPI,
-		constant.ChannelTypeCodex,
-		constant.ChannelTypeAdvancedCustom:
+	case
+
+		constant.ChannelTypeCodex:
 	default:
 		// Allow retry onto another channel that may support this endpoint.
 		return types.NewError(

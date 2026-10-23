@@ -27,7 +27,6 @@ import type {
   GetLogsResponse,
   GetLogStatsParams,
   GetLogStatsResponse,
-  GetMidjourneyLogsParams,
   GetTaskLogsParams,
   TaskArtifactsResponse,
   UserInfo,
@@ -40,7 +39,6 @@ import type {
 function buildApiPath(endpoint: string, isAdmin: boolean): string {
   return isAdmin ? endpoint : `${endpoint}/self`
 }
-
 async function fetchLogs<T>(
   endpoint: string,
   params: T,
@@ -56,7 +54,6 @@ async function fetchLogs<T>(
   const res = await api.get(`${path}?${queryParams}`)
   return res.data
 }
-
 async function fetchLogStats<T>(
   endpoint: string,
   params: T,
@@ -76,14 +73,11 @@ async function fetchLogStats<T>(
 
 export const getAllLogs = (params: GetLogsParams = {}) =>
   fetchLogs('/api/log', params, true)
-
 export const getUserLogs = (
   params: Omit<GetLogsParams, 'username' | 'channel'> = {}
 ) => fetchLogs('/api/log', params, false)
-
 export const getLogStats = (params: GetLogStatsParams = {}) =>
   fetchLogStats('/api/log', params, true)
-
 export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}
 ) => fetchLogStats('/api/log', params, false)
@@ -96,7 +90,10 @@ export const getUserLogStats = (
 export async function exportLogs(
   params: GetLogsParams,
   isAdmin: boolean,
-  options: { signal: AbortSignal; onLog: (log: UsageLog) => void }
+  options: {
+    signal: AbortSignal
+    onLog: (log: UsageLog) => void
+  }
 ): Promise<number> {
   const queryParams = buildQueryParams(
     params as unknown as Record<string, unknown>
@@ -111,16 +108,28 @@ export async function exportLogs(
   )
   if (!response.ok || !response.body) {
     const body: unknown = await response.json().catch(() => null)
-    throw createServerError(body ?? { status: response.status })
+    throw createServerError(
+      body ?? {
+        status: response.status,
+      }
+    )
   }
-
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let result: { success?: unknown; data?: { count?: number } } | null = null
+  let result: {
+    success?: unknown
+    data?: {
+      count?: number
+    }
+  } | null = null
   for (;;) {
     const { done, value } = await reader.read()
-    buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
+    buffer += done
+      ? decoder.decode()
+      : decoder.decode(value, {
+          stream: true,
+        })
     const lines = buffer.split('\n')
     buffer = done ? '' : (lines.pop() ?? '')
     for (const line of lines) {
@@ -141,10 +150,11 @@ export async function exportLogs(
   }
   return result.data?.count ?? 0
 }
-
-export async function getUserInfo(
-  userId: number
-): Promise<{ success: boolean; message?: string; data?: UserInfo }> {
+export async function getUserInfo(userId: number): Promise<{
+  success: boolean
+  message?: string
+  data?: UserInfo
+}> {
   const res = await api.get(`/api/user/${userId}`)
   return res.data
 }
@@ -153,27 +163,18 @@ export async function getUserInfo(
 // MjProxy (Drawing) Logs API
 // ============================================================================
 
-export const getAllMidjourneyLogs = (params: GetMidjourneyLogsParams) =>
-  fetchLogs('/api/mj', params, true)
-
-export const getUserMidjourneyLogs = (params: GetMidjourneyLogsParams) =>
-  fetchLogs('/api/mj', params, false)
-
 // ============================================================================
 // Task Logs API
 // ============================================================================
 
 export const getAllTaskLogs = (params: GetTaskLogsParams) =>
   fetchLogs('/api/task', params, true)
-
 export const getUserTaskLogs = (params: GetTaskLogsParams) =>
   fetchLogs('/api/task', params, false)
-
 const taskArtifactRequestConfig = {
   skipBusinessError: true,
   skipErrorHandler: true,
 } satisfies ApiRequestConfig
-
 export async function getTaskArtifacts(taskId: string) {
   const response = await api.get<TaskArtifactsResponse>(
     `/api/task/${encodeURIComponent(taskId)}/artifacts`,

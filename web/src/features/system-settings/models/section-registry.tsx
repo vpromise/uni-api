@@ -16,14 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { IoNetDeploymentSettingsSection } from '../integrations/ionet-deployment-settings-section'
 import type { ModelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { ClaudeSettingsCard } from './claude-settings-card'
-import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
-import { GrokSettingsCard } from './grok-settings-card'
-
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
   if (!raw) return fallback
@@ -33,7 +29,6 @@ function formatJsonForEditor(value: string, fallback: string) {
     return fallback
   }
 }
-
 const MODELS_SECTIONS = [
   {
     id: 'global',
@@ -63,31 +58,6 @@ const MODELS_SECTIONS = [
       />
     ),
   },
-
-  {
-    id: 'gemini',
-    titleKey: 'Gemini',
-    build: (settings: ModelSettings) => (
-      <GeminiSettingsCard
-        defaultValues={{
-          gemini: {
-            safety_settings: settings['gemini.safety_settings'],
-            version_settings: settings['gemini.version_settings'],
-            supported_imagine_models:
-              settings['gemini.supported_imagine_models'],
-            thinking_adapter_enabled:
-              settings['gemini.thinking_adapter_enabled'],
-            thinking_adapter_budget_tokens_percentage:
-              settings['gemini.thinking_adapter_budget_tokens_percentage'],
-            function_call_thought_signature_enabled:
-              settings['gemini.function_call_thought_signature_enabled'],
-            remove_function_response_id_enabled:
-              settings['gemini.remove_function_response_id_enabled'],
-          },
-        }}
-      />
-    ),
-  },
   {
     id: 'claude',
     titleKey: 'Claude',
@@ -106,44 +76,14 @@ const MODELS_SECTIONS = [
       />
     ),
   },
-  {
-    id: 'grok',
-    titleKey: 'Grok',
-    build: (settings: ModelSettings) => (
-      <GrokSettingsCard
-        defaultValues={{
-          'grok.violation_deduction_enabled':
-            settings['grok.violation_deduction_enabled'] ?? true,
-          'grok.violation_deduction_amount':
-            settings['grok.violation_deduction_amount'] ?? 0.05,
-        }}
-      />
-    ),
-  },
-
-  {
-    id: 'model-deployment',
-    titleKey: 'Model Deployment',
-    build: (settings: ModelSettings) => (
-      <IoNetDeploymentSettingsSection
-        defaultValues={{
-          enabled: settings['model_deployment.ionet.enabled'],
-          apiKey: settings['model_deployment.ionet.api_key'],
-        }}
-      />
-    ),
-  },
 ] as const
-
 export type ModelSectionId = (typeof MODELS_SECTIONS)[number]['id']
-
 const modelsRegistry = createSectionRegistry<ModelSectionId, ModelSettings>({
   sections: MODELS_SECTIONS,
   defaultSection: 'global',
   basePath: '/system-settings/models',
   urlStyle: 'path',
 })
-
 export const MODELS_SECTION_IDS = modelsRegistry.sectionIds
 export const MODELS_DEFAULT_SECTION = modelsRegistry.defaultSection
 export const getModelsSectionNavItems = modelsRegistry.getSectionNavItems

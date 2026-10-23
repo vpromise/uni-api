@@ -53,7 +53,7 @@ func ClaudeMessagesRequestToOpenAIResponses(ctx context.Context, claudeRequest d
 		ParallelToolCalls: parallelToolCalls,
 		TopP:              claudeRequest.TopP,
 	}
-	if info != nil && !convmeta.OptionsOf(info).OpenRouterDialect {
+	if info != nil {
 		// Keep the outgoing -thinking suffix so a cascaded downstream new-api
 		// can recover reasoning intent from the model name. This is an
 		// emission-side policy, not converter-side suffix parsing.

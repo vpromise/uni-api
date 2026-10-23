@@ -137,10 +137,7 @@ func extractTemperature(req dto.Request) (float64, bool) {
 		if request != nil && request.Temperature != nil {
 			return *request.Temperature, true
 		}
-	case *dto.GeminiChatRequest:
-		if request != nil && request.GenerationConfig.Temperature != nil {
-			return *request.GenerationConfig.Temperature, true
-		}
+
 	}
 	return 0, false
 }
@@ -159,10 +156,7 @@ func extractTopP(req dto.Request) (float64, bool) {
 		if request != nil && request.TopP != nil {
 			return *request.TopP, true
 		}
-	case *dto.GeminiChatRequest:
-		if request != nil && request.GenerationConfig.TopP != nil {
-			return *request.GenerationConfig.TopP, true
-		}
+
 	}
 	return 0, false
 }
@@ -264,16 +258,7 @@ func applyModelControls(req dto.Request, parsed parsedModelModifiers) error {
 				}
 			}
 		}
-	case *dto.GeminiChatRequest:
-		if parsed.hasTemperature {
-			request.GenerationConfig.Temperature = parsed.temperature
-		}
-		if parsed.hasTopP {
-			request.GenerationConfig.TopP = parsed.topP
-		}
-		if parsed.hasThinking {
-			request.GenerationConfig.ThinkingConfig = nil
-		}
+
 	}
 	return nil
 }

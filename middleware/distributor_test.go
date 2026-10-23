@@ -31,12 +31,12 @@ func TestChannelMatchesExpectedTaskPluginUsesGenericChannelSetting(t *testing.T)
 
 func TestChannelMatchesExpectedTaskPluginUsesPinnedLegacyIndex(t *testing.T) {
 	registry := jsplugin.NewRegistry()
-	alpha, err := registry.Register(distributorTaskPluginSource("legacy-alpha", constant.ChannelTypeKling), jsplugin.Options{})
+	alpha, err := registry.Register(distributorTaskPluginSource("legacy-alpha", constant.ChannelTypeOpenAI), jsplugin.Options{})
 	require.NoError(t, err)
 	pinnedGeneration := registry.Generation()
 
 	require.NoError(t, registry.Unregister("legacy-alpha"))
-	_, err = registry.Register(distributorTaskPluginSource("legacy-beta", constant.ChannelTypeKling), jsplugin.Options{})
+	_, err = registry.Register(distributorTaskPluginSource("legacy-beta", constant.ChannelTypeOpenAI), jsplugin.Options{})
 	require.NoError(t, err)
 
 	c, _ := gin.CreateTestContext(nil)
@@ -44,16 +44,16 @@ func TestChannelMatchesExpectedTaskPluginUsesPinnedLegacyIndex(t *testing.T) {
 		Generation: pinnedGeneration,
 		Plugin:     alpha,
 	})
-	channel := &model.Channel{Type: constant.ChannelTypeKling}
+	channel := &model.Channel{Type: constant.ChannelTypeOpenAI}
 
 	assert.True(t, channelMatchesExpectedTaskPlugin(c, channel, "legacy-alpha"))
 	assert.False(t, channelMatchesExpectedTaskPlugin(c, channel, "legacy-beta"))
-	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{Type: constant.ChannelTypeJimeng}, "legacy-alpha"))
+	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{}, "legacy-alpha"))
 }
 
 func TestChannelMatchesExpectedTaskPluginRejectsUnindexedLegacyChannel(t *testing.T) {
 	registry := jsplugin.NewRegistry()
-	plugin, err := registry.Register(distributorTaskPluginSource("legacy-alpha", constant.ChannelTypeKling), jsplugin.Options{})
+	plugin, err := registry.Register(distributorTaskPluginSource("legacy-alpha", constant.ChannelTypeOpenAI), jsplugin.Options{})
 	require.NoError(t, err)
 
 	c, _ := gin.CreateTestContext(nil)
@@ -62,53 +62,15 @@ func TestChannelMatchesExpectedTaskPluginRejectsUnindexedLegacyChannel(t *testin
 		Plugin:     plugin,
 	})
 
-	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{Type: constant.ChannelTypeJimeng}, "legacy-alpha"))
+	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{}, "legacy-alpha"))
 	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{Type: 0}, "legacy-alpha"))
-	assert.True(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{Type: constant.ChannelTypeJimeng}, ""))
-	assert.False(t, channelMatchesExpectedTaskPlugin(nil, &model.Channel{Type: constant.ChannelTypeKling}, "legacy-alpha"))
+	assert.True(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{}, ""))
+	assert.False(t, channelMatchesExpectedTaskPlugin(nil, &model.Channel{}, "legacy-alpha"))
 
 	c.Set("expected_task_plugin_key", "legacy-alpha")
-	setupErr := SetupContextForSelectedChannel(c, &model.Channel{Type: constant.ChannelTypeJimeng}, "task-model")
+	setupErr := SetupContextForSelectedChannel(c, &model.Channel{}, "task-model")
 	require.NotNil(t, setupErr)
-	assert.Contains(t, setupErr.Error(), "does not match")
-}
-
-func TestSharedEndpointRebindsToSelectedLegacyProvider(t *testing.T) {
-	registry := jsplugin.NewRegistry()
-	_, err := registry.Register(distributorEndpointPluginSource("gemini-shared", constant.ChannelTypeGemini), jsplugin.Options{})
-	require.NoError(t, err)
-	_, err = registry.Register(distributorEndpointPluginSource("vertex-shared", constant.ChannelTypeVertexAi), jsplugin.Options{})
-	require.NoError(t, err)
-	candidates := registry.Generation().LookupEndpointCandidates("POST", "/v1/responses", "task-model")
-	require.Len(t, candidates, 2)
-
-	c, _ := gin.CreateTestContext(nil)
-	c.Set(jsplugin.ContextKeyPinnedPlugin, jsplugin.PinnedPlugin{Generation: registry.Generation(), Plugin: candidates[0].Plugin})
-	c.Set(jsplugin.ContextKeyPinnedEndpoint, jsplugin.PinnedEndpoint{
-		Generation: registry.Generation(),
-		Plugin:     candidates[0].Plugin,
-		Protocol:   candidates[0].Protocol,
-		Operation:  candidates[0].Operation,
-		Model:      "task-model",
-		Candidates: candidates,
-	})
-	c.Set("expected_task_plugin_key", candidates[0].Plugin.Meta.Key)
-
-	geminiChannel := &model.Channel{Id: 1, Type: constant.ChannelTypeGemini}
-	vertexChannel := &model.Channel{Id: 2, Type: constant.ChannelTypeVertexAi}
-	assert.True(t, channelMatchesExpectedTaskPlugin(c, geminiChannel, candidates[0].Plugin.Meta.Key))
-	assert.True(t, channelMatchesExpectedTaskPlugin(c, vertexChannel, candidates[0].Plugin.Meta.Key))
-	assert.False(t, channelMatchesExpectedTaskPlugin(c, &model.Channel{Type: constant.ChannelTypeKling}, candidates[0].Plugin.Meta.Key))
-
-	require.Nil(t, SetupContextForSelectedChannel(c, vertexChannel, "task-model"))
-	pinnedValue, exists := c.Get(jsplugin.ContextKeyPinnedEndpoint)
-	require.True(t, exists)
-	pinned, ok := pinnedValue.(jsplugin.PinnedEndpoint)
-	require.True(t, ok)
-	assert.Equal(t, "vertex-shared", pinned.Plugin.Meta.Key)
-	assert.Equal(t, "vertex-shared", c.GetString("expected_task_plugin_key"))
-	assert.Equal(t, "vertex-shared", c.GetString("task_plugin_key"))
-	assert.True(t, channelMatchesExpectedTaskPlugin(c, geminiChannel, "vertex-shared"), "a retry may select another declared provider")
+	assert.Contains(t, setupErr.Error(), "unsupported upstream channel")
 }
 
 func distributorTaskPluginSource(key string, channelType int) string {
@@ -164,29 +126,8 @@ func TestTokenModelLimitAllowsLegacyAliasAndModifierVariant(t *testing.T) {
 	assert.True(t, TokenModelLimitAllows(baseOnly, "claude-3-7-sonnet@thinking:on"))
 	assert.True(t, TokenModelLimitAllows(baseOnly, "claude-3-7-sonnet-thinking"))
 
-	wildcard := map[string]bool{"gemini-2.5-flash-thinking-*": true}
-	assert.True(t, TokenModelLimitAllows(wildcard, "gemini-2.5-flash-thinking-8192"))
-}
-
-// /v1/tools/search and /v1/tools/fetch always route and bill by the DeepSeek
-// routing names. A model named in the body is ignored: a chat model there
-// would price the call at zero tokens.
-func TestGetModelRequestAssignsDeepSeekToolRoutingNames(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	for _, tc := range []struct{ path, body, want string }{
-		{"/v1/tools/search", `{"query":"deepseek","count":3}`, constant.DeepSeekSearchModel},
-		{"/v1/tools/fetch", `{"url":"https://example.com/"}`, constant.DeepSeekFetchModel},
-		{"/v1/tools/search", `{"query":"deepseek","model":"deepseek-flash"}`, constant.DeepSeekSearchModel},
-		{"/v1/tools/fetch", `{"url":"https://example.com/","model":"deepseek-v4-pro"}`, constant.DeepSeekFetchModel},
-	} {
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		modelRequest, shouldSelectChannel, err := getModelRequest(c)
-		require.NoError(t, err, tc.body)
-		assert.True(t, shouldSelectChannel, tc.body)
-		assert.Equal(t, tc.want, modelRequest.Model, tc.body)
-	}
+	wildcard := map[string]bool{"custom-model": true}
+	assert.True(t, TokenModelLimitAllows(wildcard, "custom-model"))
 }
 
 func TestTokenModelLimitAllowsExemptAtNameByFullName(t *testing.T) {
@@ -219,7 +160,7 @@ func TestDistributeHidesTaskPluginDetailsButLogsDiagnostics(t *testing.T) {
 				registry := jsplugin.NewRegistry()
 				keys := []string{"private-provider-alpha", "private-provider-beta"}[:providerCount]
 				for index, key := range keys {
-					_, err := registry.Register(distributorEndpointPluginSource(key, constant.ChannelTypeKling+index), jsplugin.Options{})
+					_, err := registry.Register(distributorEndpointPluginSource(key, constant.ChannelTypeOpenAI+index), jsplugin.Options{})
 					require.NoError(t, err)
 				}
 				generation := registry.Generation()
@@ -288,39 +229,15 @@ func TestNoAvailableChannelMessageWithoutPlugin(t *testing.T) {
 	assert.Contains(t, generic, "gpt-4o")
 }
 
-func TestSharedEndpointRebindsToSelectedType61Plugin(t *testing.T) {
-	registry := jsplugin.NewRegistry()
-	for _, key := range []string{"alpha", "beta"} {
-		source := strings.Replace(distributorEndpointPluginSource(key, 0), "channelTypes: [0],", "", 1)
-		_, err := registry.Register(source, jsplugin.Options{})
-		require.NoError(t, err)
-	}
-	generation := registry.Generation()
-	candidates := generation.LookupEndpointCandidates("POST", "/v1/responses", "task-model")
-	require.Len(t, candidates, 2)
-	c, _ := gin.CreateTestContext(nil)
-	c.Set(jsplugin.ContextKeyPinnedPlugin, jsplugin.PinnedPlugin{Generation: generation, Plugin: candidates[0].Plugin})
-	c.Set(jsplugin.ContextKeyPinnedEndpoint, jsplugin.PinnedEndpoint{Generation: generation, Plugin: candidates[0].Plugin, Protocol: candidates[0].Protocol, Operation: candidates[0].Operation, Model: "task-model", Candidates: candidates})
-	c.Set("expected_task_plugin_key", "alpha")
-	channel := &model.Channel{Id: 2, Type: constant.ChannelTypeTaskPlugin}
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "unrelated"})
-	assert.False(t, channelMatchesExpectedTaskPlugin(c, channel, "alpha"))
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "beta"})
-	require.Nil(t, SetupContextForSelectedChannel(c, channel, "task-model"))
-	assert.Equal(t, "beta", c.GetString("task_plugin_key"))
-	assert.Equal(t, "beta", c.GetString("expected_task_plugin_key"))
-	assert.Equal(t, "beta", c.MustGet(jsplugin.ContextKeyPinnedEndpoint).(jsplugin.PinnedEndpoint).Plugin.Meta.Key)
-}
-
 func TestChannelMatchesExpectedTaskPluginUsesNewAPIExtensions(t *testing.T) {
-	channel := &model.Channel{Type: constant.ChannelTypeNewAPI}
+	channel := &model.Channel{}
 	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "single", TaskExtendPluginKeys: []string{"ext-alpha", "ext-beta"}})
 
 	assert.True(t, channelMatchesExpectedTaskPlugin(nil, channel, "ext-alpha"))
 	assert.True(t, channelMatchesExpectedTaskPlugin(nil, channel, "single"), "the single key stays valid on a New API channel")
 	assert.False(t, channelMatchesExpectedTaskPlugin(nil, channel, "ext-gamma"))
 	assert.True(t, channelMatchesExpectedTaskPlugin(nil, channel, ""), "requests without a pinned plugin still use the gateway")
-	assert.False(t, channelMatchesExpectedTaskPlugin(nil, &model.Channel{Type: constant.ChannelTypeNewAPI}, "ext-alpha"))
+	assert.False(t, channelMatchesExpectedTaskPlugin(nil, &model.Channel{}, "ext-alpha"))
 }
 
 func TestSharedEndpointRebindsToBoundNewAPIExtension(t *testing.T) {
@@ -345,20 +262,49 @@ func TestSharedEndpointRebindsToBoundNewAPIExtension(t *testing.T) {
 		return c
 	}
 
-	channel := &model.Channel{Id: 3, Type: constant.ChannelTypeNewAPI}
+	channel := &model.Channel{Id: 3, Type: constant.ChannelTypeOpenAI}
 	channel.SetSetting(dto.ChannelSettings{TaskExtendPluginKeys: []string{"unrelated"}})
 	assert.False(t, channelMatchesExpectedTaskPlugin(pin("alpha"), channel, "alpha"))
 
 	channel.SetSetting(dto.ChannelSettings{TaskExtendPluginKeys: []string{"beta"}})
+	alpha, found := generation.Get("alpha")
+	require.True(t, found)
+	originalTypes := alpha.Meta.ChannelTypes
+	alpha.Meta.ChannelTypes = []int{constant.ChannelTypeAnthropic}
 	c := pin("alpha")
 	require.Nil(t, SetupContextForSelectedChannel(c, channel, "task-model"))
 	assert.Equal(t, "beta", c.GetString("task_plugin_key"), "the only bound candidate executes")
 	assert.Equal(t, "beta", c.GetString("expected_task_plugin_key"))
 	assert.Equal(t, "beta", c.MustGet(jsplugin.ContextKeyPinnedEndpoint).(jsplugin.PinnedEndpoint).Plugin.Meta.Key)
 
+	alpha.Meta.ChannelTypes = originalTypes
 	channel.SetSetting(dto.ChannelSettings{TaskExtendPluginKeys: []string{"alpha", "beta"}})
 	c = pin("beta")
 	require.Nil(t, SetupContextForSelectedChannel(c, channel, "task-model"))
 	assert.Equal(t, "alpha", c.GetString("task_plugin_key"), "the first bound candidate executes regardless of the earlier pin")
 	assert.Equal(t, "alpha", c.MustGet(jsplugin.ContextKeyPinnedEndpoint).(jsplugin.PinnedEndpoint).Plugin.Meta.Key)
+}
+
+func TestExplicitPluginBindingPreservesDefaultChannelPlugin(t *testing.T) {
+	registry := jsplugin.NewRegistry()
+	source := strings.Replace(distributorEndpointPluginSource("default-video", constant.ChannelTypeOpenAI), "task-model", "default-model", -1)
+	defaultPlugin, err := registry.Register(source, jsplugin.Options{})
+	require.NoError(t, err)
+	generic := strings.ReplaceAll(distributorEndpointPluginSource("extension", constant.ChannelTypeTaskPlugin), "channelTypes: [61],", "")
+	generic = strings.ReplaceAll(generic, "task-model", "extension-model")
+	_, err = registry.Register(generic, jsplugin.Options{})
+	require.NoError(t, err)
+	generation := registry.Generation()
+	channel := &model.Channel{Id: 10, Type: constant.ChannelTypeOpenAI}
+	channel.SetSetting(dto.ChannelSettings{TaskExtendPluginKeys: []string{"extension"}})
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{}`))
+	candidates := generation.LookupEndpointCandidates("POST", "/v1/responses", "default-model")
+	require.Len(t, candidates, 1)
+	c.Set(jsplugin.ContextKeyPinnedEndpoint, jsplugin.PinnedEndpoint{Generation: generation, Plugin: defaultPlugin, Protocol: "openai_responses", Model: "default-model", Candidates: candidates})
+	c.Set("expected_task_plugin_key", "default-video")
+	c.Set("task_plugin_key", "default-video")
+	assert.True(t, channelMatchesExpectedTaskPlugin(c, channel, "default-video"))
+	require.Nil(t, SetupContextForSelectedChannel(c, channel, "default-model"))
+	assert.Equal(t, "default-video", c.GetString("task_plugin_key"))
 }

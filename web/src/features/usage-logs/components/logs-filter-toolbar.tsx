@@ -39,7 +39,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
-
 interface LogsFilterToolbarProps<TData> {
   table: Table<TData>
   primaryFilters: ReactNode
@@ -59,13 +58,11 @@ interface LogsFilterToolbarProps<TData> {
   onSearch: () => void
   className?: string
 }
-
 interface LogsFilterFieldProps {
   children: ReactNode
   wide?: boolean
   className?: string
 }
-
 export function LogsFilterField(props: LogsFilterFieldProps) {
   return (
     <div
@@ -79,7 +76,6 @@ export function LogsFilterField(props: LogsFilterFieldProps) {
     </div>
   )
 }
-
 export function LogsFilterInput(props: ComponentProps<typeof Input>) {
   return (
     <Input
@@ -89,28 +85,23 @@ export function LogsFilterInput(props: ComponentProps<typeof Input>) {
     />
   )
 }
-
 export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
   const { t } = useTranslation()
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 640px)')
-
   const hasAdvancedFilters = props.advancedFilters != null
   const activeAdvancedCount =
     props.advancedFilterCount ?? (props.hasAdvancedActiveFilters ? 1 : 0)
   const activeMobileFilterCount = props.mobileFilterCount ?? activeAdvancedCount
-
   const handleMobileReset = () => {
     props.onReset()
     setMobileFiltersOpen(false)
   }
-
   const handleMobileSearch = () => {
     props.onSearch()
     setMobileFiltersOpen(false)
   }
-
   const advancedToggle = hasAdvancedFilters ? (
     <Button
       type='button'
@@ -138,7 +129,6 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
       />
     </Button>
   ) : null
-
   if (isMobile && props.mobilePinnedFilters != null) {
     return (
       <Drawer open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
@@ -241,7 +231,6 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
       </Drawer>
     )
   }
-
   return (
     <div
       className={cn(

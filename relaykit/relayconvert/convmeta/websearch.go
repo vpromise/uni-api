@@ -29,9 +29,6 @@ type ApproximateLocation struct {
 	Timezone string
 }
 
-// WebSearchCall is one hosted web-search definition about to be encoded for
-// the target request. Exactly one of Chat, Responses, Claude, Gemini is set;
-// the encoder may write top-level fields of that request directly.
 type WebSearchCall struct {
 	Source types.RelayFormat
 	Target types.RelayFormat
@@ -49,7 +46,6 @@ type WebSearchCall struct {
 	Chat      *dto.GeneralOpenAIRequest
 	Responses *dto.OpenAIResponsesRequest
 	Claude    *dto.ClaudeRequest
-	Gemini    *dto.GeminiChatRequest
 }
 
 // WebSearchEncoding is what an encoder produced for one WebSearchCall.

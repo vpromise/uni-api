@@ -157,12 +157,12 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 				{"claude-3-7-sonnet-20250219", model.PricingValues{"ModelRatio": float64(1.5), "CacheRatio": float64(0.1), "CreateCacheRatio": float64(1.25)}, `tier("base", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6)`, ""},
 				{"conversion-image-default", model.PricingValues{"ModelRatio": float64(2), "ImageRatio": float64(1)}, `tier("base", p * 4 + c * 4)`, ""},
 				{"conversion-image-free", model.PricingValues{"ModelRatio": float64(2), "ImageRatio": float64(0)}, `tier("base", p * 4 + c * 4 + cr * 4 + img * 0)`, ""},
-				{"deepseek-chat", model.PricingValues{"ModelRatio": float64(0.135), "CacheRatio": float64(0.25)}, `tier("base", p * 0.27 + c * 0.27 + cr * 0.0675)`, ""},
+
 				{"gpt-4o-custom", model.PricingValues{"ModelRatio": float64(2)}, `tier("base", p * 4 + c * 16)`, ""},
-				{"gemini-2.5-pro-custom", model.PricingValues{"ModelRatio": float64(2)}, `tier("base", p * 4 + c * 32)`, ""},
+
 				{"vendor/claude-sonnet-4", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(0)}, `tier("base", p * 4 + c * 0 + cr * 4 + cc * 5 + cc1h * 8)`, ""},
 				{"conversion-custom", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(3), "CacheRatio": float64(0), "CreateCacheRatio": float64(1.5), "ImageRatio": float64(2)}, `tier("base", p * 4 + c * 12 + cr * 0 + cc * 6 + img * 8)`, ""},
-				{"deepseek-reasoner", model.PricingValues{"ModelRatio": 0.275, "CacheRatio": 0.25}, `tier("base", p * 0.55 + c * 0.55 + cr * 0.1375)`, ""},
+
 				{"gpt-5.6-sol", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(2)}, `tier("base", p * 4 + c * 8)`, ""},
 				{"gpt-5.5", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(2)}, `tier("base", p * 4 + c * 8)`, ""},
 				{"gpt-6-astra", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(2)}, `tier("base", p * 4 + c * 8)`, ""},
@@ -171,8 +171,6 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 				{"gpt-4o-2024-05-13", model.PricingValues{"ModelRatio": float64(2), "CompletionRatio": float64(99)}, `tier("base", p * 4 + c * 12)`, ""},
 				{"gpt-image-2", model.PricingValues{"ModelPrice": float64(1)}, `tier("image", fixed(1)) * image_count`, ""},
 				// Bailian image models are served by the alibaba task plugin, so their pricing is a task usage expression.
-				{"qwen-image-3.0-pro", model.PricingValues{"ModelPrice": float64(1)}, "", "Task pricing must be converted manually using the task usage schema."},
-				{"wan2.7-image-pro", model.PricingValues{"ModelPrice": float64(1)}, "", "Task pricing must be converted manually using the task usage schema."},
 				{"video-summarizer", model.PricingValues{"ModelPrice": float64(1)}, `tier("request", fixed(1))`, ""},
 				{"sora-transcript-helper", model.PricingValues{"ModelPrice": float64(1)}, `tier("request", fixed(1))`, ""},
 				{"gpt-realtime", model.PricingValues{"ModelRatio": float64(1)}, "", "Realtime pricing must be converted manually."},
@@ -208,17 +206,7 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 						require.NoError(t, err)
 						assert.Equal(t, 4042.5, cost, "mixed TTLs preserve both legacy cache-write prices")
 					}
-					if tc.name == "deepseek-chat" {
-						for _, usage := range []dto.Usage{
-							{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200}},
-							{PromptTokens: 800, CompletionTokens: 100, UsageSemantic: "anthropic", PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200}},
-						} {
-							tokens := service.BuildTieredTokenParams(&usage, usage.UsageSemantic == "anthropic", billingexpr.UsedVars(response.Data.Expression))
-							cost, _, err := billingexpr.RunExpr(response.Data.Expression, tokens)
-							require.NoError(t, err)
-							assert.Equal(t, 256.5, cost, "cache reads remain billed across both response formats")
-						}
-					}
+
 					after, err := model.GetModelPricingSnapshot([]string{tc.name})
 					require.NoError(t, err)
 					assert.Equal(t, before.Entries, after.Entries, "preview must not write pricing")
@@ -280,7 +268,7 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 					{"custom-GPT-alias", common.GetPointer(0.0), model.CacheWriteOpenAITTL},
 					{"vendor/claude-sonnet-4-6-high", nil, model.CacheWriteClaudeTTL},
 					{"custom-CLAUDE-alias", common.GetPointer(0.0), model.CacheWriteClaudeTTL},
-					{"deepseek-reasoner", common.GetPointer(0.0), model.CacheWriteStandard},
+
 					{"custom-cache", common.GetPointer(1.5), model.CacheWriteStandard},
 				} {
 					t.Run(tc.name+"/"+string(tc.mode), func(t *testing.T) {
@@ -363,35 +351,17 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 					Relay(ctx, types.RelayFormatOpenAIImage)
 					assert.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
 				}
-				conflicting, err := model.PreviewModelPricingConversion("gemini-2.5-flash-conflict", model.PricingValues{"ModelRatio": 0.15, "AudioRatio": 10.0})
-				require.NoError(t, err)
-				assert.Contains(t, conflicting.UnsupportedReason, "Gemini and OpenAI audio prices differ")
-				aliName := "z-image-media-conversion"
-				require.NoError(t, (&model.Channel{Name: aliName, Models: aliName, Type: 17, Status: common.ChannelStatusEnabled}).Insert())
-				aliConversion, err := model.PreviewModelPricingConversion(aliName, model.PricingValues{"ModelPrice": 0.04})
-				require.NoError(t, err)
-				require.Empty(t, aliConversion.UnsupportedReason)
-				// Ali image billing lives in the alibaba task plugin, where prompt_extend is a
-				// usage fact; the legacy conversion no longer adds a per-channel request multiplier.
-				assert.Equal(t, `tier("image", fixed(0.04)) * image_count`, aliConversion.Expression)
-				assert.Empty(t, aliConversion.BillingDetails.RequestRules)
-				quantity := 3
-				aliCost, _, err := billingexpr.RunExprWithRequest(aliConversion.Expression, billingexpr.TokenParams{}, billingexpr.RequestInput{ImageCount: &quantity, Body: []byte(`{"parameters":{"prompt_extend":true}}`)})
-				require.NoError(t, err)
-				assert.Equal(t, 120000.0, aliCost)
 				for _, tc := range []struct {
 					name    string
 					pricing model.PricingValues
 					usage   dto.Usage
 					want    float64
 				}{
-					{"gemini-2.5-flash", model.PricingValues{"ModelRatio": 0.15, "CompletionRatio": 2.0, "CacheRatio": 0.1}, dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 100, AudioTokens: 200}}, 473},
-					{"gemini-2.5-flash-zero", model.PricingValues{"ModelRatio": 0.0}, dto.Usage{PromptTokens: 1000, PromptTokensDetails: dto.InputTokenDetails{AudioTokens: 200}}, 200},
+
 					{"media-audio", model.PricingValues{"ModelRatio": 1.0, "CompletionRatio": 3.0, "AudioRatio": 2.0, "AudioCompletionRatio": 4.0}, dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{TextTokens: 800, AudioTokens: 200}, CompletionTokenDetails: dto.OutputTokenDetails{TextTokens: 50, AudioTokens: 50}}, 3500},
 					{"media-free-audio", model.PricingValues{"ModelRatio": 1.0, "AudioRatio": 0.0}, dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{AudioTokens: 200}, CompletionTokenDetails: dto.OutputTokenDetails{AudioTokens: 100}}, 1600},
 					{"media-audio-cache", model.PricingValues{"ModelRatio": 1.0, "CompletionRatio": 3.0, "AudioRatio": 2.0, "CacheRatio": 0.1}, dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 400, AudioTokens: 200}, CompletionTokenDetails: dto.OutputTokenDetails{AudioTokens: 50}}, 2900},
 					{"media-text-cache", model.PricingValues{"ModelRatio": 1.0, "CompletionRatio": 3.0, "AudioRatio": 2.0, "CacheRatio": 0.1}, dto.Usage{PromptTokens: 1000, CompletionTokens: 100, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 400}}, 1880},
-					{"gemini-2.5-flash-overlap", model.PricingValues{"ModelRatio": 1.0}, dto.Usage{PromptTokens: 1000, PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 800, AudioTokens: 500}}, 2100},
 				} {
 					t.Run(tc.name, func(t *testing.T) {
 						converted, err := model.PreviewModelPricingConversion(tc.name, tc.pricing)
@@ -413,6 +383,7 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 				require.NoError(t, err)
 				require.Empty(t, smallImage.UnsupportedReason)
 				assert.NotContains(t, smallImage.Expression, "1792")
+				quantity := 3
 				smallCost, _, err := billingexpr.RunExprWithRequest(smallImage.Expression, billingexpr.TokenParams{}, billingexpr.RequestInput{Body: []byte(`{"size":"256x256"}`), ImageCount: &quantity})
 				require.NoError(t, err)
 				assert.Equal(t, 24000.0, smallCost)
@@ -471,11 +442,11 @@ func TestModelPricingConversionDatabaseMatrix(t *testing.T) {
 					}
 				})
 			}
-			sora := &model.Channel{Name: "Opaque video route", Models: "opaque-video-route", Type: constant.ChannelTypeSora, Group: "a,b"}
+			sora := &model.Channel{Type: constant.ChannelTypeOpenAI, Name: "Sora route", Models: "sora-2", Group: "a,b"}
 			require.NoError(t, sora.Insert())
-			video, err := model.PreviewModelPricingConversion("opaque-video-route", model.PricingValues{"ModelPrice": 1.0})
+			video, err := model.PreviewModelPricingConversion("sora-2", model.PricingValues{"ModelPrice": 1.0})
 			require.NoError(t, err)
-			assert.Equal(t, "Video pricing must be converted manually.", video.UnsupportedReason)
+			assert.Equal(t, "Task pricing must be converted manually using the task usage schema.", video.UnsupportedReason)
 		})
 	}
 }
@@ -1093,18 +1064,18 @@ func TestVendorManagementDatabaseMatrix(t *testing.T) {
 			t.Run("pricing_reads_keep_default_brands_without_writing_vendors", func(t *testing.T) {
 				channel := model.Channel{Name: "Vendor fixture", Type: 1, Status: common.ChannelStatusEnabled}
 				require.NoError(t, db.Create(&channel).Error)
-				require.NoError(t, db.Create(&model.Ability{Model: "gemini-vendor-fixture", Group: "default", ChannelId: channel.Id, Enabled: true}).Error)
+				require.NoError(t, db.Create(&model.Ability{Group: "default", Model: "gpt-4o", ChannelId: channel.Id, Enabled: true}).Error)
 				model.RefreshPricing()
 				model.GetPricing()
 				vendors := model.GetVendors()
 				require.Len(t, vendors, 1)
-				assert.Equal(t, "Google", vendors[0].Name)
-				assert.Equal(t, "Gemini.Color", vendors[0].Icon)
+				assert.Equal(t, "OpenAI", vendors[0].Name)
+				assert.Equal(t, "OpenAI", vendors[0].Icon)
 				assert.Negative(t, vendors[0].ID)
 				var count int64
 				require.NoError(t, db.Model(&model.Vendor{}).Count(&count).Error)
 				assert.Zero(t, count)
-				saved := model.Vendor{Name: "Google", Icon: "Gemini.Color"}
+				saved := model.Vendor{Name: "OpenAI"}
 				require.NoError(t, saved.Insert())
 				assert.Equal(t, saved.Id, model.GetVendors()[0].ID)
 				require.NoError(t, saved.Delete())
@@ -1113,7 +1084,7 @@ func TestVendorManagementDatabaseMatrix(t *testing.T) {
 				assert.Zero(t, count, "refresh must not recreate a deleted vendor")
 			})
 			t.Run("metadata_ownership_preview_merge_delete_and_rollback", func(t *testing.T) {
-				source := model.Vendor{Name: "  Vendor Source  ", Icon: "Gemini.Color"}
+				source := model.Vendor{Name: "  Vendor Source  "}
 				target := model.Vendor{Name: "Vendor Target", Description: "Keep target", Icon: "OpenAI"}
 				require.NoError(t, source.Insert())
 				require.NoError(t, target.Insert())

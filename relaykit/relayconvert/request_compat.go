@@ -8,7 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/convdiag"
 	sharedclaude "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/claude"
-	sharedgemini "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/gemini"
+
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 	"github.com/QuantumNous/new-api/relaykit/types"
 )
@@ -19,31 +19,6 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 
 func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, textRequest dto.GeneralOpenAIRequest) (*dto.ClaudeRequest, error) {
 	return convertCompatRequest[dto.ClaudeRequest](c, info, types.RelayFormatClaude, &textRequest)
-}
-
-func GeminiGenerateContentRequestToOpenAIChat(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta) (*dto.GeneralOpenAIRequest, error) {
-	return convertCompatRequest[dto.GeneralOpenAIRequest](context.Background(), info, types.RelayFormatOpenAI, geminiRequest)
-}
-
-func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto.GeneralOpenAIRequest, info convmeta.Meta) (*dto.GeminiChatRequest, error) {
-	return convertCompatRequest[dto.GeminiChatRequest](c, info, types.RelayFormatGemini, &textRequest)
-}
-
-func ApplyGeminiThinkingConfigChecked(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta, oaiRequest ...dto.GeneralOpenAIRequest) error {
-	ctx, collector := convdiag.WithCollector(context.Background())
-	err := reasoning.AsClientError(sharedgemini.ApplyThinkingConfig(ctx, geminiRequest, info, oaiRequest...))
-	if recorder, ok := info.(interface {
-		RecordConversionDiagnostics(context.Context, []types.ConversionDiagnostic)
-	}); ok {
-		diagnostics := collector.Diagnostics()
-		for i := range diagnostics {
-			if diagnostics[i].To == "" {
-				diagnostics[i].To = types.RelayFormatGemini
-			}
-		}
-		recorder.RecordConversionDiagnostics(ctx, diagnostics)
-	}
-	return err
 }
 
 func ApplyClaudeThinkingModel(claudeRequest *dto.ClaudeRequest, info convmeta.Meta) error {
@@ -67,10 +42,6 @@ func ResponsesRequestToChatCompletionsRequest(req *dto.OpenAIResponsesRequest) (
 
 func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Meta, req *dto.OpenAIResponsesRequest) (*dto.ClaudeRequest, error) {
 	return convertCompatRequest[dto.ClaudeRequest](c, info, types.RelayFormatClaude, req)
-}
-
-func OpenAIResponsesRequestToGeminiChat(c context.Context, req *dto.OpenAIResponsesRequest, info convmeta.Meta) (*dto.GeminiChatRequest, error) {
-	return convertCompatRequest[dto.GeminiChatRequest](c, info, types.RelayFormatGemini, req)
 }
 
 func convertCompatRequest[T any](c context.Context, info convmeta.Meta, target types.RelayFormat, request any) (*T, error) {

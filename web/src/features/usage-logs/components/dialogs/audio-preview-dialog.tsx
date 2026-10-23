@@ -29,41 +29,33 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@/components/ui/spinner'
 
 import type { AudioClip } from '../../types'
-
 export type { AudioClip }
-
 interface AudioPreviewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   clips: AudioClip[]
   loading?: boolean
 }
-
 function formatDuration(seconds?: number): string {
   if (!seconds || seconds <= 0) return '--:--'
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
-
 function AudioClipCard({ clip }: { clip: AudioClip }) {
   const { t } = useTranslation()
   const [hasError, setHasError] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasError(false)
   }, [clip.audio_url])
-
   const title = clip.title || t('Untitled')
   const tags = clip.tags || clip.metadata?.tags || ''
   const duration = clip.duration || clip.metadata?.duration
   const imageUrl = clip.image_url || clip.image_large_url
   const audioUrl = clip.audio_url
-
   if (!audioUrl) return null
-
   return (
     <div className='bg-card flex gap-4 rounded-lg border p-4'>
       {imageUrl && (
@@ -134,11 +126,9 @@ function AudioClipCard({ clip }: { clip: AudioClip }) {
     </div>
   )
 }
-
 export function AudioPreviewDialog(props: AudioPreviewDialogProps) {
   const { t } = useTranslation()
   const clips = Array.isArray(props.clips) ? props.clips : []
-
   let body = (
     <ScrollArea className='max-h-[60vh]'>
       <div className='space-y-3 pr-2'>
@@ -161,7 +151,6 @@ export function AudioPreviewDialog(props: AudioPreviewDialogProps) {
       </p>
     )
   }
-
   return (
     <Dialog
       open={props.open}

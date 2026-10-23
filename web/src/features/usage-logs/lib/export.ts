@@ -25,7 +25,6 @@ import {
   isDisplayableLogType,
   isTimingLogType,
 } from './utils'
-
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
 /**

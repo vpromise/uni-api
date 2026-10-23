@@ -39,7 +39,7 @@ func TestResolveIncomingBillingExprRequestInput(t *testing.T) {
 
 func TestBuildBillingExprRequestInputFromRequest(t *testing.T) {
 	request := &dto.GeneralOpenAIRequest{
-		Model:  "gemini-3.1-pro-preview",
+
 		Stream: lo.ToPtr(true),
 		Messages: []dto.Message{
 			{

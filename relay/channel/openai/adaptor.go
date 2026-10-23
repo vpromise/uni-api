@@ -2,7 +2,7 @@ package openai
 
 import (
 	"bytes"
-	"encoding/json"
+
 	"errors"
 	"fmt"
 	"io"
@@ -17,15 +17,13 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/ai360"
-	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
-	"github.com/QuantumNous/new-api/relay/channel/openrouter"
+
 	"github.com/QuantumNous/new-api/relaykit/dto"
 
 	//"github.com/QuantumNous/new-api/relay/channel/minimax"
-	"github.com/QuantumNous/new-api/relay/channel/xinference"
+
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relay/common_handler"
+
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	kitreasoning "github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -40,23 +38,6 @@ import (
 type Adaptor struct {
 	ChannelType    int
 	ResponseFormat string
-}
-
-func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
-	if err != nil {
-		return nil, err
-	}
-	openaiRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
-	}
-	if info.SupportStreamOptions && info.IsStream {
-		openaiRequest.StreamOptions = &dto.StreamOptions{
-			IncludeUsage: true,
-		}
-	}
-	return a.ConvertOpenAIRequest(c, info, openaiRequest)
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
@@ -97,9 +78,6 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 	a.ChannelType = info.ChannelType
-	if info.ChannelType == constant.ChannelTypeAzure && info.RelayMode == relayconstant.RelayModeResponses {
-		info.VendorToolUsage = azureResponsesToolUsage
-	}
 
 	// initialize ThinkingContentInfo when thinking_to_content is enabled
 	if info.ChannelSetting.ThinkingToContent {
@@ -124,63 +102,12 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		}
 	}
 	switch info.ChannelType {
-	case constant.ChannelTypeAzure:
-		apiVersion := info.ApiVersion
-		if apiVersion == "" {
-			apiVersion = constant.AzureDefaultAPIVersion
-		}
-		// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?pivots=rest-api&tabs=command-line#rest-api
-		requestURL := strings.Split(info.RequestURLPath, "?")[0]
-		requestURL = fmt.Sprintf("%s?api-version=%s", requestURL, apiVersion)
-		task := strings.TrimPrefix(requestURL, "/v1/")
 
-		if info.RelayFormat == types.RelayFormatClaude {
-			task = strings.TrimPrefix(task, "messages")
-			task = "chat/completions" + task
-		}
-
-		// 特殊处理 responses API（包含 compact）
-		if info.RelayMode == relayconstant.RelayModeResponses || info.RelayMode == relayconstant.RelayModeResponsesCompact {
-			responsesApiVersion := "preview"
-
-			subUrl := "/openai/v1/responses"
-			if strings.Contains(info.ChannelBaseUrl, "cognitiveservices.azure.com") {
-				subUrl = "/openai/responses"
-				responsesApiVersion = apiVersion
-			}
-
-			if info.ChannelOtherSettings.AzureResponsesVersion != "" {
-				responsesApiVersion = info.ChannelOtherSettings.AzureResponsesVersion
-			}
-
-			// compact 模式追加 /compact
-			if info.RelayMode == relayconstant.RelayModeResponsesCompact {
-				subUrl = subUrl + "/compact"
-			}
-
-			requestURL = fmt.Sprintf("%s?api-version=%s", subUrl, responsesApiVersion)
-			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURL, info.ChannelType), nil
-		}
-
-		model_ := info.UpstreamModelName
-		// 2025年5月10日后创建的渠道不移除.
-		if info.ChannelCreateTime < constant.AzureNoRemoveDotTime {
-			model_ = strings.Replace(model_, ".", "", -1)
-		}
-		// https://github.com/songquanpeng/one-api/issues/67
-		requestURL = fmt.Sprintf("/openai/deployments/%s/%s", model_, task)
-		if info.RelayMode == relayconstant.RelayModeRealtime {
-			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, apiVersion)
-		}
-		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURL, info.ChannelType), nil
 	//case constant.ChannelTypeMiniMax:
 	//	return minimax.GetRequestURL(info)
-	case constant.ChannelTypeCustom:
-		url := info.ChannelBaseUrl
-		url = strings.Replace(url, "{model}", info.UpstreamModelName, -1)
-		return url, nil
+
 	default:
-		if (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) &&
+		if info.RelayFormat == types.RelayFormatClaude &&
 			info.RelayMode != relayconstant.RelayModeResponses &&
 			info.RelayMode != relayconstant.RelayModeResponsesCompact {
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
@@ -191,10 +118,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, header)
-	if info.ChannelType == constant.ChannelTypeAzure {
-		header.Set("api-key", info.ApiKey)
-		return nil
-	}
+
 	if info.ChannelType == constant.ChannelTypeOpenAI && "" != info.Organization {
 		header.Set("OpenAI-Organization", info.Organization)
 	}
@@ -239,14 +163,7 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 			header.Set("Authorization", "Bearer "+info.ApiKey)
 		}
 	}
-	if info.ChannelType == constant.ChannelTypeOpenRouter {
-		if header.Get("HTTP-Referer") == "" {
-			header.Set("HTTP-Referer", "https://www.newapi.ai")
-		}
-		if header.Get("X-OpenRouter-Title") == "" {
-			header.Set("X-OpenRouter-Title", "New API")
-		}
-	}
+
 	return nil
 }
 
@@ -254,123 +171,20 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-	if info.ChannelType != constant.ChannelTypeOpenAI && info.ChannelType != constant.ChannelTypeAzure {
+	if info.ChannelType != constant.ChannelTypeOpenAI {
 		request.StreamOptions = nil
 	}
-	// Nested reasoning is an OpenRouter-compatible input dialect and needs
-	// projection even without a protocol conversion hop. Native top-level
-	// reasoning_effort stays untouched unless a modifier or conversion applies.
-	// OpenRouter retains its own dialect normalization below.
+
 	preserveSuffix := model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) || model_setting.ShouldPreserveThinkingSuffix(info.UpstreamModelName)
 	upstreamEffort, _ := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(info.UpstreamModelName)
 	originEffort, _ := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(info.OriginModelName)
 	renderReasoning := len(request.Reasoning) > 0 || len(info.RequestConversionChain) > 1 || request.ReasoningConversion != nil || info.ReasoningState() != nil ||
 		!preserveSuffix && (upstreamEffort != "" || originEffort != "")
-	if info.ChannelType != constant.ChannelTypeOpenRouter && !renderReasoning {
+	if !renderReasoning {
 		info.SetReasoningEffort(request.ReasoningEffort)
 	}
-	if info.ChannelType == constant.ChannelTypeOpenRouter {
-		initialIntent, diagnostics, err := kitreasoning.FromOpenAIChat(request)
-		if err != nil {
-			return nil, kitreasoning.AsClientError(err)
-		}
-		recordReasoningDiagnostics(c, info, diagnostics)
-		if request.THINKING != nil && strings.HasPrefix(info.UpstreamModelName, "anthropic") {
-			var thinking dto.Thinking
-			if err := common.Unmarshal(request.THINKING, &thinking); err != nil {
-				return nil, fmt.Errorf("error Unmarshal thinking: %w", err)
-			}
-			legacyIntent, diagnostics, err := kitreasoning.FromClaude(&dto.ClaudeRequest{Thinking: &thinking})
-			if err != nil {
-				return nil, kitreasoning.AsClientError(err)
-			}
-			recordReasoningDiagnostics(c, info, diagnostics)
-			initialIntent, diagnostics, err = kitreasoning.MergeExplicit(initialIntent, legacyIntent, request.Model)
-			if err != nil {
-				return nil, kitreasoning.AsClientError(err)
-			}
-			recordReasoningDiagnostics(c, info, diagnostics)
-			request.THINKING = nil
-		}
-		if len(request.Usage) == 0 {
-			request.Usage = json.RawMessage(`{"include":true}`)
-		}
-		// 合并 effort 尾巴产生的意图
-		mergeEffortSuffix := func(modelName string) error {
-			rawEffort, _ := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(modelName)
-			if rawEffort == "" {
-				return nil
-			}
-			effort, err := kitreasoning.ParseEffort(rawEffort)
-			if err != nil {
-				return err
-			}
-			mode := kitreasoning.ModeEnabled
-			if effort == kitreasoning.EffortNone {
-				mode = kitreasoning.ModeDisabled
-			}
-			var diagnostics []types.ConversionDiagnostic
-			initialIntent, diagnostics, err = kitreasoning.MergeExplicitAndSuffix(initialIntent, kitreasoning.Intent{Mode: mode, Effort: effort, Source: kitreasoning.SourceSuffix}, modelName)
-			recordReasoningDiagnostics(c, info, diagnostics)
-			return err
-		}
-		if !preserveSuffix {
-			if err := mergeEffortSuffix(info.UpstreamModelName); err != nil {
-				return nil, kitreasoning.AsClientError(err)
-			}
-			if _, baseModel := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(info.UpstreamModelName); baseModel != info.UpstreamModelName {
-				info.UpstreamModelName = baseModel
-				request.Model = baseModel
-			}
-			if info.OriginModelName != info.UpstreamModelName {
-				if err := mergeEffortSuffix(info.OriginModelName); err != nil {
-					return nil, kitreasoning.AsClientError(err)
-				}
-			}
-		}
-		if !initialIntent.IsEmpty() {
-			reasoningConfig := make(map[string]any)
-			if len(request.Reasoning) > 0 {
-				if err := common.Unmarshal(request.Reasoning, &reasoningConfig); err != nil {
-					return nil, fmt.Errorf("error unmarshalling reasoning: %w", err)
-				}
-				if reasoningConfig == nil {
-					reasoningConfig = make(map[string]any)
-				}
-			}
-			disabled := initialIntent.Mode == kitreasoning.ModeDisabled || initialIntent.Effort == kitreasoning.EffortNone
-			if initialIntent.HasStrength() {
-				reasoningConfig["enabled"] = !disabled
-				if disabled {
-					delete(reasoningConfig, "effort")
-					delete(reasoningConfig, "max_tokens")
-				}
-			}
-			if !disabled && initialIntent.BudgetTokens != nil {
-				reasoningConfig["max_tokens"] = *initialIntent.BudgetTokens
-				delete(reasoningConfig, "effort")
-			} else if !disabled && initialIntent.Effort != "" && initialIntent.Effort != kitreasoning.EffortNone {
-				reasoningConfig["effort"] = string(initialIntent.Effort)
-				delete(reasoningConfig, "max_tokens")
-			}
-			if initialIntent.IncludeThoughts != nil {
-				reasoningConfig["exclude"] = !*initialIntent.IncludeThoughts
-			}
-			marshal, err := common.Marshal(reasoningConfig)
-			if err != nil {
-				return nil, fmt.Errorf("error marshalling reasoning: %w", err)
-			}
-			request.Reasoning = marshal
-		}
-		request.ReasoningEffort = ""
-		effectiveEffort := kitreasoning.EffectiveEffort(initialIntent)
-		if initialIntent.BudgetTokens != nil {
-			effectiveEffort = kitreasoning.EffortFromBudget(*initialIntent.BudgetTokens)
-		}
-		info.SetReasoningEffort(string(effectiveEffort))
 
-	}
-	if info.ChannelType != constant.ChannelTypeOpenRouter && renderReasoning {
+	if renderReasoning {
 		effort, baseModel := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(info.UpstreamModelName)
 		if preserveSuffix {
 			effort = ""
@@ -414,7 +228,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.ReasoningEffort = string(canonicalEffort)
 			info.SetReasoningEffort(string(canonicalEffort))
 		}
-		if info.ChannelType == constant.ChannelTypeOpenAI || info.ChannelType == constant.ChannelTypeAzure {
+		if info.ChannelType == constant.ChannelTypeOpenAI {
 			request.Reasoning = nil
 		}
 	}
@@ -440,10 +254,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		request.Messages[0].Role = "developer"
 	}
 
-	return request, nil
-}
-
-func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
 	return request, nil
 }
 
@@ -571,7 +381,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 					}
 
 					// If no image fields found at all
-					if !foundArrayImages && (len(imageFiles) == 0) {
+					if !foundArrayImages && len(imageFiles) == 0 {
 						return nil, errors.New("image is required")
 					}
 				}
@@ -690,7 +500,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 		originEffort, _ = reasoning.ParseOpenAIReasoningEffortFromModelSuffix(info.OriginModelName)
 	}
 	crossProtocol := info != nil && len(info.RequestConversionChain) > 1
-	if (info == nil || info.ChannelType != constant.ChannelTypeOpenRouter) && !crossProtocol && effort == "" && originEffort == "" && request.ReasoningConversion == nil && info.ReasoningState() == nil {
+	if !crossProtocol && effort == "" && originEffort == "" && request.ReasoningConversion == nil && info.ReasoningState() == nil {
 		if info != nil {
 			rawEffort := ""
 			if request.Reasoning != nil {
@@ -752,7 +562,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
 		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
-		(info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c)) {
+		info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c) {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	} else if info.RelayMode == relayconstant.RelayModeRealtime {
 		return channel.DoWssRequest(a, c, info, requestBody)
@@ -777,8 +587,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		} else {
 			usage, err = OpenaiImageHandler(c, info, resp)
 		}
-	case relayconstant.RelayModeRerank:
-		usage, err = common_handler.RerankHandler(c, info, resp)
+
 	case relayconstant.RelayModeResponses:
 		if info.IsStream {
 			usage, err = OaiResponsesStreamHandler(c, info, resp)
@@ -799,16 +608,10 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 
 func (a *Adaptor) GetModelList() []string {
 	switch a.ChannelType {
-	case constant.ChannelType360:
-		return ai360.ModelList
-	case constant.ChannelTypeLingYiWanWu:
-		return lingyiwanwu.ModelList
+
 	//case constant.ChannelTypeMiniMax:
 	//	return minimax.ModelList
-	case constant.ChannelTypeXinference:
-		return xinference.ModelList
-	case constant.ChannelTypeOpenRouter:
-		return openrouter.ModelList
+
 	default:
 		return ModelList
 	}
@@ -816,16 +619,10 @@ func (a *Adaptor) GetModelList() []string {
 
 func (a *Adaptor) GetChannelName() string {
 	switch a.ChannelType {
-	case constant.ChannelType360:
-		return ai360.ChannelName
-	case constant.ChannelTypeLingYiWanWu:
-		return lingyiwanwu.ChannelName
+
 	//case constant.ChannelTypeMiniMax:
 	//	return minimax.ChannelName
-	case constant.ChannelTypeXinference:
-		return xinference.ChannelName
-	case constant.ChannelTypeOpenRouter:
-		return openrouter.ChannelName
+
 	default:
 		return ChannelName
 	}

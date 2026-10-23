@@ -11,85 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
-
-func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing.T) {
-	generation := jsplugin.DefaultRegistry.Generation()
-	require.NotNil(t, generation)
-
-	routes := []struct {
-		method    string
-		path      string
-		key       string
-		routeType jsplugin.RouteType
-		action    string
-		renderer  string
-	}{
-		{"POST", "/kling/v1/videos/text2video", "kling", jsplugin.RouteTypeSubmit, "text_to_video", "taskCreated"},
-		{"POST", "/kling/v1/videos/image2video", "kling", jsplugin.RouteTypeSubmit, "image_to_video", "taskCreated"},
-		{"GET", "/kling/v1/videos/text2video/:task_id", "kling", jsplugin.RouteTypeQuery, "", "taskStatus"},
-		{"GET", "/kling/v1/videos/image2video/:task_id", "kling", jsplugin.RouteTypeQuery, "", "taskStatus"},
-		{"POST", "/jimeng/", "jimeng", jsplugin.RouteTypeDynamic, "", "renderTask"},
-		{"POST", "/suno/submit/:action", "sunoapi", jsplugin.RouteTypeSubmit, "", "renderSubmit"},
-		{"POST", "/suno/fetch", "sunoapi", jsplugin.RouteTypeDynamic, "", "renderTasks"},
-		{"GET", "/suno/fetch/:task_id", "sunoapi", jsplugin.RouteTypeQuery, "", "renderTask"},
-		{"POST", "/doubao/api/v3/contents/generations/tasks", "doubao", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"GET", "/doubao/api/v3/contents/generations/tasks/:task_id", "doubao", jsplugin.RouteTypeQuery, "", "taskStatus"},
-		{"POST", "/doubao/api/v3/images/generations", "doubao", jsplugin.RouteTypeSubmit, "", "imageCreated"},
-		{"POST", "/xai/v1/videos/generations", "xai", jsplugin.RouteTypeSubmit, "", "videoCreated"},
-		{"POST", "/xai/v1/videos/edits", "xai", jsplugin.RouteTypeSubmit, "", "videoCreated"},
-		{"POST", "/xai/v1/videos/extensions", "xai", jsplugin.RouteTypeSubmit, "", "videoCreated"},
-		{"GET", "/xai/v1/videos/:request_id", "xai", jsplugin.RouteTypeQuery, "", "videoStatus"},
-		{"POST", "/hailuo/v1/video_generation", "hailuo", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"GET", "/hailuo/v1/query/video_generation/:task_id", "hailuo", jsplugin.RouteTypeQuery, "", "taskStatus"},
-		{"POST", "/hailuo/v2/video_generation", "hailuo", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"GET", "/hailuo/v2/query/video_generation/:task_id", "hailuo", jsplugin.RouteTypeQuery, "", "h3TaskStatus"},
-		{"POST", "/vidu/ent/v2/text2video", "vidu", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"POST", "/vidu/ent/v2/img2video", "vidu", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"POST", "/vidu/ent/v2/start-end2video", "vidu", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"POST", "/vidu/ent/v2/reference2video", "vidu", jsplugin.RouteTypeSubmit, "", "taskCreated"},
-		{"GET", "/vidu/ent/v2/tasks/:task_id/creations", "vidu", jsplugin.RouteTypeQuery, "", "taskStatus"},
-		{"POST", "/google/v1beta/models/:model", "google", jsplugin.RouteTypeSubmit, "", "operation"},
-		{"GET", "/google/v1beta/models/:model/operations/:task_id", "google", jsplugin.RouteTypeQuery, "", "operation"},
-		{"POST", "/vertex-ai/v1/projects/:project/locations/:location/publishers/google/models/:model", "vertex-ai", jsplugin.RouteTypeDynamic, "", "operation"},
-	}
-	for _, expected := range routes {
-		t.Run(expected.method+" "+expected.path, func(t *testing.T) {
-			binding, found := generation.LookupDeclaredRoute(expected.method, expected.path)
-			require.True(t, found)
-			require.Equal(t, expected.key, binding.Plugin.Meta.Key)
-			require.Equal(t, expected.routeType, binding.Route.Type)
-			require.Equal(t, expected.action, binding.Route.Action)
-			require.Equal(t, expected.renderer, binding.Route.Render)
-		})
-	}
-
-	// The legacy Wan edit route serves both the wan2.5 image-list body and the
-	// wanx2.1-imageedit function API.
-	imageEdit, found := generation.LookupDeclaredRoute("POST", "/ali/api/v1/services/aigc/image2image/image-synthesis")
-	require.True(t, found)
-	assert.Equal(t, "alibaba", imageEdit.Plugin.Meta.Key)
-	assert.ElementsMatch(t, []string{"wan2.5-i2i-preview", "wanx2.1-imageedit"}, imageEdit.Route.Models)
-
-	channelTypes := []struct {
-		value int
-		key   string
-	}{
-		{1, "sora"},
-		{36, "sunoapi"},
-		{45, "doubao"},
-		{50, "kling"},
-		{51, "jimeng"},
-		{54, "doubao"},
-		{55, "sora"},
-		{48, "xai"},
-	}
-	for _, channelType := range channelTypes {
-		plugin, found := generation.GetByChannelType(channelType.value)
-		require.True(t, found)
-		require.Equal(t, channelType.key, plugin.Meta.Key)
-	}
-}
+var expectedKeys = []string{"sora"}
 
 func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -197,58 +119,7 @@ func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 		content            string
 		legacyKeyHeuristic bool
 	}{
-		{
-			key:              "doubao",
-			driver:           map[string]any{"action": "text_to_video", "model": "doubao-seedance-1-0-pro-250528", "upstreamModel": "doubao-seedance-1-0-pro-250528", "requestBody": map[string]any{"model": "doubao-seedance-1-0-pro-250528", "prompt": "a cat"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Bearer vendor-key",
-			vendorSubmit:     "/api/v3/contents/generations/tasks",
-			gatewaySubmit:    "/doubao/api/v3/contents/generations/tasks",
-			vendorQuery:      "/api/v3/contents/generations/tasks/tid",
-			gatewayQuery:     "/doubao/api/v3/contents/generations/tasks/tid",
-		},
-		{
-			key:              "alibaba",
-			driver:           map[string]any{"action": "text_to_video", "model": "wan2.2-t2v-plus", "upstreamModel": "wan2.2-t2v-plus", "requestBody": map[string]any{"model": "wan2.2-t2v-plus", "prompt": "a cat"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Bearer vendor-key",
-			vendorSubmit:     "/api/v1/services/aigc/video-generation/video-synthesis",
-			gatewaySubmit:    "/ali/api/v1/services/aigc/video-generation/video-synthesis",
-			vendorQuery:      "/api/v1/tasks/tid",
-			gatewayQuery:     "/ali/api/v1/tasks/tid",
-		},
-		{
-			key:                "kling",
-			driver:             map[string]any{"action": "text_to_video", "model": "kling-v1", "upstreamModel": "kling-v1", "requestBody": map[string]any{"prompt": "a cat"}},
-			vendorKey:          "ak|sk",
-			vendorAuthPrefix:   "Bearer ey",
-			vendorSubmit:       "/v1/videos/text2video",
-			gatewaySubmit:      "/kling/v1/videos/text2video",
-			vendorQuery:        "/v1/videos/text2video/tid",
-			gatewayQuery:       "/kling/v1/videos/text2video/tid",
-			legacyKeyHeuristic: true,
-		},
-		{
-			key:                "jimeng",
-			driver:             map[string]any{"action": "text_to_video", "model": "jimeng_vgfm_t2v_l20", "upstreamModel": "jimeng_vgfm_t2v_l20", "requestBody": map[string]any{"prompt": "a cat"}},
-			vendorKey:          "ak|sk",
-			vendorAuthPrefix:   "HMAC-SHA256",
-			vendorSubmit:       "/?Action=CVSync2AsyncSubmitTask&Version=2022-08-31",
-			gatewaySubmit:      "/jimeng/?Action=CVSync2AsyncSubmitTask&Version=2022-08-31",
-			vendorQuery:        "/?Action=CVSync2AsyncGetResult&Version=2022-08-31",
-			gatewayQuery:       "/jimeng/?Action=CVSync2AsyncGetResult&Version=2022-08-31",
-			legacyKeyHeuristic: true,
-		},
-		{
-			key:              "sunoapi",
-			driver:           map[string]any{"action": "MUSIC", "model": "suno_music", "upstreamModel": "suno_music", "requestBody": map[string]any{"prompt": "a song"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Bearer vendor-key",
-			vendorSubmit:     "/suno/submit/MUSIC",
-			gatewaySubmit:    "/suno/submit/MUSIC",
-			vendorQuery:      "/suno/fetch",
-			gatewayQuery:     "/suno/fetch",
-		},
+
 		{
 			key:              "sora",
 			driver:           map[string]any{"action": "text_to_video", "model": "sora-2", "upstreamModel": "sora-2", "requestBody": map[string]any{"prompt": "a cat"}},
@@ -259,36 +130,6 @@ func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 			vendorQuery:      "/v1/videos/tid",
 			gatewayQuery:     "/v1/videos/tid",
 			content:          "/v1/videos/tid/content",
-		},
-		{
-			key:              "xai",
-			driver:           map[string]any{"action": "text_to_video", "model": "grok-imagine-video", "upstreamModel": "grok-imagine-video", "requestBody": map[string]any{"model": "grok-imagine-video", "prompt": "a cat"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Bearer vendor-key",
-			vendorSubmit:     "/v1/videos/generations",
-			gatewaySubmit:    "/xai/v1/videos/generations",
-			vendorQuery:      "/v1/videos/tid",
-			gatewayQuery:     "/xai/v1/videos/tid",
-		},
-		{
-			key:              "hailuo",
-			driver:           map[string]any{"action": "text_to_video", "model": "MiniMax-Hailuo-2.3", "upstreamModel": "MiniMax-Hailuo-2.3", "requestBody": map[string]any{"model": "MiniMax-Hailuo-2.3", "prompt": "a cat"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Bearer vendor-key",
-			vendorSubmit:     "/v1/video_generation",
-			gatewaySubmit:    "/hailuo/v1/video_generation",
-			vendorQuery:      "/v1/query/video_generation?task_id=tid",
-			gatewayQuery:     "/hailuo/v1/query/video_generation/tid",
-		},
-		{
-			key:              "vidu",
-			driver:           map[string]any{"action": "text_to_video", "model": "viduq2", "upstreamModel": "viduq2", "requestBody": map[string]any{"model": "viduq2", "prompt": "a cat"}},
-			vendorKey:        "vendor-key",
-			vendorAuthPrefix: "Token vendor-key",
-			vendorSubmit:     "/ent/v2/text2video",
-			gatewaySubmit:    "/vidu/ent/v2/text2video",
-			vendorQuery:      "/ent/v2/tasks/tid/creations",
-			gatewayQuery:     "/vidu/ent/v2/tasks/tid/creations",
 		},
 	}
 	variants := []struct {
@@ -378,37 +219,4 @@ func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 		})
 	}
 
-	t.Run("alibaba asks only DashScope for an interleaved image stream", func(t *testing.T) {
-		plugin, found := generation.Get("alibaba")
-		require.True(t, found)
-		for _, variant := range []struct {
-			name             string
-			upstream         map[string]any
-			wantResponseType string
-			wantSSEHeader    bool
-		}{
-			{"vendor", map[string]any{"kind": "vendor"}, "sse", true},
-			{"new_api", map[string]any{"kind": "new_api"}, "json", false},
-		} {
-			t.Run(variant.name, func(t *testing.T) {
-				value, err := plugin.Engine.Call(t.Context(), "buildSubmitRequest", map[string]any{
-					"baseUrl": base, "apiKey": "key", "authHeader": "key", "publicTaskId": "task_pub", "upstream": variant.upstream,
-					"model": "wan2.6-image", "upstreamModel": "wan2.6-image",
-					"requestBody": map[string]any{"model": "wan2.6-image", "prompt": "a cat", "metadata": map[string]any{"upstream_mode": "sync", "parameters": map[string]any{"enable_interleave": true}}},
-				})
-				require.NoError(t, err)
-				encoded, err := common.Marshal(value)
-				require.NoError(t, err)
-				var descriptor struct {
-					URL          string            `json:"url"`
-					ResponseType string            `json:"responseType"`
-					Headers      map[string]string `json:"headers"`
-				}
-				require.NoError(t, common.Unmarshal(encoded, &descriptor))
-				assert.Equal(t, variant.wantResponseType, descriptor.ResponseType, "a gateway native route aggregates the vendor stream and answers with JSON")
-				_, hasSSEHeader := descriptor.Headers["X-DashScope-Sse"]
-				assert.Equal(t, variant.wantSSEHeader, hasSSEHeader)
-			})
-		}
-	})
 }

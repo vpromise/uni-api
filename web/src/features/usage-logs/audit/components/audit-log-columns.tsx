@@ -27,7 +27,6 @@ import dayjs from '@/lib/dayjs'
 import type { AuditLog } from '../api'
 import { buildAuditDetails } from '../lib/audit-details'
 import { AuditLogDetailsDialog } from './audit-log-details-dialog'
-
 export function useAuditLogColumns(
   accessOnly?: boolean
 ): ColumnDef<AuditLog>[] {
@@ -43,7 +42,10 @@ export function useAuditLogColumns(
             {dayjs.unix(row.original.created_at).format('YYYY-MM-DD HH:mm:ss')}
           </span>
         ),
-        meta: { label: t('Time'), mobileTitle: true },
+        meta: {
+          label: t('Time'),
+          mobileTitle: true,
+        },
       },
     ]
     if (!accessOnly) {
@@ -52,7 +54,9 @@ export function useAuditLogColumns(
           accessorKey: 'username',
           header: t('Username'),
           size: 100,
-          meta: { label: t('Username') },
+          meta: {
+            label: t('Username'),
+          },
         },
         {
           id: 'event',
@@ -100,7 +104,9 @@ export function useAuditLogColumns(
               </div>
             )
           },
-          meta: { label: t('Event') },
+          meta: {
+            label: t('Event'),
+          },
         }
       )
     }
@@ -112,7 +118,9 @@ export function useAuditLogColumns(
         cell: ({ row }) => (
           <span className='font-mono'>{row.original.ip || '—'}</span>
         ),
-        meta: { label: 'IP' },
+        meta: {
+          label: 'IP',
+        },
       },
       {
         accessorKey: 'user_agent',
@@ -123,7 +131,10 @@ export function useAuditLogColumns(
             {row.original.user_agent || '—'}
           </TruncatedCell>
         ),
-        meta: { label: t('Client'), mobileHidden: true },
+        meta: {
+          label: t('Client'),
+          mobileHidden: true,
+        },
       },
       {
         accessorKey: 'method',
@@ -134,7 +145,9 @@ export function useAuditLogColumns(
             {row.original.method || '—'}
           </span>
         ),
-        meta: { label: t('Method') },
+        meta: {
+          label: t('Method'),
+        },
       },
       {
         accessorKey: 'route',
@@ -145,7 +158,9 @@ export function useAuditLogColumns(
             {row.original.route || '—'}
           </TruncatedCell>
         ),
-        meta: { label: t('Route') },
+        meta: {
+          label: t('Route'),
+        },
       },
       {
         accessorKey: 'status',
@@ -156,7 +171,9 @@ export function useAuditLogColumns(
             {row.original.status || '—'}
           </span>
         ),
-        meta: { label: 'HTTP' },
+        meta: {
+          label: 'HTTP',
+        },
       },
       {
         accessorKey: 'success',
@@ -169,7 +186,10 @@ export function useAuditLogColumns(
             copyable={false}
           />
         ),
-        meta: { label: t('Result'), mobileBadge: true },
+        meta: {
+          label: t('Result'),
+          mobileBadge: true,
+        },
       },
       {
         id: 'details',
@@ -177,7 +197,9 @@ export function useAuditLogColumns(
         size: 70,
         enableHiding: false,
         cell: ({ row }) => <AuditLogDetailsDialog entry={row.original} />,
-        meta: { label: t('Details') },
+        meta: {
+          label: t('Details'),
+        },
       }
     )
     return columns

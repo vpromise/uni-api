@@ -21,8 +21,8 @@ func TestTaskPluginChannelSelectionFiltersBothCachePaths(t *testing.T) {
 		{Id: 900001, Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Name: "alpha", Models: "shared", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &alphaSetting},
 		{Id: 900002, Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Name: "beta", Models: "shared", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &betaSetting},
 		{Id: 900003, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "ordinary", Models: "ordinary", Group: "default", Priority: &priority, Weight: &weight},
-		{Id: 900004, Type: constant.ChannelTypeKling, Status: common.ChannelStatusEnabled, Name: "legacy-alpha", Models: "legacy", Group: "default", Priority: &priority, Weight: &weight},
-		{Id: 900005, Type: constant.ChannelTypeJimeng, Status: common.ChannelStatusEnabled, Name: "legacy-beta", Models: "legacy", Group: "default", Priority: &priority, Weight: &weight},
+		{Id: 900004, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "legacy-alpha", Models: "legacy", Group: "default", Priority: &priority, Weight: &weight},
+		{Id: 900005, Type: constant.ChannelTypeAnthropic, Status: common.ChannelStatusEnabled, Name: "legacy-beta", Models: "legacy", Group: "default", Priority: &priority, Weight: &weight},
 	}
 	for i := range channels {
 		require.NoError(t, channels[i].Insert())
@@ -39,11 +39,11 @@ func TestTaskPluginChannelSelectionFiltersBothCachePaths(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, selected)
 	assert.Equal(t, "ordinary", selected.Name)
-	selected, err = GetChannel("default", "legacy", 0, identityFilters("legacy-alpha", []int{constant.ChannelTypeKling}))
+	selected, err = GetChannel("default", "legacy", 0, identityFilters("legacy-alpha", []int{constant.ChannelTypeOpenAI}))
 	require.NoError(t, err)
 	require.NotNil(t, selected)
 	assert.Equal(t, "legacy-alpha", selected.Name)
-	selected, err = GetChannel("default", "legacy", 0, identityFilters("legacy-alpha", []int{constant.ChannelTypeKling, constant.ChannelTypeJimeng}))
+	selected, err = GetChannel("default", "legacy", 0, identityFilters("legacy-alpha", []int{constant.ChannelTypeOpenAI, constant.ChannelTypeAnthropic}))
 	require.NoError(t, err)
 	require.NotNil(t, selected)
 	assert.Contains(t, []string{"legacy-alpha", "legacy-beta"}, selected.Name)
@@ -89,8 +89,8 @@ func TestNewAPIChannelServesExtendedTaskPlugins(t *testing.T) {
 	extended := `{"task_extend_plugin_keys":["alpha","gamma"]}`
 	single := `{"task_plugin_key":"delta"}`
 	channels := []Channel{
-		{Id: 920001, Type: constant.ChannelTypeNewAPI, Status: common.ChannelStatusEnabled, Name: "gateway", Models: "shared,chat", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &extended},
-		{Id: 920002, Type: constant.ChannelTypeNewAPI, Status: common.ChannelStatusEnabled, Name: "gateway-single", Models: "shared", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &single},
+		{Id: 920001, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "gateway", Models: "shared,chat", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &extended},
+		{Id: 920002, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "gateway-single", Models: "shared", Group: "default", Priority: &priority, Weight: &weight, BaseURL: &baseURL, Setting: &single},
 	}
 	for i := range channels {
 		require.NoError(t, channels[i].Insert())
@@ -122,17 +122,17 @@ func TestModelModifierNamesRouteWithAndWithoutMemoryCache(t *testing.T) {
 	truncateTables(t)
 	originalMemoryCache := common.MemoryCacheEnabled
 	t.Cleanup(func() { common.MemoryCacheEnabled = originalMemoryCache; InitChannelCache() })
-	channel := Channel{Id: 930001, Type: constant.ChannelTypeDeepSeek, Status: common.ChannelStatusEnabled, Name: "deepseek", Models: "deepseek-flash", Group: "default"}
+	channel := Channel{Id: 930001, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "openai", Models: "gpt-4.1", Group: "default"}
 	require.NoError(t, channel.Insert())
 
 	for _, memoryCache := range []bool{false, true} {
 		common.MemoryCacheEnabled = memoryCache
 		InitChannelCache()
-		selected, err := GetRandomSatisfiedChannel("default", "deepseek-flash@effort:max", 0, nil)
+		selected, err := GetRandomSatisfiedChannel("default", "gpt-4.1@effort:max", 0, nil)
 		require.NoError(t, err)
 		require.NotNil(t, selected, "memory cache %v", memoryCache)
-		assert.Equal(t, "deepseek", selected.Name)
-		selected, err = GetRandomSatisfiedChannel("default", "deepseek-pro@effort:max", 0, nil)
+		assert.Equal(t, "openai", selected.Name)
+		selected, err = GetRandomSatisfiedChannel("default", "other-model@effort:max", 0, nil)
 		require.NoError(t, err)
 		assert.Nil(t, selected, "memory cache %v", memoryCache)
 	}

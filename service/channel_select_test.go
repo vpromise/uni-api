@@ -13,7 +13,7 @@ import (
 
 func TestPinnedTaskPluginChannelTypesUsesPinnedGenerationIndex(t *testing.T) {
 	registry := jsplugin.NewRegistry()
-	plugin, err := registry.Register(channelSelectTaskPluginSource("legacy-select", constant.ChannelTypeKling), jsplugin.Options{})
+	plugin, err := registry.Register(channelSelectTaskPluginSource("legacy-select", constant.ChannelTypeOpenAI), jsplugin.Options{})
 	require.NoError(t, err)
 
 	c, _ := gin.CreateTestContext(nil)
@@ -23,7 +23,7 @@ func TestPinnedTaskPluginChannelTypesUsesPinnedGenerationIndex(t *testing.T) {
 	})
 
 	types, keys := pinnedTaskPluginIdentities(c, "legacy-select")
-	assert.Equal(t, []int{constant.ChannelTypeKling}, types)
+	assert.Equal(t, []int{constant.ChannelTypeOpenAI}, types)
 	assert.Equal(t, []string{"legacy-select"}, keys)
 	types, keys = pinnedTaskPluginIdentities(c, "another-plugin")
 	assert.Empty(t, types)
@@ -47,36 +47,6 @@ func TestPinnedTaskPluginChannelTypesLeavesGenericChannelsKeyed(t *testing.T) {
 	types, keys := pinnedTaskPluginIdentities(c, "generic-select")
 	assert.Empty(t, types)
 	assert.Equal(t, []string{"generic-select"}, keys)
-}
-
-func TestPinnedTaskPluginChannelTypesIncludesSharedEndpointProviders(t *testing.T) {
-	registry := jsplugin.NewRegistry()
-	_, err := registry.Register(channelSelectEndpointPluginSource("gemini-select", constant.ChannelTypeGemini), jsplugin.Options{})
-	require.NoError(t, err)
-	_, err = registry.Register(channelSelectEndpointPluginSource("vertex-select", constant.ChannelTypeVertexAi), jsplugin.Options{})
-	require.NoError(t, err)
-	candidates := registry.Generation().LookupEndpointCandidates("POST", "/v1/responses", "task-model")
-	require.Len(t, candidates, 2)
-
-	c, _ := gin.CreateTestContext(nil)
-	c.Set(jsplugin.ContextKeyPinnedPlugin, jsplugin.PinnedPlugin{
-		Generation: registry.Generation(),
-		Plugin:     candidates[0].Plugin,
-	})
-	c.Set(jsplugin.ContextKeyPinnedEndpoint, jsplugin.PinnedEndpoint{
-		Generation: registry.Generation(),
-		Plugin:     candidates[0].Plugin,
-		Protocol:   candidates[0].Protocol,
-		Operation:  candidates[0].Operation,
-		Model:      "task-model",
-		Candidates: candidates,
-	})
-
-	AppendTaskPluginIdentityFilter(c, candidates[0].Plugin.Meta.Key)
-	filters := GetChannelConstraints(c).Filters
-	require.Len(t, filters, 1)
-	assert.Equal(t, []int{constant.ChannelTypeGemini, constant.ChannelTypeVertexAi}, filters[0].TaskPluginChannelTypes)
-	assert.Equal(t, []string{"gemini-select", "vertex-select"}, filters[0].TaskPluginKeys)
 }
 
 func channelSelectTaskPluginSource(key string, channelType int) string {
@@ -132,7 +102,7 @@ func channelSelectChannelTypesField(channelType int) string {
 
 func TestPinnedTaskPluginChannelTypesIncludesCompatibleTypes(t *testing.T) {
 	registry := jsplugin.NewRegistry()
-	plugin, err := registry.Register(channelSelectCompatiblePluginSource("sora-select", constant.ChannelTypeSora, constant.ChannelTypeOpenAI), jsplugin.Options{})
+	plugin, err := registry.Register(channelSelectCompatiblePluginSource("sora-select", constant.ChannelTypeOpenAI, constant.ChannelTypeAnthropic), jsplugin.Options{})
 	require.NoError(t, err)
 
 	c, _ := gin.CreateTestContext(nil)
@@ -142,7 +112,7 @@ func TestPinnedTaskPluginChannelTypesIncludesCompatibleTypes(t *testing.T) {
 	})
 
 	types, keys := pinnedTaskPluginIdentities(c, "sora-select")
-	assert.Equal(t, []int{constant.ChannelTypeSora, constant.ChannelTypeOpenAI}, types)
+	assert.Equal(t, []int{constant.ChannelTypeOpenAI, constant.ChannelTypeAnthropic}, types)
 	assert.Equal(t, []string{"sora-select"}, keys)
 }
 

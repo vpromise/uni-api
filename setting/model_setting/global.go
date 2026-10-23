@@ -47,10 +47,7 @@ type GlobalSettings struct {
 // 默认配置
 var defaultOpenaiSettings = GlobalSettings{
 	PassThroughRequestEnabled: false,
-	ThinkingModelBlacklist: []string{
-		"moonshotai/kimi-k2-thinking",
-		"kimi-k2-thinking",
-	},
+
 	EffortTailModelIDs: []string{
 		"gpt-5.1-codex-max",
 		"qwen-image-edit-max",

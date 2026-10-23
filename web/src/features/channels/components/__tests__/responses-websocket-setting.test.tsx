@@ -23,8 +23,6 @@ import { assert, describe, expect, test } from 'vitest'
 
 import { Form } from '@/components/ui/form'
 
-import { CHANNEL_TYPE_NEW_API, CHANNEL_TYPE_SUB2API } from '../../constants'
-import { CHANNEL_TYPE_ADVANCED_CUSTOM } from '../../lib/advanced-custom'
 import {
   buildSettingJSON,
   CHANNEL_FORM_DEFAULT_VALUES,
@@ -35,15 +33,7 @@ import {
 } from '../../lib/channel-form'
 import { channelSchema } from '../../types'
 import { ResponsesWebSocketSetting } from '../responses-websocket-setting'
-
-const supportedChannelTypes = [
-  1,
-  57,
-  CHANNEL_TYPE_ADVANCED_CUSTOM,
-  CHANNEL_TYPE_SUB2API,
-  CHANNEL_TYPE_NEW_API,
-]
-
+const supportedChannelTypes = [1, 57]
 function SettingsForm(props: {
   channelType: number
   disabled?: boolean
@@ -73,7 +63,6 @@ function SettingsForm(props: {
     </Form>
   )
 }
-
 describe('Responses WebSocket channel setting', () => {
   describe.each(supportedChannelTypes)('channel type %s', (channelType) => {
     test.each([undefined, false, true])(
@@ -89,7 +78,9 @@ describe('Responses WebSocket channel setting', () => {
           test_time: 0,
           response_time: 0,
           balance_updated_time: 0,
-          setting: JSON.stringify({ responses_websocket_enabled: enabled }),
+          setting: JSON.stringify({
+            responses_websocket_enabled: enabled,
+          }),
         })
         const values = transformChannelToFormDefaults(channel)
         const payloads = [
@@ -111,14 +102,12 @@ describe('Responses WebSocket channel setting', () => {
       }
     )
   })
-
   test('new channels default to WebSocket disabled', () => {
     expect(
       JSON.parse(buildSettingJSON(CHANNEL_FORM_DEFAULT_VALUES))
         .responses_websocket_enabled
     ).toBe(false)
   })
-
   test.each(supportedChannelTypes)(
     'channel type %s exposes an accessible switch and saves on and off',
     async (channelType) => {
@@ -135,15 +124,22 @@ describe('Responses WebSocket channel setting', () => {
       })
       expect(toggle).not.toBeChecked()
       await user.click(toggle)
-      await user.click(screen.getByRole('button', { name: 'Save' }))
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Save',
+        })
+      )
       expect(JSON.parse(saved[0]).responses_websocket_enabled).toBe(true)
       toggle.focus()
       await user.keyboard(' ')
-      await user.click(screen.getByRole('button', { name: 'Save' }))
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Save',
+        })
+      )
       expect(JSON.parse(saved[1]).responses_websocket_enabled).toBe(false)
     }
   )
-
   test('unsupported channels hide the switch and do not save it as enabled', async () => {
     const user = userEvent.setup()
     const saved: string[] = []
@@ -155,10 +151,13 @@ describe('Responses WebSocket channel setting', () => {
       />
     )
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Save',
+      })
+    )
     expect(JSON.parse(saved[0]).responses_websocket_enabled).toBe(false)
   })
-
   test('locked channel settings prevent toggling', async () => {
     const user = userEvent.setup()
     render(

@@ -51,9 +51,7 @@ import { CommonLogsFilterBar } from './common-logs-filter-bar'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
 import { UsageLogsMobileList } from './usage-logs-mobile-card'
 import { useLogsViewScope, type LogsViewAccess } from './usage-logs-provider'
-
 const route = getRouteApi('/_authenticated/usage-logs/$section')
-
 const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
   [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
@@ -62,14 +60,12 @@ const logTypeRowTint: Record<number, string> = {
 // Warning tint for logs where a quota conversion saturated (admin-only marker).
 // Takes precedence over the per-type tint since it flags a billing anomaly.
 const quotaSaturationRowTint = 'bg-amber-50/60 dark:bg-amber-950/25'
-
 function getColumnVisibilityStorageKey(
   logCategory: LogCategory,
   viewAccess: LogsViewAccess
 ): string {
   return `usage-logs:${logCategory}:${viewAccess}:column-visibility`
 }
-
 function deserializeLogTypeFilter(value: unknown): unknown[] {
   let values: unknown[] = []
   if (Array.isArray(value)) {
@@ -79,11 +75,9 @@ function deserializeLogTypeFilter(value: unknown): unknown[] {
   }
   return values.filter((item) => String(item) !== LOG_TYPE_ALL_VALUE)
 }
-
 interface UsageLogsTableProps {
   logCategory: LogCategory
 }
-
 export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const { t } = useTranslation()
   const getColumnClassName = useCallback(
@@ -110,7 +104,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
           subscriptions: undefined,
         })
       }
-
       const selfResult = await getSelfSubscriptionFull()
       return shouldShowBillingSource({
         isAdmin,
@@ -121,7 +114,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       })
     },
   })
-
   const {
     columnFilters,
     onColumnFiltersChange,
@@ -131,8 +123,13 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   } = useTableUrlState({
     search: route.useSearch(),
     navigate: route.useNavigate(),
-    pagination: { defaultPage: 1, defaultPageSize: isMobile ? 20 : 100 },
-    globalFilter: { enabled: false },
+    pagination: {
+      defaultPage: 1,
+      defaultPageSize: isMobile ? 20 : 100,
+    },
+    globalFilter: {
+      enabled: false,
+    },
     columnFilters: [
       {
         columnId: 'created_at',
@@ -140,9 +137,21 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         type: 'array' as const,
         deserialize: deserializeLogTypeFilter,
       },
-      { columnId: 'model_name', searchKey: 'model', type: 'string' as const },
-      { columnId: 'token_name', searchKey: 'token', type: 'string' as const },
-      { columnId: 'group', searchKey: 'group', type: 'string' as const },
+      {
+        columnId: 'model_name',
+        searchKey: 'model',
+        type: 'string' as const,
+      },
+      {
+        columnId: 'token_name',
+        searchKey: 'token',
+        type: 'string' as const,
+      },
+      {
+        columnId: 'group',
+        searchKey: 'group',
+        type: 'string' as const,
+      },
       ...(isAdmin
         ? [
             {
@@ -159,7 +168,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         : []),
     ],
   })
-
   const { data, isLoading, isFetching } = useQuery({
     queryKey: [
       'logs',
@@ -180,11 +188,9 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         searchParams,
         columnFilters,
       })
-
       if (!result?.success) {
         throw createServerError(result, t('Failed to load logs'))
       }
-
       return result.data || DEFAULT_LOGS_DATA
     },
     placeholderData: (previousData, previousQuery) => {
@@ -197,7 +203,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       return undefined
     },
   })
-
   const logs = data?.items || []
   const columns = useColumnsByCategory(
     logCategory,
@@ -206,7 +211,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     showBillingSource
   )
   const isLoadingData = isLoading || (isFetching && !data)
-
   const { table } = useDataTable({
     data: logs as Record<string, unknown>[],
     columns: columns as ColumnDef<Record<string, unknown>>[],
@@ -224,9 +228,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     totalCount: data?.total || 0,
     ensurePageInRange,
   })
-
   const isCommon = logCategory === 'common'
-
   return (
     <DataTablePage
       table={table}
@@ -271,7 +273,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
             tintClass = quotaSaturationRowTint
           }
         }
-
         return (
           <DataTableRow
             key={row.id}

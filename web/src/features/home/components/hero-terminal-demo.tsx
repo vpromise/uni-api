@@ -19,9 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
-
 type AccentTone = 'emerald' | 'amber' | 'blue' | 'violet'
-
 interface ApiDemoConfig {
   id: string
   label: string
@@ -35,7 +33,6 @@ interface ApiDemoConfig {
   latency: number
   accent: AccentTone
 }
-
 const ACCENT_CLASSES: Record<
   AccentTone,
   {
@@ -69,7 +66,6 @@ const ACCENT_CLASSES: Record<
       'bg-violet-500/10 text-violet-600 dark:bg-violet-400/10 dark:text-violet-400',
   },
 }
-
 const API_DEMOS: ApiDemoConfig[] = [
   {
     id: 'gpt-chat',
@@ -136,48 +132,20 @@ const API_DEMOS: ApiDemoConfig[] = [
     latency: 156,
     accent: 'blue',
   },
-  {
-    id: 'gemini',
-    label: 'Gemini',
-    method: 'POST',
-    endpoint: '/v1beta/models/{model}:generateContent',
-    headers: ['"x-goog-api-key: sk-••••"'],
-    request: [
-      '"contents": [',
-      '  { "role": "user",',
-      '    "parts": [{ "text": "..." }] }',
-      ']',
-    ],
-    response: [
-      '{',
-      '  "candidates": [{ "content": { "parts": [{ "text": <text> }] } }],',
-      '  "usageMetadata": { "totalTokenCount": <tokens> }',
-      '}',
-    ],
-    responseHighlights: ['<text>', '<tokens>'],
-    tokens: 25,
-    latency: 93,
-    accent: 'violet',
-  },
 ]
-
 const CYCLE_INTERVAL = 4500
 const TRANSITION_MS = 220
-
 interface HeroTerminalDemoProps {
   className?: string
 }
-
 export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) return
-
     intervalRef.current = setInterval(() => {
       setTransitioning(true)
       timeoutRef.current = setTimeout(() => {
@@ -185,13 +153,11 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
         setTransitioning(false)
       }, TRANSITION_MS)
     }, CYCLE_INTERVAL)
-
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [])
-
   const handleSelect = (index: number) => {
     if (index === activeIndex) return
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -202,10 +168,8 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
       setTransitioning(false)
     }, TRANSITION_MS)
   }
-
   const demo = API_DEMOS[activeIndex]
   const accent = ACCENT_CLASSES[demo.accent]
-
   return (
     <div className={cn('mx-auto w-full max-w-2xl', props.className)}>
       <div
@@ -315,10 +279,8 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
     </div>
   )
 }
-
 function RequestBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
   const { demo, transitioning } = props
-
   return (
     <div className='relative px-5 py-4'>
       <SectionLabel>Request</SectionLabel>
@@ -354,10 +316,8 @@ function RequestBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
     </div>
   )
 }
-
 function ResponseBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
   const { demo, transitioning } = props
-
   return (
     <div
       className={cn(
@@ -379,7 +339,6 @@ function ResponseBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
     </div>
   )
 }
-
 function SectionLabel(props: { children: ReactNode }) {
   return (
     <span className='text-foreground/30 font-sans text-[10px] font-semibold tracking-[0.18em] uppercase'>
@@ -387,24 +346,18 @@ function SectionLabel(props: { children: ReactNode }) {
     </span>
   )
 }
-
 const STRING_RE = /"[^"]*"/g
 const PLACEHOLDER_RE = /<[a-z]+>/gi
-
 function renderJsonLine(line: string): ReactNode {
   if (!line.trim()) return <Muted> </Muted>
   return tokenize(line)
 }
-
 function renderResponseLine(line: string, demo: ApiDemoConfig): ReactNode {
   if (!line.trim()) return <Muted> </Muted>
-
   const segments: ReactNode[] = []
   let cursor = 0
   const matches = [...line.matchAll(PLACEHOLDER_RE)]
-
   if (matches.length === 0) return tokenize(line)
-
   matches.forEach((match, idx) => {
     const start = match.index ?? 0
     if (start > cursor) {
@@ -438,30 +391,24 @@ function renderResponseLine(line: string, demo: ApiDemoConfig): ReactNode {
     }
     cursor = start + placeholder.length
   })
-
   if (cursor < line.length) {
     segments.push(<span key='tail'>{tokenize(line.slice(cursor))}</span>)
   }
-
   return segments
 }
-
 function truncateResponse(demo: ApiDemoConfig): string {
   const map: Record<string, string> = {
     'gpt-chat': 'Chat request routed.',
     responses: 'Response workflow ready.',
     claude: 'Claude message routed.',
-    gemini: 'Gemini request served.',
   }
   return map[demo.id] ?? '...'
 }
-
 function tokenize(input: string): ReactNode {
   // Split string into "..." string runs and the rest, then color keys/punct.
   const segments: ReactNode[] = []
   let cursor = 0
   const matches = [...input.matchAll(STRING_RE)]
-
   matches.forEach((match, idx) => {
     const start = match.index ?? 0
     if (start > cursor) {
@@ -479,14 +426,11 @@ function tokenize(input: string): ReactNode {
     }
     cursor = start + text.length
   })
-
   if (cursor < input.length) {
     segments.push(<Muted key='tail'>{input.slice(cursor)}</Muted>)
   }
-
   return segments
 }
-
 function CodeLine(props: { children: ReactNode; indent?: number }) {
   return (
     <div className='break-words whitespace-pre-wrap'>
@@ -494,14 +438,15 @@ function CodeLine(props: { children: ReactNode; indent?: number }) {
         <span
           aria-hidden
           className='inline-block'
-          style={{ width: `${props.indent}ch` }}
+          style={{
+            width: `${props.indent}ch`,
+          }}
         />
       ) : null}
       {props.children}
     </div>
   )
 }
-
 function Command(props: { children: ReactNode }) {
   return (
     <span className='font-medium text-emerald-600 dark:text-emerald-400'>
@@ -509,25 +454,21 @@ function Command(props: { children: ReactNode }) {
     </span>
   )
 }
-
 function Flag(props: { children: ReactNode }) {
   return (
     <span className='text-blue-600 dark:text-blue-400'>{props.children}</span>
   )
 }
-
 function Key(props: { children: ReactNode }) {
   return (
     <span className='text-sky-700 dark:text-sky-300'>{props.children}</span>
   )
 }
-
 function StringText(props: { children: ReactNode }) {
   return (
     <span className='text-amber-700 dark:text-amber-300'>{props.children}</span>
   )
 }
-
 function NumberText(props: { children: ReactNode }) {
   return (
     <span className='font-medium text-violet-600 dark:text-violet-300'>
@@ -535,11 +476,9 @@ function NumberText(props: { children: ReactNode }) {
     </span>
   )
 }
-
 function Muted(props: { children: ReactNode }) {
   return <span className='text-foreground/55'>{props.children}</span>
 }
-
 function Accent(props: { children: ReactNode; accent: AccentTone }) {
   const tone = ACCENT_CLASSES[props.accent]
   return (

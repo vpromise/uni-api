@@ -105,7 +105,6 @@ const CHANNEL_FIELD_LABELS: Record<string, string> = {
   base_url: 'Base URL',
   key: 'Key',
 }
-
 function timingTextColorClass(
   variant: 'success' | 'warning' | 'danger'
 ): string {
@@ -113,12 +112,10 @@ function timingTextColorClass(
   if (variant === 'warning') return 'text-amber-600'
   return 'text-rose-600'
 }
-
 function formatRatio(ratio: number | undefined): string {
   if (ratio == null) return '-'
   return ratio.toFixed(4)
 }
-
 function getUsageBillingPathLabel(
   t: TFunction,
   adminInfo: LogOtherData['admin_info']
@@ -134,10 +131,6 @@ function getUsageBillingPathLabel(
       return t('Upstream Response (billing-usage-anthropic)')
     case USAGE_BILLING_PATH.ANTHROPIC_ESTIMATED:
       return t('Upstream Response (billing-usage-anthropic-estimated)')
-    case USAGE_BILLING_PATH.GEMINI:
-      return t('Upstream Response (billing-usage-gemini)')
-    case USAGE_BILLING_PATH.GEMINI_ESTIMATED:
-      return t('Upstream Response (billing-usage-gemini-estimated)')
     case USAGE_BILLING_PATH.UPSTREAM:
       return t('Upstream Response')
     default:
@@ -146,7 +139,6 @@ function getUsageBillingPathLabel(
         : t('Upstream Response')
   }
 }
-
 function isUsageBillingPathLocal(
   adminInfo: LogOtherData['admin_info']
 ): boolean {
@@ -155,7 +147,6 @@ function isUsageBillingPathLocal(
   }
   return adminInfo?.local_count_tokens === true
 }
-
 function quotaSaturationKindLabel(
   kind: 'overflow' | 'underflow' | 'nan',
   t: (key: string) => string
@@ -164,7 +155,6 @@ function quotaSaturationKindLabel(
   if (kind === 'underflow') return t('Underflow')
   return t('Invalid (NaN)')
 }
-
 function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
@@ -178,12 +168,17 @@ function BillingBreakdown(props: {
   const hasCacheWrite12h = (other.cache_creation_tokens_12h || 0) > 0
   const isTieredExpr = other.billing_mode === 'tiered_expr'
   const tieredSummary = getTieredBillingSummary(other)
-
-  const rows: Array<{ label: string; value: string }> = []
-  const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
+  const rows: Array<{
+    label: string
+    value: string
+  }> = []
+  const priceOpts = {
+    digitsLarge: 4,
+    digitsSmall: 6,
+    abbreviate: false,
+  }
   const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
   const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
-
   if (isTieredExpr) {
     rows.push({
       label: t('Billing Mode'),
@@ -209,7 +204,10 @@ function BillingBreakdown(props: {
       })
     }
   } else if (isPerCall) {
-    rows.push({ label: t('Billing Mode'), value: t('Per-call') })
+    rows.push({
+      label: t('Billing Mode'),
+      value: t('Per-call'),
+    })
     if (other.model_price != null) {
       rows.push({
         label: t('Model Price'),
@@ -217,7 +215,10 @@ function BillingBreakdown(props: {
       })
     }
   } else {
-    rows.push({ label: t('Billing Mode'), value: t('Per-token') })
+    rows.push({
+      label: t('Billing Mode'),
+      value: t('Per-token'),
+    })
     if (other.model_ratio != null) {
       rows.push({
         label: t('Input'),
@@ -231,7 +232,6 @@ function BillingBreakdown(props: {
       })
     }
   }
-
   const userGR = other.user_group_ratio
   const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
   const effectiveGR = isUserGR ? userGR : other.group_ratio
@@ -241,7 +241,6 @@ function BillingBreakdown(props: {
       value: `${formatRatio(effectiveGR)}x`,
     })
   }
-
   if (
     !isTieredExpr &&
     (isClaude || hasCacheWrite12h) &&
@@ -292,7 +291,6 @@ function BillingBreakdown(props: {
       })
     }
   }
-
   if (!isTieredExpr) {
     if (other.audio_ratio != null && other.audio_ratio !== 1) {
       rows.push({
@@ -300,7 +298,6 @@ function BillingBreakdown(props: {
         value: `${fmtPrice(baseInputUSD * other.audio_ratio)}/M`,
       })
     }
-
     if (
       other.audio_completion_ratio != null &&
       other.audio_completion_ratio !== 1
@@ -310,7 +307,6 @@ function BillingBreakdown(props: {
         value: `${fmtPrice(baseInputUSD * other.audio_completion_ratio)}/M`,
       })
     }
-
     if (other.image_ratio != null && other.image_ratio !== 1) {
       rows.push({
         label: t('Image input'),
@@ -318,49 +314,42 @@ function BillingBreakdown(props: {
       })
     }
   }
-
   if (other.web_search && other.web_search_call_count) {
     rows.push({
       label: t('Web Search'),
       value: `${other.web_search_call_count}x${other.web_search_price ? ` (${fmtPrice(other.web_search_price)})` : ''}`,
     })
   }
-
   if (other.file_search && other.file_search_call_count) {
     rows.push({
       label: t('File Search'),
       value: `${other.file_search_call_count}x${other.file_search_price ? ` (${fmtPrice(other.file_search_price)})` : ''}`,
     })
   }
-
   if (other.image_generation_call && other.image_generation_call_price) {
     rows.push({
       label: t('Image Generation'),
       value: fmtPrice(other.image_generation_call_price),
     })
   }
-
   if (other.audio_input_seperate_price && other.audio_input_price) {
     rows.push({
       label: t('Audio Input Price'),
       value: fmtPrice(other.audio_input_price),
     })
   }
-
   if (isAdmin && other.admin_info) {
     rows.push({
       label: t('Billing Path'),
       value: getUsageBillingPathLabel(t, other.admin_info),
     })
   }
-
   const usageFacts =
     other.usage_facts != null &&
     typeof other.usage_facts === 'object' &&
     !Array.isArray(other.usage_facts)
       ? Object.entries(other.usage_facts)
       : []
-
   return (
     <DetailSection label={t('Billing Details')}>
       {rows.map((row) => (
@@ -389,11 +378,9 @@ function BillingBreakdown(props: {
     </DetailSection>
   )
 }
-
 function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const { t } = useTranslation()
   const { log, other } = props
-
   const promptTokens = log.prompt_tokens || 0
   const completionTokens = log.completion_tokens || 0
   const cacheRead = other.cache_tokens || 0
@@ -405,31 +392,31 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const cacheWrite30m =
     cacheWrite12h > 0 ? Math.max(cacheWrite - cacheWrite12h, 0) : 0
   const hasTokens = promptTokens > 0 || completionTokens > 0
-
   if (!hasTokens) return null
-
-  const rows: Array<{ label: string; value: string }> = []
-
-  rows.push({ label: t('Input Tokens'), value: promptTokens.toLocaleString() })
+  const rows: Array<{
+    label: string
+    value: string
+  }> = []
+  rows.push({
+    label: t('Input Tokens'),
+    value: promptTokens.toLocaleString(),
+  })
   rows.push({
     label: t('Output Tokens'),
     value: completionTokens.toLocaleString(),
   })
-
   if (cacheRead > 0) {
     rows.push({
       label: t('Cache Read'),
       value: cacheRead.toLocaleString(),
     })
   }
-
   if (other.image_cache_tokens !== undefined) {
     rows.push({
       label: t('Image Cache'),
       value: other.image_cache_tokens.toLocaleString(),
     })
   }
-
   if (
     cacheWrite > 0 &&
     cacheWrite5m === 0 &&
@@ -441,42 +428,36 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
       value: cacheWrite.toLocaleString(),
     })
   }
-
   if (cacheWrite5m > 0) {
     rows.push({
       label: t('Cache Write (5m)'),
       value: cacheWrite5m.toLocaleString(),
     })
   }
-
   if (cacheWrite1h > 0) {
     rows.push({
       label: t('Cache Write (1h)'),
       value: cacheWrite1h.toLocaleString(),
     })
   }
-
   if (cacheWrite30m > 0) {
     rows.push({
       label: t('Cache Write (30m)'),
       value: cacheWrite30m.toLocaleString(),
     })
   }
-
   if (cacheWrite12h > 0) {
     rows.push({
       label: t('Cache Write (12h)'),
       value: cacheWrite12h.toLocaleString(),
     })
   }
-
   if (other.image && other.image_output) {
     rows.push({
       label: t('Image Tokens'),
       value: other.image_output.toLocaleString(),
     })
   }
-
   return (
     <DetailSection label={t('Token Breakdown')}>
       {rows.map((row) => (
@@ -508,7 +489,6 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
     </DetailSection>
   )
 }
-
 interface DetailsDialogProps {
   log: UsageLog
   isAdmin: boolean
@@ -516,13 +496,13 @@ interface DetailsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
 export function DetailsDialog(props: DetailsDialogProps) {
   const { t } = useTranslation()
-  const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
+  const { copiedText, copyToClipboard } = useCopyToClipboard({
+    notify: false,
+  })
   const other = parseLogOther(props.log.other)
   const typeConfig = getLogTypeConfig(props.log.type)
-
   const isViolation = isViolationFeeLog(other)
   const isRefund = props.log.type === 6
   const isConsume = props.log.type === 2
@@ -573,7 +553,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
             label: t('System Version'),
             value: adminInfo.version,
           },
-        ].filter(Boolean) as Array<{ label: string; value: string }>)
+        ].filter(Boolean) as Array<{
+          label: string
+          value: string
+        }>)
       : []
   const showLegacyTopupWarning = isTopup && props.isAdmin && !adminInfo
   const showTopupAuditSection =
@@ -644,9 +627,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
           label: t('User Agent'),
           value: String(other.user_agent),
         },
-      ].filter(Boolean) as Array<{ label: string; value: string }>)
+      ].filter(Boolean) as Array<{
+        label: string
+        value: string
+      }>)
     : []
-
   const conversionChain =
     other && Array.isArray(other.request_conversion)
       ? other.request_conversion.filter(Boolean)
@@ -659,14 +644,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
     props.isAdmin &&
     props.log.type !== 6 &&
     (other?.request_path || conversionChain.length > 0)
-
   const useChannel = other?.admin_info?.use_channel
   const channelChain =
     useChannel && useChannel.length > 0 ? useChannel.join(' → ') : undefined
   const reasoningEffortVariant = getReasoningEffortVariant(
     other?.reasoning_effort
   )
-
   return (
     <Dialog
       open={props.open}
@@ -1412,7 +1395,6 @@ export function DetailsDialog(props: DetailsDialogProps) {
     </Dialog>
   )
 }
-
 function isDisplayableType(type: number): boolean {
   return [0, 2, 5, 6].includes(type)
 }

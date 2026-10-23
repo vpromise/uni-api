@@ -35,14 +35,12 @@ import type { UsageLog } from '../data/schema'
 import { TASK_MOBILE_SUMMARY_FIELDS } from '../lib/task-mobile-layout'
 import type { LogCategory } from '../types'
 import { CommonLogMobileCard } from './common-log-mobile-card'
-
 const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.ERROR]:
     'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/50 dark:border-rose-900/30',
   [LOG_TYPE_ENUM.REFUND]:
     'bg-blue-50/30 dark:bg-blue-950/15 border-blue-200/50 dark:border-blue-900/30',
 }
-
 interface UsageLogsMobileListProps<TData> {
   table: Table<TData>
   isLoading?: boolean
@@ -50,7 +48,6 @@ interface UsageLogsMobileListProps<TData> {
   emptyDescription?: string
   logCategory: LogCategory
 }
-
 function UsageLogsMobileSkeleton(props: { separate: boolean }) {
   const { t } = useTranslation()
   return (
@@ -90,7 +87,6 @@ function UsageLogsMobileSkeleton(props: { separate: boolean }) {
     </div>
   )
 }
-
 function CompactCell<TData>({
   cell,
   fallback = '-',
@@ -119,7 +115,6 @@ function CompactCell<TData>({
     </div>
   )
 }
-
 function SummaryField<TData>({
   label,
   cell,
@@ -134,7 +129,6 @@ function SummaryField<TData>({
   primaryOnly?: boolean
 }) {
   if (!cell) return null
-
   return (
     <div
       className={cn('bg-muted/20 min-w-0 rounded-md px-2 py-1.5', className)}
@@ -152,17 +146,14 @@ function SummaryField<TData>({
     </div>
   )
 }
-
 function TaskLogsCard<TData>({
   cells,
 }: {
   cells: Map<string, Cell<TData, unknown>>
 }) {
   const { t } = useTranslation()
-
   const taskIdCell = cells.get('task_id')
   const statusCell = cells.get('status')
-
   return (
     <div className='space-y-2.5'>
       <div className='flex min-w-0 items-start justify-between gap-3'>
@@ -188,54 +179,6 @@ function TaskLogsCard<TData>({
     </div>
   )
 }
-
-function DrawingLogsCard<TData>({
-  cells,
-}: {
-  cells: Map<string, Cell<TData, unknown>>
-}) {
-  const { t } = useTranslation()
-
-  const actionCell = cells.get('action')
-  const codeCell = cells.get('code')
-  const submitTimeCell = cells.get('submit_time')
-
-  return (
-    <div className='space-y-2.5'>
-      <div className='flex min-w-0 items-start justify-between gap-3'>
-        <CompactCell cell={actionCell} className='flex-1' />
-        <CompactCell cell={codeCell} className='shrink-0 text-right' />
-      </div>
-
-      <div className='grid grid-cols-2 gap-1.5'>
-        <SummaryField label={t('Submit Time')} cell={submitTimeCell} />
-        <SummaryField
-          label={t('Channel')}
-          cell={cells.get('channel')}
-          primaryOnly
-        />
-        <SummaryField label={t('Task ID')} cell={cells.get('mj_id')} />
-        <SummaryField
-          label={t('Duration')}
-          cell={cells.get('duration')}
-          primaryOnly
-        />
-        <SummaryField label={t('Image')} cell={cells.get('image_url')} />
-        <SummaryField
-          label={t('Prompt')}
-          cell={cells.get('prompt')}
-          primaryOnly
-        />
-        <SummaryField
-          label={t('Fail Reason')}
-          cell={cells.get('fail_reason')}
-          className='col-span-2 bg-transparent px-0 py-0'
-        />
-      </div>
-    </div>
-  )
-}
-
 export function UsageLogsMobileList<TData>({
   table,
   isLoading = false,
@@ -244,18 +187,14 @@ export function UsageLogsMobileList<TData>({
   logCategory,
 }: UsageLogsMobileListProps<TData>) {
   const { t } = useTranslation()
-
   const resolvedEmptyTitle = emptyTitle ?? t('No Logs Found')
   const resolvedEmptyDescription =
     emptyDescription ??
     t('No usage logs available. Logs will appear here once API calls are made.')
-
   if (isLoading) {
     return <UsageLogsMobileSkeleton separate={logCategory === 'common'} />
   }
-
   const rows = table.getRowModel().rows
-
   if (!rows || rows.length === 0) {
     return (
       <div className='rounded-lg border p-6'>
@@ -271,7 +210,6 @@ export function UsageLogsMobileList<TData>({
       </div>
     )
   }
-
   return (
     <div
       className={cn(
@@ -284,12 +222,10 @@ export function UsageLogsMobileList<TData>({
         const cells = new Map(
           row.getVisibleCells().map((cell) => [cell.column.id, cell])
         )
-
         const logType = (row.original as Record<string, unknown>).type as
           | number
           | undefined
         const tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
-
         return (
           <div
             key={row.id}
@@ -307,7 +243,6 @@ export function UsageLogsMobileList<TData>({
               />
             )}
             {logCategory === 'task' && <TaskLogsCard cells={cells} />}
-            {logCategory === 'drawing' && <DrawingLogsCard cells={cells} />}
           </div>
         )
       })}

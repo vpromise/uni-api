@@ -11,8 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+
 	hostreasoning "github.com/QuantumNous/new-api/setting/reasoning"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/shopspring/decimal"
@@ -49,8 +48,6 @@ type LegacyPricingRule struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-// LegacyBillingDetails is display-only. Absolute audio prices cannot always be
-// represented by a ratio: Gemini audio can be billable with a zero text price.
 type LegacyBillingDetails struct {
 	AudioInputPrice        *float64            `json:"audio_input_price,omitempty"`
 	AudioOutputPrice       *float64            `json:"audio_output_price,omitempty"`
@@ -79,26 +76,7 @@ func ResolveLegacyBillingDetails(name string, effective, configured PricingValue
 	if err != nil {
 		return details
 	}
-	if price := operation_setting.GetGeminiInputAudioPricePerMillionTokens(name); price > 0 {
-		details.AudioInputPrice = &price
-		// Native Gemini settles with its dedicated input price; compatible
-		// chat enters the audio-ratio path when those ratios are configured.
-		// Do not silently replace one price with the other during migration.
-		audio, hasInput := effective["AudioRatio"].(float64)
-		output, hasOutput := effective["AudioCompletionRatio"].(float64)
-		if hasInput || hasOutput {
-			if !hasInput {
-				audio = 1
-			}
-			if !hasOutput {
-				output = 1
-			}
-			audioPrice := base.Mul(decimal.NewFromFloat(audio))
-			textOutput := base.Mul(decimal.NewFromFloat(effective["CompletionRatio"].(float64)))
-			details.ConflictingAudioPrices = !audioPrice.Equal(decimal.NewFromFloat(price)) || !audioPrice.Mul(decimal.NewFromFloat(output)).Equal(textOutput)
-		}
-		return details
-	}
+
 	audioRatio, hasAudio := effective["AudioRatio"].(float64)
 	audioCompletionRatio, hasAudioCompletion := effective["AudioCompletionRatio"].(float64)
 	if !hasAudio && !hasAudioCompletion {
@@ -220,7 +198,7 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 		return nil, errors.New("audio prices must be finite")
 	}
 	if preview.BillingDetails.ConflictingAudioPrices {
-		return &ModelPricingConversion{UnsupportedReason: "Gemini and OpenAI audio prices differ for this model. Use separate billing model names to convert them."}, nil
+		return &ModelPricingConversion{}, nil
 	}
 
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -249,12 +227,7 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 		if slices.Contains(common.GetEndpointTypesByChannelType(channel.Type, name), constant.EndpointTypeOpenAIVideo) {
 			return &ModelPricingConversion{UnsupportedReason: "Video pricing must be converted manually."}, nil
 		}
-		if channel.Status == common.ChannelStatusEnabled && channel.Type == constant.ChannelTypeOpenRouter && strings.Contains(strings.ToLower(name), "claude") && !fixedPrice {
-			defaultRatio, hasDefault := ratio_setting.GetDefaultModelRatioMap()[name]
-			if hasDefault && effective["ModelRatio"] == defaultRatio && effective["CreateCacheRatio"] != float64(1) {
-				return &ModelPricingConversion{UnsupportedReason: "This OpenRouter Claude price derives cache-write usage from upstream cost and must be converted manually."}, nil
-			}
-		}
+
 		upstream := name
 		if channel.ModelMapping != nil && *channel.ModelMapping != "" {
 			var mapping map[string]string
@@ -312,7 +285,7 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 				}
 			case constant.EndpointTypeOpenAIVideo:
 				return &ModelPricingConversion{UnsupportedReason: "Video pricing must be converted manually."}, nil
-			case constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic, constant.EndpointTypeGemini, constant.EndpointTypeEmbeddings, constant.EndpointTypeJinaRerank:
+			case constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic, constant.EndpointTypeEmbeddings:
 				// These endpoints use the ordinary token/fixed-request settlement.
 			}
 		}

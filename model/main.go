@@ -221,7 +221,6 @@ func InitDB() (err error) {
 			return nil
 		}
 		if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
-			//_, _ = sqlDB.Exec("ALTER TABLE channels MODIFY model_mapping TEXT;") // TODO: delete this line when most users have upgraded
 		}
 		common.SysLog(common.LogText("database migration started"))
 		err = migrateDB()
@@ -352,7 +351,6 @@ func migrateDB() error {
 		&Redemption{},
 		&Ability{},
 		&Log{},
-		&Midjourney{},
 		&TopUp{},
 		&QuotaData{},
 		&Task{},

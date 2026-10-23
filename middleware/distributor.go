@@ -175,8 +175,19 @@ func channelMatchesExpectedTaskPlugin(c *gin.Context, channel *model.Channel, ex
 	if expected == "" {
 		return channel.Type != constant.ChannelTypeTaskPlugin
 	}
-	if channel.Type == constant.ChannelTypeTaskPlugin || channel.Type == constant.ChannelTypeNewAPI {
-		return channel.GetSetting().BindsTaskPlugin(expected)
+	if channel.Type == constant.ChannelTypeTaskPlugin || channel.GetSetting().BindsTaskPlugin(expected) {
+		if !channel.GetSetting().BindsTaskPlugin(expected) {
+			return false
+		}
+		if c != nil {
+			if value, ok := c.Get(jsplugin.ContextKeyPinnedPlugin); ok {
+				if pinned, ok := value.(jsplugin.PinnedPlugin); ok && pinned.Plugin != nil {
+					declared := pinned.Plugin.Meta.ChannelTypes
+					return len(declared) == 0 || slices.Contains(declared, channel.Type)
+				}
+			}
+		}
+		return true
 	}
 
 	if c == nil {
@@ -206,6 +217,7 @@ func pinnedEndpointCandidateForChannel(c *gin.Context, channel *model.Channel, e
 	}
 	expectedOwned := false
 	selected := jsplugin.ProtocolBinding{}
+	fallback := jsplugin.ProtocolBinding{}
 	setting := channel.GetSetting()
 	for _, candidate := range candidates {
 		if candidate.Plugin == nil {
@@ -214,7 +226,14 @@ func pinnedEndpointCandidateForChannel(c *gin.Context, channel *model.Channel, e
 		if candidate.Plugin.Meta.Key == expected {
 			expectedOwned = true
 		}
-		if channel.Type == constant.ChannelTypeTaskPlugin || channel.Type == constant.ChannelTypeNewAPI {
+		declared := candidate.Plugin.Meta.ChannelTypes
+		if len(declared) > 0 && !slices.Contains(declared, channel.Type) {
+			continue
+		}
+		if candidate.Plugin.Meta.Key == expected {
+			expectedOwned = true
+		}
+		if channel.Type == constant.ChannelTypeTaskPlugin || len(setting.TaskPluginBindings()) > 0 {
 			// A New API channel may bind several candidates. The first bound
 			// candidate in generation order executes, so the billing provider
 			// depends only on the channel and the request, never on which
@@ -222,12 +241,14 @@ func pinnedEndpointCandidateForChannel(c *gin.Context, channel *model.Channel, e
 			if selected.Plugin == nil && setting.BindsTaskPlugin(candidate.Plugin.Meta.Key) {
 				selected = candidate
 			}
-			continue
 		}
 		plugin, indexed := pinned.Generation.GetByChannelType(channel.Type)
 		if indexed && plugin == candidate.Plugin {
-			selected = candidate
+			fallback = candidate
 		}
+	}
+	if selected.Plugin == nil {
+		selected = fallback
 	}
 	return selected, expectedOwned && selected.Plugin != nil
 }
@@ -364,37 +385,8 @@ func getJSONStringValue(result gjson.Result, field string) (string, error) {
 func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
-	var err error
 	if modelName := c.GetString("resolved_task_model"); modelName != "" {
 		modelRequest.Model = modelName
-	} else if strings.Contains(c.Request.URL.Path, "/mj/") {
-		relayMode := relayconstant.Path2RelayModeMidjourney(c.Request.URL.Path)
-		if relayMode == relayconstant.RelayModeMidjourneyTaskFetch ||
-			relayMode == relayconstant.RelayModeMidjourneyTaskFetchByCondition ||
-			relayMode == relayconstant.RelayModeMidjourneyNotify ||
-			relayMode == relayconstant.RelayModeMidjourneyTaskImageSeed {
-			shouldSelectChannel = false
-		} else {
-			midjourneyRequest := taskdto.MidjourneyRequest{}
-			err = common.UnmarshalBodyReusable(c, &midjourneyRequest)
-			if err != nil {
-				return nil, false, err
-			}
-			midjourneyModel, mjErr, success := service.GetMjRequestModel(relayMode, &midjourneyRequest)
-			if mjErr != nil {
-				return nil, false, fmt.Errorf("%s", mjErr.Description)
-			}
-			if midjourneyModel == "" {
-				if !success {
-					return nil, false, fmt.Errorf("%s", i18n.T(c, i18n.MsgDistributorInvalidParseModel))
-				} else {
-					// task fetch, task fetch by condition, notify
-					shouldSelectChannel = false
-				}
-			}
-			modelRequest.Model = midjourneyModel
-		}
-		c.Set("relay_mode", relayMode)
 	} else if strings.Contains(c.Request.URL.Path, "/v1/videos/") && strings.HasSuffix(c.Request.URL.Path, "/remix") {
 		relayMode := relayconstant.RelayModeVideoSubmit
 		c.Set("relay_mode", relayMode)
@@ -438,14 +430,6 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		if _, ok := c.Get("relay_mode"); !ok {
 			c.Set("relay_mode", relayMode)
 		}
-	} else if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
-		// Gemini API 路径处理: /v1beta/models/gemini-2.0-flash:generateContent
-		relayMode := relayconstant.RelayModeGemini
-		modelName := extractModelNameFromGeminiPath(c.Request.URL.Path)
-		if modelName != "" {
-			modelRequest.Model = modelName
-		}
-		c.Set("relay_mode", relayMode)
 	} else if !strings.HasPrefix(c.Request.URL.Path, "/v1/audio/transcriptions") && !strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
 		req, err := getModelFromRequest(c)
 		if err != nil {
@@ -466,13 +450,6 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		if modelRequest.Model == "" {
 			modelRequest.Model = c.Param("model")
 		}
-	}
-	// The routing name is also the billing name, so a model named in the body
-	// must not replace it: DeepSeek ignores that field.
-	if strings.HasPrefix(c.Request.URL.Path, "/v1/tools/search") {
-		modelRequest.Model = constant.DeepSeekSearchModel
-	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/tools/fetch") {
-		modelRequest.Model = constant.DeepSeekFetchModel
 	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/images/generations") {
 		modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "dall-e")
@@ -558,6 +535,10 @@ func getTaskOriginModelName(c *gin.Context) string {
 }
 
 func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	if channel == nil || !constant.IsSupportedChannelType(channel.Type) {
+		return types.NewError(fmt.Errorf("unsupported upstream channel"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+	}
+
 	c.Set("original_model", modelName) // for retry
 	expectedPlugin := c.GetString("expected_task_plugin_key")
 	if channel == nil {
@@ -606,12 +587,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	switch channel.Type {
 	case constant.ChannelTypeTaskPlugin:
 		c.Set("task_plugin_key", channel.GetSetting().TaskPluginKey)
-	case constant.ChannelTypeNewAPI:
-		// The bound plugin verified above executes; ordinary requests through
-		// the same gateway channel carry no pinned plugin.
-		if executing := c.GetString("expected_task_plugin_key"); executing != "" {
-			c.Set("task_plugin_key", executing)
-		}
+
 	}
 	logTaskPluginChannelDecision(c, channel, modelName, "channel_selected", "")
 	paramOverride := channel.GetParamOverride()
@@ -647,50 +623,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 
 	// TODO: api_version统一
 	switch channel.Type {
-	case constant.ChannelTypeAzure:
-		c.Set("api_version", channel.Other)
-	case constant.ChannelTypeVertexAi:
-		c.Set("region", channel.Other)
-	case constant.ChannelTypeXunfei:
-		c.Set("api_version", channel.Other)
-	case constant.ChannelTypeGemini:
-		c.Set("api_version", channel.Other)
-	case constant.ChannelTypeAli:
-		c.Set("plugin", channel.Other)
-	case constant.ChannelCloudflare:
-		c.Set("api_version", channel.Other)
-	case constant.ChannelTypeMokaAI:
-		c.Set("api_version", channel.Other)
-	case constant.ChannelTypeCoze:
-		c.Set("bot_id", channel.Other)
+
 	}
 	return nil
-}
-
-// extractModelNameFromGeminiPath 从 Gemini API URL 路径中提取模型名
-// 输入格式: /v1beta/models/gemini-2.0-flash:generateContent
-// 输出: gemini-2.0-flash
-func extractModelNameFromGeminiPath(path string) string {
-	// 查找 "/models/" 的位置
-	modelsPrefix := "/models/"
-	modelsIndex := strings.Index(path, modelsPrefix)
-	if modelsIndex == -1 {
-		return ""
-	}
-
-	// 从 "/models/" 之后开始提取
-	startIndex := modelsIndex + len(modelsPrefix)
-	if startIndex >= len(path) {
-		return ""
-	}
-
-	// 查找 ":" 的位置，模型名在 ":" 之前
-	colonIndex := strings.Index(path[startIndex:], ":")
-	if colonIndex == -1 {
-		// 如果没有找到 ":"，返回从 "/models/" 到路径结尾的部分
-		return path[startIndex:]
-	}
-
-	// 返回模型名部分
-	return path[startIndex : startIndex+colonIndex]
 }

@@ -222,7 +222,7 @@ func UpstreamAddresses(c *gin.Context) []string {
 	}
 	baseURL := strings.TrimSpace(GetContextKeyString(c, constant.ContextKeyChannelBaseUrl))
 	candidates = append(candidates, baseURL)
-	if GetContextKeyInt(c, constant.ContextKeyChannelType) == constant.ChannelTypeAdvancedCustom || (baseURL != "" && !isPresetUpstreamHost(baseURL)) {
+	if baseURL != "" && !isPresetUpstreamHost(baseURL) {
 		candidates = append(candidates, GetContextKeyString(c, constant.ContextKeyUpstreamRequestOrigin))
 	}
 	addresses := make([]string, 0, len(candidates))

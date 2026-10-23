@@ -176,8 +176,8 @@ func TestRedactVideoResponseBodyPreservesPollingPayloadShape(t *testing.T) {
 func seedTaskPollingChannel(t *testing.T, id int, disableSleep bool) {
 	t.Helper()
 	ch := &model.Channel{
-		Id:     id,
-		Type:   constant.ChannelTypeKling,
+		Id: id,
+
 		Name:   "polling_channel",
 		Key:    "sk-test",
 		Status: common.ChannelStatusEnabled,
@@ -191,8 +191,8 @@ func seedTaskPollingChannel(t *testing.T, id int, disableSleep bool) {
 func seedPollingTask(t *testing.T, channelID int, publicID string, upstreamID string) *model.Task {
 	t.Helper()
 	task := &model.Task{
-		TaskID:    publicID,
-		Platform:  constant.TaskPlatform("kling"),
+		TaskID: publicID,
+
 		UserId:    1,
 		ChannelId: channelID,
 		Action:    constant.TaskActionImageToVideo,
@@ -236,40 +236,6 @@ func TestUpdateVideoTasksDefaultSleepWaitsBetweenTasks(t *testing.T) {
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Equal(t, 1, adaptor.fetchCount())
-}
-
-func TestPollingPassesExecutingChannelTypeToAdaptor(t *testing.T) {
-	truncate(t)
-	const channelID = 112
-	baseURL := "https://gateway.example"
-	gateway := &model.Channel{Id: channelID, Type: constant.ChannelTypeNewAPI, Name: "gateway", Key: "sk-gateway", Status: common.ChannelStatusEnabled, BaseURL: &baseURL}
-	gateway.HeaderOverride = common.GetPointer(`{"X-API-Key":"{api_key}"}`)
-	gateway.SetOtherSettings(dto.ChannelOtherSettings{DisableTaskPollingSleep: true})
-	require.NoError(t, model.DB.Create(gateway).Error)
-	task := seedPollingTask(t, channelID, "task_gateway", "upstream_gateway")
-	taskChannels := map[int][]string{channelID: {task.GetUpstreamTaskID()}}
-	tasks := map[string]*model.Task{task.GetUpstreamTaskID(): task}
-
-	perTask := &taskPollingFetchAdaptor{}
-	previousFactory := GetTaskAdaptorFunc
-	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return perTask }
-	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
-	require.NoError(t, UpdateVideoTasks(context.Background(), constant.TaskPlatform("kling"), taskChannels, tasks))
-	meta := perTask.initChannelMeta()
-	require.NotNil(t, meta, "per-task polling initializes the adaptor with channel metadata")
-	assert.Equal(t, constant.ChannelTypeNewAPI, meta.ChannelType, "the adaptor derives the upstream kind from the channel type")
-	assert.Equal(t, channelID, meta.ChannelId)
-	assert.Equal(t, baseURL, meta.ChannelBaseUrl)
-	assert.Equal(t, map[string]any{"X-API-Key": "{api_key}"}, meta.HeadersOverride)
-
-	batch := &batchPollingAdaptor{}
-	require.NoError(t, UpdateBatchTasks(context.Background(), batch, taskChannels, tasks))
-	meta = batch.initChannelMeta()
-	require.NotNil(t, meta, "batch polling initializes the adaptor with channel metadata")
-	assert.Equal(t, constant.ChannelTypeNewAPI, meta.ChannelType)
-	assert.Equal(t, channelID, meta.ChannelId)
-	assert.Equal(t, baseURL, meta.ChannelBaseUrl)
-	assert.Equal(t, map[string]any{"X-API-Key": "{api_key}"}, meta.HeadersOverride)
 }
 
 func TestDispatchPlatformUpdateUsesFetchMode(t *testing.T) {
@@ -644,66 +610,6 @@ func TestUpdateVideoTasksMixedChannelSleepSettings(t *testing.T) {
 	assert.ElementsMatch(t, []string{"upstream_sleepy_1", "upstream_fast_1", "upstream_fast_2"}, adaptor.fetchedTaskIDs())
 }
 
-func TestUpdateSunoTasksStalePollsRefundExactlyOnce(t *testing.T) {
-	truncate(t)
-
-	const userID, tokenID, channelID = 401, 401, 401
-	const initialUserQuota, initialTokenQuota, taskQuota = 10_000, 6_000, 2_500
-	const publicTaskID, upstreamTaskID = "suno_public_refund_once", "suno_upstream_refund_once"
-
-	seedUser(t, userID, initialUserQuota)
-	seedToken(t, tokenID, userID, "sk-suno-refund-once", initialTokenQuota)
-	baseURL := "https://suno.invalid"
-	require.NoError(t, model.DB.Create(&model.Channel{
-		Id:      channelID,
-		Type:    constant.ChannelTypeSunoAPI,
-		Name:    "suno_refund_once",
-		Key:     "sk-suno-channel",
-		Status:  common.ChannelStatusEnabled,
-		BaseURL: &baseURL,
-	}).Error)
-
-	task := makeTask(userID, channelID, taskQuota, tokenID, BillingSourceWallet, 0)
-	task.TaskID = publicTaskID
-	task.Platform = constant.TaskPlatformSuno
-	task.Status = model.TaskStatusInProgress
-	task.Progress = "50%"
-	task.SubmitTime = time.Now().Unix()
-	task.PrivateData.UpstreamTaskID = upstreamTaskID
-	require.NoError(t, model.DB.Create(task).Error)
-
-	var firstPollTask model.Task
-	var staleSecondPollTask model.Task
-	require.NoError(t, model.DB.First(&firstPollTask, task.ID).Error)
-	require.NoError(t, model.DB.First(&staleSecondPollTask, task.ID).Error)
-
-	adaptor := &batchPollingAdaptor{results: map[string]*BatchTaskResult{
-		upstreamTaskID: {TaskInfo: relaycommon.TaskInfo{
-			TaskID: upstreamTaskID,
-			Status: model.TaskStatusFailure,
-			Reason: "upstream failed",
-		}},
-	}}
-	previousFactory := GetTaskAdaptorFunc
-	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return adaptor }
-	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
-
-	require.NoError(t, updateBatchTasks(context.Background(), adaptor, channelID, []string{upstreamTaskID}, map[string]*model.Task{
-		upstreamTaskID: &firstPollTask,
-	}))
-	require.NoError(t, updateBatchTasks(context.Background(), adaptor, channelID, []string{upstreamTaskID}, map[string]*model.Task{
-		upstreamTaskID: &staleSecondPollTask,
-	}))
-
-	var reloaded model.Task
-	require.NoError(t, model.DB.First(&reloaded, task.ID).Error)
-	assert.EqualValues(t, model.TaskStatusFailure, reloaded.Status)
-	assert.Zero(t, reloaded.Quota)
-	assert.Equal(t, initialUserQuota+taskQuota, getUserQuota(t, userID))
-	assert.Equal(t, initialTokenQuota+taskQuota, getTokenRemainQuota(t, tokenID))
-	assert.Equal(t, int64(1), countLogs(t))
-}
-
 func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	truncate(t)
 
@@ -921,7 +827,7 @@ func TestUpdateVideoSingleTaskPollClassification(t *testing.T) {
 			const initialQuota, preConsumed, tokenRemain = 10_000, 4_000, 7_000
 			seedUser(t, userID, initialQuota)
 			seedToken(t, tokenID, userID, "sk-poll-class", tokenRemain)
-			ch := &model.Channel{Id: channelID, Type: constant.ChannelTypeKling, Name: "poll", Key: "sk-test", Status: common.ChannelStatusEnabled}
+			ch := &model.Channel{Id: channelID, Name: "poll", Key: "sk-test", Status: common.ChannelStatusEnabled}
 
 			if testCase.maxFailures > 0 {
 				previous := constant.TaskPollMaxFailures
@@ -1043,4 +949,98 @@ func TestUpdateBatchTasksPollClassification(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPollingPassesExecutingChannelTypeToAdaptor(t *testing.T) {
+	truncate(t)
+	const channelID = 112
+	baseURL := "https://gateway.example"
+	gateway := &model.Channel{Id: channelID, Type: constant.ChannelTypeOpenAI, Name: "gateway", Key: "sk-gateway", Status: common.ChannelStatusEnabled, BaseURL: &baseURL}
+	gateway.HeaderOverride = common.GetPointer(`{"X-API-Key":"{api_key}"}`)
+	gateway.SetOtherSettings(dto.ChannelOtherSettings{DisableTaskPollingSleep: true})
+	require.NoError(t, model.DB.Create(gateway).Error)
+	task := seedPollingTask(t, channelID, "task_gateway", "upstream_gateway")
+	taskChannels := map[int][]string{channelID: {task.GetUpstreamTaskID()}}
+	tasks := map[string]*model.Task{task.GetUpstreamTaskID(): task}
+
+	perTask := &taskPollingFetchAdaptor{}
+	previousFactory := GetTaskAdaptorFunc
+	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return perTask }
+	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
+	require.NoError(t, UpdateVideoTasks(context.Background(), constant.TaskPlatform("kling"), taskChannels, tasks))
+	meta := perTask.initChannelMeta()
+	require.NotNil(t, meta, "per-task polling initializes the adaptor with channel metadata")
+	assert.Equal(t, constant.ChannelTypeOpenAI, meta.ChannelType, "the adaptor derives the upstream kind from the channel type")
+	assert.Equal(t, channelID, meta.ChannelId)
+	assert.Equal(t, baseURL, meta.ChannelBaseUrl)
+	assert.Equal(t, map[string]any{"X-API-Key": "{api_key}"}, meta.HeadersOverride)
+
+	batch := &batchPollingAdaptor{}
+	require.NoError(t, UpdateBatchTasks(context.Background(), batch, taskChannels, tasks))
+	meta = batch.initChannelMeta()
+	require.NotNil(t, meta, "batch polling initializes the adaptor with channel metadata")
+	assert.Equal(t, constant.ChannelTypeOpenAI, meta.ChannelType)
+	assert.Equal(t, channelID, meta.ChannelId)
+	assert.Equal(t, baseURL, meta.ChannelBaseUrl)
+	assert.Equal(t, map[string]any{"X-API-Key": "{api_key}"}, meta.HeadersOverride)
+}
+
+func TestUpdateBatchTasksStalePollsRefundExactlyOnce(t *testing.T) {
+	truncate(t)
+
+	const userID, tokenID, channelID = 401, 401, 401
+	const initialUserQuota, initialTokenQuota, taskQuota = 10_000, 6_000, 2_500
+	const publicTaskID, upstreamTaskID = "sora_public_refund_once", "sora_upstream_refund_once"
+
+	seedUser(t, userID, initialUserQuota)
+	seedToken(t, tokenID, userID, "sk-sora-refund-once", initialTokenQuota)
+	baseURL := "https://sora.invalid"
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Id:      channelID,
+		Type:    constant.ChannelTypeOpenAI,
+		Name:    "sora_refund_once",
+		Key:     "sk-sora-channel",
+		Status:  common.ChannelStatusEnabled,
+		BaseURL: &baseURL,
+	}).Error)
+
+	task := makeTask(userID, channelID, taskQuota, tokenID, BillingSourceWallet, 0)
+	task.TaskID = publicTaskID
+	task.Platform = constant.TaskPlatform("sora")
+	task.Status = model.TaskStatusInProgress
+	task.Progress = "50%"
+	task.SubmitTime = time.Now().Unix()
+	task.PrivateData.UpstreamTaskID = upstreamTaskID
+	require.NoError(t, model.DB.Create(task).Error)
+
+	var firstPollTask model.Task
+	var staleSecondPollTask model.Task
+	require.NoError(t, model.DB.First(&firstPollTask, task.ID).Error)
+	require.NoError(t, model.DB.First(&staleSecondPollTask, task.ID).Error)
+
+	adaptor := &batchPollingAdaptor{results: map[string]*BatchTaskResult{
+		upstreamTaskID: {TaskInfo: relaycommon.TaskInfo{
+			TaskID: upstreamTaskID,
+			Status: model.TaskStatusFailure,
+			Reason: "upstream failed",
+		}},
+	}}
+	previousFactory := GetTaskAdaptorFunc
+	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return adaptor }
+	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
+
+	require.NoError(t, updateBatchTasks(context.Background(), adaptor, channelID, []string{upstreamTaskID}, map[string]*model.Task{
+		upstreamTaskID: &firstPollTask,
+	}))
+	require.NoError(t, updateBatchTasks(context.Background(), adaptor, channelID, []string{upstreamTaskID}, map[string]*model.Task{
+		upstreamTaskID: &staleSecondPollTask,
+	}))
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.First(&reloaded, task.ID).Error)
+	assert.EqualValues(t, model.TaskStatusFailure, reloaded.Status)
+	assert.Zero(t, reloaded.Quota)
+	assert.Equal(t, initialUserQuota+taskQuota, getUserQuota(t, userID))
+	assert.Equal(t, initialTokenQuota+taskQuota, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, int64(1), countLogs(t))
 }

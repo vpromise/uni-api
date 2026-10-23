@@ -78,7 +78,7 @@ func TestSelectResponsesWSChannelHonorsPinsAndFilters(t *testing.T) {
 	enabled.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: true})
 	wsDisabled := &model.Channel{Name: "ws-disabled", Key: "sk-test", Status: common.ChannelStatusEnabled, Type: constant.ChannelTypeOpenAI}
 	disabled := &model.Channel{Name: "disabled", Key: "sk-test", Status: common.ChannelStatusManuallyDisabled, Type: constant.ChannelTypeOpenAI}
-	filtered := &model.Channel{Name: "filtered", Key: "sk-test", Status: common.ChannelStatusEnabled, Type: constant.ChannelTypeAdvancedCustom}
+	filtered := &model.Channel{Name: "filtered", Key: "sk-test", Status: common.ChannelStatusEnabled}
 	for _, channel := range []*model.Channel{enabled, disabled, filtered, wsDisabled} {
 		require.NoError(t, database.Create(channel).Error)
 	}
@@ -144,81 +144,6 @@ func TestCheckResponsesWSModelAccessMatchesHTTPTokenLimits(t *testing.T) {
 			assert.False(t, service.ShouldRetryRelayError(c, apiErr, 2))
 		})
 	}
-}
-
-func TestSelectResponsesWSChannelAcceptsNativeResponsesChannelTypes(t *testing.T) {
-	require.NoError(t, i18n.Init())
-	database := setupRelayChannelDB(t)
-	nativeRoute := &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses"}}}
-	noneRoute := &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses", Converter: "none"}}}
-	convertedRoute := &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/chat/completions", Converter: "openai_responses_to_openai_chat_completions"}}}
-	chatRoute := &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/chat/completions", UpstreamPath: "/v1/chat/completions"}}}
-	for _, tc := range []struct {
-		name        string
-		channelType int
-		advanced    *dto.AdvancedCustomConfig
-		rejectedBy  appdto.ChannelFilterKind
-	}{
-		{name: "new api", channelType: constant.ChannelTypeNewAPI},
-		{name: "sub2api", channelType: constant.ChannelTypeSub2API},
-		{name: "advanced custom native responses route", channelType: constant.ChannelTypeAdvancedCustom, advanced: nativeRoute},
-		{name: "advanced custom explicit none converter", channelType: constant.ChannelTypeAdvancedCustom, advanced: noneRoute},
-		{name: "advanced custom converter route", channelType: constant.ChannelTypeAdvancedCustom, advanced: convertedRoute, rejectedBy: appdto.FilterResponsesWebSocket},
-		{name: "advanced custom without responses route", channelType: constant.ChannelTypeAdvancedCustom, advanced: chatRoute, rejectedBy: appdto.FilterRequestPath},
-		{name: "anthropic", channelType: constant.ChannelTypeAnthropic, rejectedBy: appdto.FilterResponsesWebSocket},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			channel := &model.Channel{Name: tc.name, Key: "sk-test", Status: common.ChannelStatusEnabled, Type: tc.channelType}
-			channel.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: true})
-			channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: tc.advanced})
-			require.NoError(t, database.Create(channel).Error)
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-			constraints := service.GetChannelConstraints(c)
-			constraints.AddPin(appdto.ChannelPin{ChannelId: channel.Id, Source: appdto.PinSourceToken, Rank: appdto.PinRankToken, RetryMode: appdto.PinRetrySingleAttempt})
-			constraints.AddFilter(appdto.ChannelFilter{Kind: appdto.FilterRequestPath, RequestPath: c.Request.URL.Path})
-			selected, apiErr := selectResponsesWSChannel(c, "ws-model", &service.RetryParam{Ctx: c, ModelName: "ws-model", TokenGroup: "default"})
-			if tc.rejectedBy != "" {
-				require.NotNil(t, apiErr)
-				assert.Nil(t, selected)
-				assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-				assert.Equal(t, types.ErrorCode(tc.rejectedBy), apiErr.GetErrorCode())
-				return
-			}
-			require.Nil(t, apiErr)
-			require.NotNil(t, selected)
-			assert.Equal(t, channel.Id, selected.Id)
-		})
-	}
-}
-
-func TestRestoreConnectionContextRejectsChangedAdvancedCustomRoute(t *testing.T) {
-	database := setupRelayChannelDB(t)
-	baseURL := "http://upstream.example"
-	channel := &model.Channel{Name: "advanced", Key: "sk-test", Status: common.ChannelStatusEnabled, Type: constant.ChannelTypeAdvancedCustom, BaseURL: &baseURL}
-	channel.SetSetting(dto.ChannelSettings{ResponsesWebSocketEnabled: true})
-	channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses"}}}})
-	require.NoError(t, database.Create(channel).Error)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-	service.GetChannelConstraints(c).AddPin(appdto.ChannelPin{ChannelId: channel.Id, Source: appdto.PinSourceToken, Rank: appdto.PinRankToken, RetryMode: appdto.PinRetrySingleAttempt})
-	route, ok := channel.GetOtherSettings().AdvancedCustom.MatchPathForModel("/v1/responses", "ws-model")
-	require.True(t, ok)
-	session := &responsesWSSession{lockedChannelID: channel.Id, lockedModel: "ws-model", lockedKey: "sk-test", lockedRoute: route,
-		lockedContext: map[constant.ContextKey]any{constant.ContextKeyChannelBaseUrl: channel.GetBaseURL(), constant.ContextKeyChannelHeaderOverride: channel.GetHeaderOverride()}}
-	require.Nil(t, session.restoreConnectionContext(c, "ws-model"))
-
-	// Request-level edits (model list, explicit none converter) keep the connection.
-	channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v1/responses", Converter: "none", Models: []string{"ws-model", "other-model"}}}}})
-	require.NoError(t, database.Model(channel).Update("settings", channel.OtherSettings).Error)
-	require.Nil(t, session.restoreConnectionContext(c, "ws-model"))
-
-	channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/responses", UpstreamPath: "/v2/responses"}}}})
-	require.NoError(t, database.Model(channel).Update("settings", channel.OtherSettings).Error)
-	apiErr := session.restoreConnectionContext(c, "ws-model")
-	require.NotNil(t, apiErr)
-	assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
-	assert.ErrorContains(t, apiErr, "upstream route changed")
 }
 
 func TestResponsesWSChannelRoutingRequiresExplicitOptIn(t *testing.T) {

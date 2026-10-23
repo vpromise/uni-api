@@ -63,20 +63,6 @@ func TestTokenCountMetaCountsAgentLoopContent(t *testing.T) {
 			files:     1,
 			toolCount: 1,
 		},
-		{
-			name: "gemini",
-			raw: `{"systemInstruction":{"parts":[{"text":"Be brief."}]},"contents":[
-				{"role":"user","parts":[{"text":"show main.go"}]},
-				{"role":"model","parts":[{"functionCall":{"name":"read_file","args":{"path":"main.go"}}}]},
-				{"role":"user","parts":[{"functionResponse":{"name":"read_file","response":{"output":"package main\n\nfunc main() {\n\tprintln(\"hi\")\n}","exit_code":0}}}]},
-				{"role":"user","parts":[{"functionResponse":{"name":"screenshot","response":{},"parts":[{"inlineData":{"mimeType":"image/png","data":"` + imageData + `"}}]}}]}],
-				"generationConfig":{"mediaResolution":"MEDIA_RESOLUTION_LOW"},
-				"tools":[{"functionDeclarations":[{"name":"read_file","description":"Read a file"}]}]}`,
-			request:  &GeminiChatRequest{},
-			contains: []string{"Be brief.", "read_file", `{"path":"main.go"}`, toolOutput, "Read a file"},
-			files:    1,
-			detail:   "MEDIA_RESOLUTION_LOW",
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			require.NoError(t, kitutil.Unmarshal([]byte(tc.raw), tc.request))

@@ -275,23 +275,7 @@ func extractReasoningEffortFromJSON(format types.RelayFormat, data []byte) (stri
 			return string(kitreasoning.EffortHigh), true
 		}
 		return "", hasThinkingType
-	case types.RelayFormatGemini:
-		level, hasLevel := firstStringValue(data,
-			"generationConfig.thinkingConfig.thinkingLevel",
-			"generation_config.thinking_config.thinking_level",
-		)
-		if level != "" {
-			return level, true
-		}
-		for _, path := range []string{
-			"generationConfig.thinkingConfig.thinkingBudget",
-			"generation_config.thinking_config.thinking_budget",
-		} {
-			if budget := gjson.GetBytes(data, path); budget.Exists() {
-				return reasoningEffortFromBudgetValue(budget)
-			}
-		}
-		return "", hasLevel
+
 	default:
 		return "", false
 	}
@@ -802,17 +786,6 @@ func compareNumeric(jsonValue, targetValue gjson.Result, operator string) (bool,
 	}
 }
 
-// applyOperationsLegacy 原参数覆盖方法。
-//
-// 旧实现把整个 jsonData unmarshal 成 map[string]interface{} 再 marshal 回来，
-// 对包含大 base64 字段（如 Gemini inlineData.data）的请求会放大数倍内存
-// （interface 装箱、map bucket、再次 marshal）。
-// 这里改成在 []byte 上直接调用 sjson.SetBytes，按顶层 key 逐个写入，
-// 不再把 payload 解码到 map[string]interface{}。
-//
-// 语义保持：每个 paramOverride 顶层 key 视为字面 key（不解析点号路径），
-// 与旧的 reqMap[key] = value 一致。包含 `.` `*` `?` `\` 的 key 会被转义，
-// 防止被 sjson 当作嵌套路径或通配符。
 func applyOperationsLegacy(jsonData []byte, paramOverride map[string]any, auditRecorder *paramOverrideAuditRecorder) ([]byte, error) {
 	if len(paramOverride) == 0 {
 		return jsonData, nil
@@ -1786,59 +1759,6 @@ func deleteValue(data []byte, path string) ([]byte, error) {
 	return sjson.DeleteBytes(data, path)
 }
 
-func modifyValue(data []byte, path string, value any, keepOrigin, isPrepend bool) ([]byte, error) {
-	current := gjson.GetBytes(data, path)
-	switch {
-	case current.IsArray():
-		return modifyArray(data, path, value, isPrepend)
-	case current.Type == gjson.String:
-		return modifyString(data, path, value, isPrepend)
-	case current.Type == gjson.JSON:
-		return mergeObjects(data, path, value, keepOrigin)
-	}
-	return data, fmt.Errorf("operation not supported for type: %v", current.Type)
-}
-
-func modifyArray(data []byte, path string, value any, isPrepend bool) ([]byte, error) {
-	current := gjson.GetBytes(data, path)
-	var newArray []any
-	// 添加新值
-	addValue := func() {
-		if arr, ok := value.([]any); ok {
-			newArray = append(newArray, arr...)
-		} else {
-			newArray = append(newArray, value)
-		}
-	}
-	// 添加原值（保留原始字节，对象键顺序不变）
-	addOriginal := func() {
-		current.ForEach(func(_, val gjson.Result) bool {
-			newArray = append(newArray, common.RawMessage(val.Raw))
-			return true
-		})
-	}
-	if isPrepend {
-		addValue()
-		addOriginal()
-	} else {
-		addOriginal()
-		addValue()
-	}
-	return sjson.SetBytes(data, path, newArray)
-}
-
-func modifyString(data []byte, path string, value any, isPrepend bool) ([]byte, error) {
-	current := gjson.GetBytes(data, path)
-	valueStr := fmt.Sprintf("%v", value)
-	var newStr string
-	if isPrepend {
-		newStr = valueStr + current.String()
-	} else {
-		newStr = current.String() + valueStr
-	}
-	return sjson.SetBytes(data, path, newStr)
-}
-
 func trimStringValue(data []byte, path string, value any, isPrefix bool) ([]byte, error) {
 	current := gjson.GetBytes(data, path)
 	if current.Type != gjson.String {
@@ -2246,4 +2166,57 @@ func BuildParamOverrideContext(info *RelayInfo) map[string]any {
 
 	ctx["is_channel_test"] = info.IsChannelTest
 	return ctx
+}
+
+func modifyValue(data []byte, path string, value any, keepOrigin, isPrepend bool) ([]byte, error) {
+	current := gjson.GetBytes(data, path)
+	switch {
+	case current.IsArray():
+		return modifyArray(data, path, value, isPrepend)
+	case current.Type == gjson.String:
+		return modifyString(data, path, value, isPrepend)
+	case current.Type == gjson.JSON:
+		return mergeObjects(data, path, value, keepOrigin)
+	}
+	return data, fmt.Errorf("operation not supported for type: %v", current.Type)
+}
+
+func modifyArray(data []byte, path string, value any, isPrepend bool) ([]byte, error) {
+	current := gjson.GetBytes(data, path)
+	var newArray []any
+	// 添加新值
+	addValue := func() {
+		if arr, ok := value.([]any); ok {
+			newArray = append(newArray, arr...)
+		} else {
+			newArray = append(newArray, value)
+		}
+	}
+	// 添加原值（保留原始字节，对象键顺序不变）
+	addOriginal := func() {
+		current.ForEach(func(_, val gjson.Result) bool {
+			newArray = append(newArray, common.RawMessage(val.Raw))
+			return true
+		})
+	}
+	if isPrepend {
+		addValue()
+		addOriginal()
+	} else {
+		addOriginal()
+		addValue()
+	}
+	return sjson.SetBytes(data, path, newArray)
+}
+
+func modifyString(data []byte, path string, value any, isPrepend bool) ([]byte, error) {
+	current := gjson.GetBytes(data, path)
+	valueStr := fmt.Sprintf("%v", value)
+	var newStr string
+	if isPrepend {
+		newStr = valueStr + current.String()
+	} else {
+		newStr = current.String() + valueStr
+	}
+	return sjson.SetBytes(data, path, newStr)
 }

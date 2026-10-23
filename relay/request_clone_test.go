@@ -172,88 +172,6 @@ func TestRequestDeepCopyRawMutation(t *testing.T) {
 	})
 }
 
-func TestRequestDeepCopyOtherProtocols(t *testing.T) {
-	t.Run("chat nested fields remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"model":"gpt-4.1","max_tokens":0,"stream":false,"thinking_budget":128,
-			"messages":[{"role":"assistant","content":[{"type":"text","text":"hello"}],"tool_calls":[{"id":"call_1"}]}],
-			"response_format":{"type":"json_schema","json_schema":{"strict":false}}
-		}`, func(clone *dto.GeneralOpenAIRequest) {
-			clone.Messages[0].ToolCalls[0] = '!'
-			clone.Messages[0].Content.([]any)[0].(map[string]any)["text"] = "changed"
-			clone.ResponseFormat.JsonSchema[0] = '!'
-			*clone.MaxTokens = 1
-			*clone.Stream = true
-		})
-	})
-
-	t.Run("claude dynamic tools and raw fields remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"model":"claude-sonnet-4-5","max_tokens":1024,"temperature":0,
-			"tools":[{"name":"lookup","input_schema":{"type":"object"}}],
-			"metadata":{"user_id":"test"},"messages":[{"role":"user","content":"hello"}]
-		}`, func(clone *dto.ClaudeRequest) {
-			clone.Metadata[0] = '!'
-			clone.Tools.(json.RawMessage)[0] = '!'
-			clone.Messages[0].Content = "changed"
-			*clone.Temperature = 1
-		})
-	})
-
-	t.Run("gemini nested parts and configuration remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"contents":[{"role":"model","parts":[{"text":"hello","thoughtSignature":"signature","inlineData":{"mimeType":"text/plain","data":"aGk="}}]}],
-			"tools":[{"googleSearch":{}}],"generationConfig":{"responseJsonSchema":{"type":"object"}}
-		}`, func(clone *dto.GeminiChatRequest) {
-			clone.Contents[0].Parts[0].ThoughtSignature[1] = '!'
-			clone.Contents[0].Parts[0].InlineData.Data = "changed"
-			clone.Tools[0] = '!'
-			clone.GenerationConfig.ResponseJsonSchema[0] = '!'
-		})
-	})
-
-	t.Run("image extra parameters remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"model":"gpt-image-1","prompt":"a cat","n":1,"watermark":false,
-			"image":["https://example.com/image.png"],"parameters":{"seed":0}
-		}`, func(clone *dto.ImageRequest) {
-			clone.Image[0] = '!'
-			clone.Extra["parameters"][0] = '!'
-			clone.Extra["new_field"] = json.RawMessage(`true`)
-			*clone.N = 2
-			*clone.Watermark = true
-		})
-	})
-
-	t.Run("audio raw parameters and speed remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"model":"tts-1","input":"hello","voice":"alloy","speed":1,"metadata":{"tag":"test"},"ref_audio":"sample"
-		}`, func(clone *dto.AudioRequest) {
-			clone.Metadata[0] = '!'
-			clone.RefAudio[1] = '!'
-			*clone.Speed = 2
-		})
-	})
-
-	t.Run("embedding dynamic input and dimensions remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{"model":"text-embedding-3-small","input":[[1,2],[3]],"dimensions":256}`,
-			func(clone *dto.EmbeddingRequest) {
-				clone.Input.([]any)[0].([]any)[0] = float64(9)
-				*clone.Dimensions = 512
-			})
-	})
-
-	t.Run("rerank documents and options remain isolated", func(t *testing.T) {
-		assertRequestCloneIsolation(t, `{
-			"model":"rerank-v3.5","query":"hello","documents":["first","second"],"top_n":1,"return_documents":false
-		}`, func(clone *dto.RerankRequest) {
-			clone.Documents[0] = "changed"
-			*clone.TopN = 2
-			*clone.ReturnDocuments = true
-		})
-	})
-}
-
 // A channel attempt may mutate its clone without changing the request used by
 // later attempts. Decode the expected request independently to avoid aliases.
 func assertRequestCloneIsolation[T any](t *testing.T, body string, mutate func(*T)) {
@@ -304,3 +222,67 @@ func BenchmarkRequestDeepCopy(b *testing.B) {
 		}
 	}
 }
+
+func TestRequestDeepCopyOtherProtocols(t *testing.T) {
+	t.Run("chat nested fields remain isolated", func(t *testing.T) {
+		assertRequestCloneIsolation(t, `{
+			"model":"gpt-4.1","max_tokens":0,"stream":false,"thinking_budget":128,
+			"messages":[{"role":"assistant","content":[{"type":"text","text":"hello"}],"tool_calls":[{"id":"call_1"}]}],
+			"response_format":{"type":"json_schema","json_schema":{"strict":false}}
+		}`, func(clone *dto.GeneralOpenAIRequest) {
+			clone.Messages[0].ToolCalls[0] = '!'
+			clone.Messages[0].Content.([]any)[0].(map[string]any)["text"] = "changed"
+			clone.ResponseFormat.JsonSchema[0] = '!'
+			*clone.MaxTokens = 1
+			*clone.Stream = true
+		})
+	})
+
+	t.Run("claude dynamic tools and raw fields remain isolated", func(t *testing.T) {
+		assertRequestCloneIsolation(t, `{
+			"model":"claude-sonnet-4-5","max_tokens":1024,"temperature":0,
+			"tools":[{"name":"lookup","input_schema":{"type":"object"}}],
+			"metadata":{"user_id":"test"},"messages":[{"role":"user","content":"hello"}]
+		}`, func(clone *dto.ClaudeRequest) {
+			clone.Metadata[0] = '!'
+			clone.Tools.(json.RawMessage)[0] = '!'
+			clone.Messages[0].Content = "changed"
+			*clone.Temperature = 1
+		})
+	})
+
+	t.Run("image extra parameters remain isolated", func(t *testing.T) {
+		assertRequestCloneIsolation(t, `{
+			"model":"gpt-image-1","prompt":"a cat","n":1,"watermark":false,
+			"image":["https://example.com/image.png"],"parameters":{"seed":0}
+		}`, func(clone *dto.ImageRequest) {
+			clone.Image[0] = '!'
+			clone.Extra["parameters"][0] = '!'
+			clone.Extra["new_field"] = json.RawMessage(`true`)
+			*clone.N = 2
+			*clone.Watermark = true
+		})
+	})
+
+	t.Run("audio raw parameters and speed remain isolated", func(t *testing.T) {
+		assertRequestCloneIsolation(t, `{
+			"model":"tts-1","input":"hello","voice":"alloy","speed":1,"metadata":{"tag":"test"},"ref_audio":"sample"
+		}`, func(clone *dto.AudioRequest) {
+			clone.Metadata[0] = '!'
+			clone.RefAudio[1] = '!'
+			*clone.Speed = 2
+		})
+	})
+
+	t.Run("embedding dynamic input and dimensions remain isolated", func(t *testing.T) {
+		assertRequestCloneIsolation(t, `{"model":"text-embedding-3-small","input":[[1,2],[3]],"dimensions":256}`,
+			func(clone *dto.EmbeddingRequest) {
+				clone.Input.([]any)[0].([]any)[0] = float64(9)
+				*clone.Dimensions = 512
+			})
+	})
+
+}
+
+// A channel attempt may mutate its clone without changing the request used by
+// later attempts. Decode the expected request independently to avoid aliases.

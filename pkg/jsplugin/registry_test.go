@@ -589,7 +589,7 @@ func TestRegistryValidatesChannelTypes(t *testing.T) {
 		{name: "zero rejected", channelTypes: []int{0}, wantErr: "positive channel types"},
 		{name: "negative rejected", channelTypes: []int{-1}, wantErr: "positive channel types"},
 		{name: "task plugin type rejected", channelTypes: []int{constant.ChannelTypeTaskPlugin}, wantErr: "task plugin channel type"},
-		{name: "new api type rejected", channelTypes: []int{constant.ChannelTypeNewAPI}, wantErr: "New API channel type"},
+
 		{name: "duplicates rejected", channelTypes: []int{1, 1}, wantErr: "must be unique"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -1268,6 +1268,16 @@ export function parseSubmitEventDelta(){return {changes:[],state:null,done:true}
 			} else {
 				require.Error(t, err)
 			}
+		})
+	}
+}
+
+func TestRegistryRejectsRemovedAuthenticationAtLoad(t *testing.T) {
+	for _, auth := range []string{"oauth2_jwt", "vertex_oauth"} {
+		t.Run(auth, func(t *testing.T) {
+			source := `export const meta={apiVersion:1,key:"auth-check",name:"Auth",version:"1",author:{name:"Test"},auth:"` + auth + `"};`
+			_, err := NewRegistry().Register(source, Options{})
+			require.ErrorContains(t, err, "unsupported plugin auth type")
 		})
 	}
 }

@@ -63,18 +63,18 @@ func TestRegistryIndexesNativeRoutesAndProtocolsInOneGeneration(t *testing.T) {
 
 func TestRegistryIndexesSharedEndpointCandidatesForDistinctLegacyProviders(t *testing.T) {
 	registry := NewRegistry()
-	gemini := mustCompileRoutingPlugin(t, "gemini-provider", 24, `["shared-video"]`,
+	providerA := mustCompileRoutingPlugin(t, "provider-a", 24, `["shared-video"]`,
 		`protocols: [{name: "openai_responses", supports: ["stream", "sync", "background"]}],`,
 		routingProtocolExport("openai_responses"))
-	vertex := mustCompileRoutingPlugin(t, "vertex-provider", 41, `["shared-video"]`,
+	providerB := mustCompileRoutingPlugin(t, "provider-b", 41, `["shared-video"]`,
 		`protocols: [{name: "openai_responses", supports: ["stream", "sync", "background"]}],`,
 		routingProtocolExport("openai_responses"))
 
-	require.NoError(t, registry.ReplaceOverrides([]*LoadedPlugin{vertex, gemini}))
+	require.NoError(t, registry.ReplaceOverrides([]*LoadedPlugin{providerB, providerA}))
 	candidates := registry.Generation().LookupEndpointCandidates("POST", "/v1/responses", "shared-video")
 	require.Len(t, candidates, 2)
-	assert.Equal(t, "gemini-provider", candidates[0].Plugin.Meta.Key)
-	assert.Equal(t, "vertex-provider", candidates[1].Plugin.Meta.Key)
+	assert.Equal(t, "provider-a", candidates[0].Plugin.Meta.Key)
+	assert.Equal(t, "provider-b", candidates[1].Plugin.Meta.Key)
 	assert.Empty(t, registry.RoutingErrors())
 }
 

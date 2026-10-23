@@ -34,14 +34,7 @@ export const AI_APPLICATIONS = [
 ] as const
 
 // Hero section - AI Models (Right side)
-export const AI_MODELS = [
-  'Qwen.Color',
-  'DeepSeek.Color',
-  'Doubao.Color',
-  'OpenAI',
-  'Claude.Color',
-  'Gemini.Color',
-] as const
+export const AI_MODELS = ['OpenAI', 'Claude.Color'] as const
 
 // Hero section - Gateway Features
 export const GATEWAY_FEATURES = [
@@ -126,18 +119,15 @@ export const DEFAULT_FEATURES = [
     iconName: 'HeartHandshake',
   },
 ] as const
-
 export function getGatewayFeatures(t: TFunction) {
   return GATEWAY_FEATURES.map((feature) => t(feature))
 }
-
 export function getDefaultStats(t: TFunction) {
   return DEFAULT_STATS.map((stat) => ({
     ...stat,
     description: stat.description ? t(stat.description) : undefined,
   }))
 }
-
 export function getDefaultFeatures(t: TFunction) {
   return DEFAULT_FEATURES.map((feature) => ({
     ...feature,

@@ -49,31 +49,19 @@ import {
 import { replaceModelInPath } from '../lib/model-helpers'
 import type { PricingModel } from '../types'
 
-// ---------------------------------------------------------------------------
-// Code-sample registry
-// ---------------------------------------------------------------------------
-//
-// Each sample is keyed by language and endpoint type. The endpoint type comes
-// from the model's `supported_endpoint_types`; we render samples only for the
-// types the model actually supports. This keeps copy-pasted code accurate and
-// provider-shaped (OpenAI vs Anthropic vs Gemini, etc.).
-
 type Lang = 'curl' | 'python' | 'typescript' | 'javascript'
-
 const LANG_LABELS: Record<Lang, string> = {
   curl: 'cURL',
   python: 'Python',
   typescript: 'TypeScript',
   javascript: 'JavaScript',
 }
-
 const LANG_HIGHLIGHT: Record<Lang, BundledLanguage> = {
   curl: 'bash',
   python: 'python',
   typescript: 'typescript',
   javascript: 'javascript',
 }
-
 type SampleContext = {
   baseUrl: string
   apiKeyEnv: string
@@ -81,29 +69,39 @@ type SampleContext = {
   endpointType: string
   endpointPath: string
 }
-
 function buildChatSample(lang: Lang, ctx: SampleContext): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
   const isResponses = ctx.endpointType === 'openai-response'
-  const isReasoning = /^o[1-4]|reasoning|thinking|deepseek-r/i.test(
-    ctx.modelName
-  )
+  const isReasoning = /^o[1-4]|reasoning|thinking/i.test(ctx.modelName)
   const userMessage = 'Explain quantum entanglement in one paragraph.'
-
   const bodyJson = isResponses
-    ? JSON.stringify({ model: ctx.modelName, input: userMessage }, null, 2)
-    : JSON.stringify(
+    ? JSON.stringify(
         {
           model: ctx.modelName,
-          messages: [{ role: 'user', content: userMessage }],
-          ...(isReasoning ? {} : { temperature: 0.7 }),
+          input: userMessage,
         },
         null,
         2
       )
-
+    : JSON.stringify(
+        {
+          model: ctx.modelName,
+          messages: [
+            {
+              role: 'user',
+              content: userMessage,
+            },
+          ],
+          ...(isReasoning
+            ? {}
+            : {
+                temperature: 0.7,
+              }),
+        },
+        null,
+        2
+      )
   const fnCall = isResponses ? 'responses.create' : 'chat.completions.create'
-
   if (lang === 'curl') {
     return [
       `curl ${url} \\`,
@@ -112,7 +110,6 @@ function buildChatSample(lang: Lang, ctx: SampleContext): string {
       `  -d '${bodyJson.replace(/\n/g, '\n     ')}'`,
     ].join('\n')
   }
-
   if (lang === 'python') {
     return [
       'from openai import OpenAI',
@@ -127,7 +124,6 @@ function buildChatSample(lang: Lang, ctx: SampleContext): string {
         : `completion = client.${fnCall}(\n    model="${ctx.modelName}",\n    messages=[\n        {"role": "user", "content": "${userMessage}"}\n    ],\n)\n\nprint(completion.choices[0].message.content)`,
     ].join('\n')
   }
-
   if (lang === 'typescript') {
     return [
       `import OpenAI from 'openai'`,
@@ -142,7 +138,6 @@ function buildChatSample(lang: Lang, ctx: SampleContext): string {
         : `const completion = await client.${fnCall}({\n  model: '${ctx.modelName}',\n  messages: [{ role: 'user', content: '${userMessage}' }],\n})\n\nconsole.log(completion.choices[0].message.content)`,
     ].join('\n')
   }
-
   return [
     `const response = await fetch('${url}', {`,
     `  method: 'POST',`,
@@ -157,17 +152,20 @@ function buildChatSample(lang: Lang, ctx: SampleContext): string {
     `console.log(data)`,
   ].join('\n')
 }
-
 function buildAnthropicSample(lang: Lang, ctx: SampleContext): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
   const userMessage = 'Explain quantum entanglement in one paragraph.'
-
   if (lang === 'curl') {
     const body = JSON.stringify(
       {
         model: ctx.modelName,
         max_tokens: 1024,
-        messages: [{ role: 'user', content: userMessage }],
+        messages: [
+          {
+            role: 'user',
+            content: userMessage,
+          },
+        ],
       },
       null,
       2
@@ -235,66 +233,18 @@ function buildAnthropicSample(lang: Lang, ctx: SampleContext): string {
     `console.log(data.content[0].text)`,
   ].join('\n')
 }
-
-function buildGeminiSample(lang: Lang, ctx: SampleContext): string {
-  const url = `${ctx.baseUrl}${ctx.endpointPath}?key=$${ctx.apiKeyEnv}`
-  const userMessage = 'Explain quantum entanglement in one paragraph.'
-
-  if (lang === 'curl') {
-    const body = JSON.stringify(
-      { contents: [{ parts: [{ text: userMessage }] }] },
-      null,
-      2
-    )
-    return [
-      `curl '${url}' \\`,
-      `  -H 'Content-Type: application/json' \\`,
-      `  -d '${body.replace(/\n/g, '\n     ')}'`,
-    ].join('\n')
-  }
-  if (lang === 'python') {
-    return [
-      'import google.generativeai as genai',
-      '',
-      `genai.configure(api_key="<YOUR_API_KEY>")`,
-      '',
-      `model = genai.GenerativeModel("${ctx.modelName}")`,
-      `response = model.generate_content("${userMessage}")`,
-      '',
-      `print(response.text)`,
-    ].join('\n')
-  }
-  if (lang === 'typescript') {
-    return [
-      `import { GoogleGenerativeAI } from '@google/generative-ai'`,
-      '',
-      `const genAI = new GoogleGenerativeAI(process.env.${ctx.apiKeyEnv}!)`,
-      `const model = genAI.getGenerativeModel({ model: '${ctx.modelName}' })`,
-      '',
-      `const result = await model.generateContent('${userMessage}')`,
-      `console.log(result.response.text())`,
-    ].join('\n')
-  }
-  return [
-    `const response = await fetch('${url}', {`,
-    `  method: 'POST',`,
-    `  headers: { 'Content-Type': 'application/json' },`,
-    `  body: JSON.stringify({`,
-    `    contents: [{ parts: [{ text: '${userMessage}' }] }],`,
-    `  }),`,
-    `})`,
-    '',
-    `const data = await response.json()`,
-    `console.log(data.candidates[0].content.parts[0].text)`,
-  ].join('\n')
-}
-
 function buildEmbeddingSample(lang: Lang, ctx: SampleContext): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
   const text = 'The food was delicious and the waiter…'
-
   if (lang === 'curl') {
-    const body = JSON.stringify({ model: ctx.modelName, input: text }, null, 2)
+    const body = JSON.stringify(
+      {
+        model: ctx.modelName,
+        input: text,
+      },
+      null,
+      2
+    )
     return [
       `curl ${url} \\`,
       `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
@@ -350,14 +300,17 @@ function buildEmbeddingSample(lang: Lang, ctx: SampleContext): string {
     `console.log(data.data[0].embedding.slice(0, 8))`,
   ].join('\n')
 }
-
 function buildImageSample(lang: Lang, ctx: SampleContext): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
   const prompt = 'A serene koi pond at sunset, ukiyo-e style.'
-
   if (lang === 'curl') {
     const body = JSON.stringify(
-      { model: ctx.modelName, prompt, size: '1024x1024', n: 1 },
+      {
+        model: ctx.modelName,
+        prompt,
+        size: '1024x1024',
+        n: 1,
+      },
       null,
       2
     )
@@ -422,14 +375,12 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
     `console.log(data.data[0].url)`,
   ].join('\n')
 }
-
 function buildSample(
   lang: Lang,
   endpointType: string,
   ctx: SampleContext
 ): string {
   if (endpointType === 'anthropic') return buildAnthropicSample(lang, ctx)
-  if (endpointType === 'gemini') return buildGeminiSample(lang, ctx)
   if (endpointType === 'embeddings' || endpointType === 'jina-rerank')
     return buildEmbeddingSample(lang, ctx)
   if (endpointType === 'image-generation') return buildImageSample(lang, ctx)
@@ -442,11 +393,16 @@ function buildSample(
 
 function CodeSamplesSection(props: {
   model: PricingModel
-  endpointMap: Record<string, { path?: string; method?: string }>
+  endpointMap: Record<
+    string,
+    {
+      path?: string
+      method?: string
+    }
+  >
 }) {
   const { t } = useTranslation()
   const { status } = useStatus()
-
   const baseUrl = useMemo(() => {
     const candidate =
       (status as Record<string, unknown> | null)?.server_address ??
@@ -459,7 +415,6 @@ function CodeSamplesSection(props: {
     if (typeof window !== 'undefined') return window.location.origin
     return 'https://api.example.com'
   }, [status])
-
   const endpoints = useMemo(() => {
     const types = props.model.supported_endpoint_types || []
     return types
@@ -469,24 +424,24 @@ function CodeSamplesSection(props: {
         if (path && path.includes('{model}')) {
           path = replaceModelInPath(path, props.model.model_name || '')
         }
-        return { type, path, method: info.method || 'POST' }
+        return {
+          type,
+          path,
+          method: info.method || 'POST',
+        }
       })
       .filter((e) => Boolean(e.path))
   }, [props.model, props.endpointMap])
-
   const [endpointType, setEndpointType] = useState<string>(
     endpoints[0]?.type ?? ''
   )
   const [lang, setLang] = useState<Lang>('curl')
-
   const activeEndpoint = useMemo(() => {
     return endpoints.find((e) => e.type === endpointType) ?? endpoints[0]
   }, [endpointType, endpoints])
-
   if (endpoints.length === 0 || !activeEndpoint) {
     return null
   }
-
   const code = buildSample(lang, activeEndpoint.type, {
     baseUrl,
     apiKeyEnv: 'NEW_API_KEY',
@@ -494,7 +449,6 @@ function CodeSamplesSection(props: {
     endpointType: activeEndpoint.type,
     endpointPath: activeEndpoint.path,
   })
-
   return (
     <section>
       <SectionTitle icon={ScrollText}>{t('Code samples')}</SectionTitle>
@@ -558,9 +512,7 @@ function SupportedParametersSection(props: { model: PricingModel }) {
     () => buildSupportedParameters(props.model),
     [props.model]
   )
-
   if (params.length === 0) return null
-
   return (
     <section>
       <SectionTitle icon={Sigma}>{t('Supported parameters')}</SectionTitle>
@@ -623,7 +575,6 @@ function SupportedParametersSection(props: { model: PricingModel }) {
     </section>
   )
 }
-
 function ParamRangeCell(props: { param: SupportedParameter }) {
   const { defaultValue, range, enumValues } = props.param
   if (defaultValue !== undefined) {
@@ -668,9 +619,7 @@ function ParamRangeCell(props: { param: SupportedParameter }) {
 function RateLimitsSection(props: { model: PricingModel }) {
   const { t } = useTranslation()
   const limits = useMemo(() => buildRateLimits(props.model), [props.model])
-
   if (limits.length === 0) return null
-
   return (
     <section>
       <SectionTitle icon={Gauge}>{t('Rate limits')}</SectionTitle>
@@ -760,7 +709,13 @@ function AuthSection() {
 
 export function ModelDetailsApi(props: {
   model: PricingModel
-  endpointMap: Record<string, { path?: string; method?: string }>
+  endpointMap: Record<
+    string,
+    {
+      path?: string
+      method?: string
+    }
+  >
 }) {
   return (
     <div className='space-y-6'>
@@ -778,7 +733,9 @@ export function ModelDetailsApi(props: {
 
 function SectionTitle(props: {
   children: React.ReactNode
-  icon: React.ComponentType<{ className?: string }>
+  icon: React.ComponentType<{
+    className?: string
+  }>
 }) {
   const Icon = props.icon
   return (

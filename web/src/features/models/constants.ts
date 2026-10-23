@@ -32,16 +32,32 @@ export const DEFAULT_PAGE_SIZE = 20
 
 export function getNameRuleOptions(t: TFunction) {
   return [
-    { label: t('Exact Match'), value: 0 as NameRule },
-    { label: t('Prefix Match'), value: 1 as NameRule },
-    { label: t('Contains Match'), value: 2 as NameRule },
-    { label: t('Suffix Match'), value: 3 as NameRule },
+    {
+      label: t('Exact Match'),
+      value: 0 as NameRule,
+    },
+    {
+      label: t('Prefix Match'),
+      value: 1 as NameRule,
+    },
+    {
+      label: t('Contains Match'),
+      value: 2 as NameRule,
+    },
+    {
+      label: t('Suffix Match'),
+      value: 3 as NameRule,
+    },
   ] as const
 }
-
-export function getNameRuleConfig(
-  t: TFunction
-): Record<NameRule, { label: string; color: string; description: string }> {
+export function getNameRuleConfig(t: TFunction): Record<
+  NameRule,
+  {
+    label: string
+    color: string
+    description: string
+  }
+> {
   return {
     0: {
       label: t('Exact'),
@@ -72,18 +88,36 @@ export function getNameRuleConfig(
 
 export function getModelStatusOptions(t: TFunction) {
   return [
-    { label: t('All Status'), value: 'all' },
-    { label: t('Shown'), value: 'enabled' },
-    { label: t('Not shown'), value: 'disabled' },
+    {
+      label: t('All Status'),
+      value: 'all',
+    },
+    {
+      label: t('Shown'),
+      value: 'enabled',
+    },
+    {
+      label: t('Not shown'),
+      value: 'disabled',
+    },
   ] as const
 }
-
-export function getModelStatusConfig(
-  t: TFunction
-): Record<ModelStatus, { label: string; variant: 'success' | 'neutral' }> {
+export function getModelStatusConfig(t: TFunction): Record<
+  ModelStatus,
+  {
+    label: string
+    variant: 'success' | 'neutral'
+  }
+> {
   return {
-    1: { label: t('Shown'), variant: 'success' },
-    0: { label: t('Not shown'), variant: 'neutral' },
+    1: {
+      label: t('Shown'),
+      variant: 'success',
+    },
+    0: {
+      label: t('Not shown'),
+      variant: 'neutral',
+    },
   }
 }
 
@@ -93,9 +127,18 @@ export function getModelStatusConfig(
 
 export function getSyncStatusOptions(t: TFunction) {
   return [
-    { label: t('All Sync Status'), value: 'all' },
-    { label: t('Official Sync'), value: 'yes' },
-    { label: t('No Sync'), value: 'no' },
+    {
+      label: t('All Sync Status'),
+      value: 'all',
+    },
+    {
+      label: t('Official Sync'),
+      value: 'yes',
+    },
+    {
+      label: t('No Sync'),
+      value: 'no',
+    },
   ] as const
 }
 
@@ -105,16 +148,36 @@ export function getSyncStatusOptions(t: TFunction) {
 
 export function getDeploymentStatusOptions(t: TFunction) {
   return [
-    { label: t('All Status'), value: 'all' },
-    { label: t('Running'), value: 'running' },
-    { label: t('Completed'), value: 'completed' },
-    { label: t('Failed'), value: 'failed' },
-    { label: t('Deployment requested'), value: 'deployment requested' },
-    { label: t('Termination requested'), value: 'termination requested' },
-    { label: t('Destroyed'), value: 'destroyed' },
+    {
+      label: t('All Status'),
+      value: 'all',
+    },
+    {
+      label: t('Running'),
+      value: 'running',
+    },
+    {
+      label: t('Completed'),
+      value: 'completed',
+    },
+    {
+      label: t('Failed'),
+      value: 'failed',
+    },
+    {
+      label: t('Deployment requested'),
+      value: 'deployment requested',
+    },
+    {
+      label: t('Termination requested'),
+      value: 'termination requested',
+    },
+    {
+      label: t('Destroyed'),
+      value: 'destroyed',
+    },
   ] as const
 }
-
 export function getDeploymentStatusConfig(t: TFunction): Record<
   string,
   {
@@ -123,11 +186,26 @@ export function getDeploymentStatusConfig(t: TFunction): Record<
   }
 > {
   return {
-    running: { label: t('Running'), variant: 'success' },
-    completed: { label: t('Completed'), variant: 'success' },
-    failed: { label: t('Failed'), variant: 'danger' },
-    error: { label: t('Failed'), variant: 'danger' },
-    destroyed: { label: t('Destroyed'), variant: 'danger' },
+    running: {
+      label: t('Running'),
+      variant: 'success',
+    },
+    completed: {
+      label: t('Completed'),
+      variant: 'success',
+    },
+    failed: {
+      label: t('Failed'),
+      variant: 'danger',
+    },
+    error: {
+      label: t('Failed'),
+      variant: 'danger',
+    },
+    destroyed: {
+      label: t('Destroyed'),
+      variant: 'danger',
+    },
     'deployment requested': {
       label: t('Deployment requested'),
       variant: 'warning',
@@ -143,12 +221,22 @@ export function getDeploymentStatusConfig(t: TFunction): Record<
 // Quota Type
 // ============================================================================
 
-export function getQuotaTypeConfig(
-  t: TFunction
-): Record<number, { label: string; color: string }> {
+export function getQuotaTypeConfig(t: TFunction): Record<
+  number,
+  {
+    label: string
+    color: string
+  }
+> {
   return {
-    0: { label: t('Usage-based'), color: 'violet' },
-    1: { label: t('Per-call'), color: 'teal' },
+    0: {
+      label: t('Usage-based'),
+      color: 'violet',
+    },
+    1: {
+      label: t('Per-call'),
+      color: 'teal',
+    },
   }
 }
 
@@ -158,15 +246,31 @@ export function getQuotaTypeConfig(
 
 export const ENDPOINT_TEMPLATES: Record<
   string,
-  { path: string; method: string }
+  {
+    path: string
+    method: string
+  }
 > = {
-  openai: { path: '/v1/chat/completions', method: 'POST' },
-  'openai-response': { path: '/v1/responses', method: 'POST' },
-  anthropic: { path: '/v1/messages', method: 'POST' },
-  gemini: { path: '/v1beta/models/{model}:generateContent', method: 'POST' },
-  'jina-rerank': { path: '/rerank', method: 'POST' },
-  'image-generation': { path: '/v1/images/generations', method: 'POST' },
-  embeddings: { path: '/v1/embeddings', method: 'POST' },
+  openai: {
+    path: '/v1/chat/completions',
+    method: 'POST',
+  },
+  'openai-response': {
+    path: '/v1/responses',
+    method: 'POST',
+  },
+  anthropic: {
+    path: '/v1/messages',
+    method: 'POST',
+  },
+  'image-generation': {
+    path: '/v1/images/generations',
+    method: 'POST',
+  },
+  embeddings: {
+    path: '/v1/embeddings',
+    method: 'POST',
+  },
 }
 
 // ============================================================================
@@ -175,12 +279,20 @@ export const ENDPOINT_TEMPLATES: Record<
 
 export function getSyncLocaleOptions(t: TFunction) {
   return [
-    { label: t('Chinese'), value: 'zh' },
-    { label: t('English'), value: 'en' },
-    { label: t('Japanese'), value: 'ja' },
+    {
+      label: t('Chinese'),
+      value: 'zh',
+    },
+    {
+      label: t('English'),
+      value: 'en',
+    },
+    {
+      label: t('Japanese'),
+      value: 'ja',
+    },
   ] as const
 }
-
 export function getSyncSourceOptions(t: TFunction) {
   return [
     {

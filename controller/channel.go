@@ -16,9 +16,9 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/ollama"
+
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/authz"
 
@@ -531,78 +531,35 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		return fmt.Errorf("channel cannot be empty")
 	}
 
+	if !constant.IsSupportedChannelType(channel.Type) {
+		return common.NewMessage("Unsupported channel type: {{type}}", map[string]any{"type": channel.Type})
+	}
+
 	// 校验 channel settings
 	if err := channel.ValidateSettings(); err != nil {
 		return common.NewMessage("Invalid channel settings format: {{error}}", map[string]any{"error": err.Error()})
 	}
-	if channel.Type == constant.ChannelTypeTaskPlugin {
-		pluginKey := strings.TrimSpace(channel.GetSetting().TaskPluginKey)
-		if pluginKey == "" {
-			return fmt.Errorf("task plugin key is required")
-		}
-		if len(pluginKey) > 30 {
-			return fmt.Errorf("task plugin key must not exceed 30 characters")
-		}
-		plugin, ok := jsplugin.DefaultRegistry.Get(pluginKey)
-		if !ok {
-			return fmt.Errorf("task plugin %q is not registered", pluginKey)
-		}
-		if channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "" {
-			// The plugin default is persisted onto the channel instead of being
-			// resolved per request, so the destination host stays an auditable
-			// channel property that only an administrator edit can change.
-			if plugin.Meta.BaseURL == "" {
-				return fmt.Errorf("base URL is required for task plugin channels")
-			}
-			defaultBaseURL := plugin.Meta.BaseURL
-			channel.BaseURL = &defaultBaseURL
-		}
-	}
-
 	setting := channel.GetSetting()
-	if channel.Type != constant.ChannelTypeNewAPI && len(setting.TaskExtendPluginKeys) > 0 {
-		return fmt.Errorf("task_extend_plugin_keys is only supported on New API channels")
+	seenPlugins := make(map[string]struct{})
+	bindings := append([]string(nil), setting.TaskExtendPluginKeys...)
+	if setting.TaskPluginKey != "" {
+		bindings = append(bindings, setting.TaskPluginKey)
 	}
-	if channel.Type == constant.ChannelTypeNewAPI {
-		if len(setting.TaskExtendPluginKeys) > maxTaskExtendPluginKeys {
-			return fmt.Errorf("task_extend_plugin_keys must not exceed %d plugins", maxTaskExtendPluginKeys)
+	for _, key := range bindings {
+		if strings.TrimSpace(key) != key || key == "" || len(key) > 30 {
+			return common.NewMessage("Invalid parameters")
 		}
-		// The single key stays valid on a New API channel, so both bindings are
-		// checked as one set.
-		keys := setting.TaskExtendPluginKeys
-		if setting.TaskPluginKey != "" {
-			keys = append([]string{setting.TaskPluginKey}, keys...)
+		if _, duplicate := seenPlugins[key]; duplicate {
+			return common.NewMessage("Invalid parameters")
 		}
-		bound := make(map[string]struct{}, len(keys))
-		for _, key := range keys {
-			if key == "" || key != strings.TrimSpace(key) {
-				return fmt.Errorf("task plugin key %q is invalid", key)
-			}
-			if len(key) > 30 {
-				return fmt.Errorf("task plugin key must not exceed 30 characters")
-			}
-			if _, duplicate := bound[key]; duplicate {
-				return fmt.Errorf("task plugin %q is bound more than once", key)
-			}
-			plugin, ok := jsplugin.DefaultRegistry.Get(key)
-			if !ok {
-				return fmt.Errorf("task plugin %q is not registered", key)
-			}
-			if !plugin.Meta.SupportsUpstream(jsplugin.UpstreamKindNewAPI) {
-				return fmt.Errorf("task plugin %q does not support a New API upstream and cannot be bound to a New API channel", key)
-			}
-			bound[key] = struct{}{}
+		seenPlugins[key] = struct{}{}
+		plugin, registered := jsplugin.DefaultRegistry.Get(key)
+		if !registered {
+			return fmt.Errorf("task plugin %q is not registered", key)
 		}
-	}
-
-	if channel.Type == constant.ChannelTypeNewAPI && strings.TrimSpace(channel.GetBaseURL()) == "" {
-		return fmt.Errorf("New API channel base URL cannot be empty")
-	}
-	if channel.Type == constant.ChannelTypeVLLM && strings.TrimSpace(channel.GetBaseURL()) == "" {
-		return fmt.Errorf("vLLM channel base URL cannot be empty")
-	}
-	if channel.Type == constant.ChannelTypeSGLang && strings.TrimSpace(channel.GetBaseURL()) == "" {
-		return fmt.Errorf("SGLang channel base URL cannot be empty")
+		if len(plugin.Meta.ChannelTypes) > 0 && !slices.Contains(plugin.Meta.ChannelTypes, channel.Type) {
+			return common.NewMessage("Invalid parameters")
+		}
 	}
 
 	// 如果是添加操作，检查 channel 和 key 是否为空
@@ -616,22 +573,6 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 			if len(m) > 255 {
 				return common.NewMessage("Model name is too long: {{model}}", map[string]any{"model": m})
 			}
-		}
-	}
-
-	// VertexAI 特殊校验
-	if channel.Type == constant.ChannelTypeVertexAi {
-		if channel.Other == "" {
-			return common.NewMessage("Deployment region cannot be empty")
-		}
-
-		regionMap, err := common.StrToMap(channel.Other)
-		if err != nil {
-			return common.NewMessage("Deployment region must be valid JSON, for example {{example}}", map[string]any{"example": `{"default": "us-central1", "region2": "us-east1"}`})
-		}
-
-		if regionMap["default"] == nil {
-			return common.NewMessage("Deployment region must include a default field")
 		}
 	}
 
@@ -697,38 +638,6 @@ type AddChannelRequest struct {
 	Channel                   *model.Channel        `json:"channel"`
 }
 
-func getVertexArrayKeys(keys string) ([]string, error) {
-	if keys == "" {
-		return nil, nil
-	}
-	var keyArray []any
-	err := common.Unmarshal([]byte(keys), &keyArray)
-	if err != nil {
-		return nil, common.NewMessage("Batch-adding Vertex AI keys requires a JSON array, for example {{example}}. Check the input: {{error}}", map[string]any{"example": "[{key1}, {key2}...]", "error": err.Error()})
-	}
-	cleanKeys := make([]string, 0, len(keyArray))
-	for _, key := range keyArray {
-		var keyStr string
-		switch v := key.(type) {
-		case string:
-			keyStr = strings.TrimSpace(v)
-		default:
-			bytes, err := common.Marshal(v)
-			if err != nil {
-				return nil, common.NewMessage("Failed to encode Vertex AI key JSON: {{error}}", map[string]any{"error": err.Error()})
-			}
-			keyStr = string(bytes)
-		}
-		if keyStr != "" {
-			cleanKeys = append(cleanKeys, keyStr)
-		}
-	}
-	if len(cleanKeys) == 0 {
-		return nil, common.NewMessage("Vertex AI keys for batch adding cannot be empty")
-	}
-	return cleanKeys, nil
-}
-
 func AddChannel(c *gin.Context) {
 	addChannelRequest := AddChannelRequest{}
 	err := c.ShouldBindJSON(&addChannelRequest)
@@ -764,38 +673,23 @@ func AddChannel(c *gin.Context) {
 	case "multi_to_single":
 		addChannelRequest.Channel.ChannelInfo.IsMultiKey = true
 		addChannelRequest.Channel.ChannelInfo.MultiKeyMode = addChannelRequest.MultiKeyMode
-		if addChannelRequest.Channel.Type == constant.ChannelTypeVertexAi && addChannelRequest.Channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
-			array, err := getVertexArrayKeys(addChannelRequest.Channel.Key)
-			if err != nil {
-				common.ApiError(c, err)
-				return
+
+		cleanKeys := make([]string, 0)
+		for key := range strings.SplitSeq(addChannelRequest.Channel.Key, "\n") {
+			if key == "" {
+				continue
 			}
-			addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(array)
-			addChannelRequest.Channel.Key = strings.Join(array, "\n")
-		} else {
-			cleanKeys := make([]string, 0)
-			for key := range strings.SplitSeq(addChannelRequest.Channel.Key, "\n") {
-				if key == "" {
-					continue
-				}
-				key = strings.TrimSpace(key)
-				cleanKeys = append(cleanKeys, key)
-			}
-			addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(cleanKeys)
-			addChannelRequest.Channel.Key = strings.Join(cleanKeys, "\n")
+			key = strings.TrimSpace(key)
+			cleanKeys = append(cleanKeys, key)
 		}
+		addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(cleanKeys)
+		addChannelRequest.Channel.Key = strings.Join(cleanKeys, "\n")
+
 		keys = []string{addChannelRequest.Channel.Key}
 	case "batch":
-		if addChannelRequest.Channel.Type == constant.ChannelTypeVertexAi && addChannelRequest.Channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
-			// multi json
-			keys, err = getVertexArrayKeys(addChannelRequest.Channel.Key)
-			if err != nil {
-				common.ApiError(c, err)
-				return
-			}
-		} else {
-			keys = strings.Split(addChannelRequest.Channel.Key, "\n")
-		}
+
+		keys = strings.Split(addChannelRequest.Channel.Key, "\n")
+
 	case "single":
 		keys = []string{addChannelRequest.Channel.Key}
 	default:
@@ -1087,6 +981,15 @@ func UpdateChannel(c *gin.Context) {
 	}
 	clearChannelReadOnlyFields(&channel, requestData)
 
+	// Preserve existing ChannelInfo to ensure multi-key channels keep correct state even if the client does not send ChannelInfo in the request.
+	originChannel, err := model.GetChannelById(channel.Id, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if _, provided := requestData["type"]; !provided {
+		channel.Type = originChannel.Type
+	}
 	if channel.Type == constant.ChannelTypeTaskPlugin &&
 		!authz.Can(c.GetInt("id"), c.GetInt("role"), authz.TaskPluginBind) {
 		c.JSON(http.StatusOK, gin.H{
@@ -1100,12 +1003,6 @@ func UpdateChannel(c *gin.Context) {
 		(channel.BaseURL == nil || strings.TrimSpace(*channel.BaseURL) == "")
 	// 使用统一的校验函数
 	if err := validateChannel(&channel.Channel, false); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	// Preserve existing ChannelInfo to ensure multi-key channels keep correct state even if the client does not send ChannelInfo in the request.
-	originChannel, err := model.GetChannelById(channel.Id, true)
-	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -1157,7 +1054,7 @@ func UpdateChannel(c *gin.Context) {
 				if strings.HasPrefix(strings.TrimSpace(originChannel.Key), "[") {
 					// JSON数组格式
 					var arr []json.RawMessage
-					if err := json.Unmarshal([]byte(strings.TrimSpace(originChannel.Key)), &arr); err == nil {
+					if err := common.Unmarshal([]byte(strings.TrimSpace(originChannel.Key)), &arr); err == nil {
 						existingKeys = make([]string, len(arr))
 						for i, v := range arr {
 							existingKeys[i] = string(v)
@@ -1168,28 +1065,12 @@ func UpdateChannel(c *gin.Context) {
 					existingKeys = strings.Split(strings.Trim(originChannel.Key, "\n"), "\n")
 				}
 
-				// 处理 Vertex AI 的特殊情况
-				if channel.Type == constant.ChannelTypeVertexAi && channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
-					// 尝试解析新密钥为JSON数组
-					if strings.HasPrefix(strings.TrimSpace(channel.Key), "[") {
-						array, err := getVertexArrayKeys(channel.Key)
-						if err != nil {
-							common.ApiErrorT(c, "Failed to parse appended keys: {{error}}", map[string]any{"error": err.Error()})
-							return
-						}
-						newKeys = array
-					} else {
-						// 单个JSON密钥
-						newKeys = []string{channel.Key}
-					}
-				} else {
-					// 普通渠道的处理
-					inputKeys := strings.SplitSeq(channel.Key, "\n")
-					for key := range inputKeys {
-						key = strings.TrimSpace(key)
-						if key != "" {
-							newKeys = append(newKeys, key)
-						}
+				// 普通渠道的处理
+				inputKeys := strings.SplitSeq(channel.Key, "\n")
+				for key := range inputKeys {
+					key = strings.TrimSpace(key)
+					if key != "" {
+						newKeys = append(newKeys, key)
 					}
 				}
 
@@ -1346,81 +1227,13 @@ func equalStringPtr(a, b *string) bool {
 }
 
 type fetchModelsRequest struct {
-	ChannelID      int     `json:"channel_id"`
-	BaseURL        *string `json:"base_url"`
-	Type           int     `json:"type"`
-	Key            string  `json:"key"`
-	AdvancedCustom *string `json:"advanced_custom"`
+	ChannelID int     `json:"channel_id"`
+	BaseURL   *string `json:"base_url"`
+	Type      int     `json:"type"`
+	Key       string  `json:"key"`
+
 	HeaderOverride *string `json:"header_override"`
 	Proxy          *string `json:"proxy"`
-}
-
-func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Channel, error) {
-	var channel *model.Channel
-	if req.ChannelID > 0 {
-		savedChannel, err := model.GetChannelById(req.ChannelID, true)
-		if err != nil {
-			return nil, err
-		}
-		if savedChannel.Type != constant.ChannelTypeAdvancedCustom {
-			return nil, fmt.Errorf("channel %d is not an advanced custom channel", req.ChannelID)
-		}
-		channel = savedChannel
-	} else {
-		key := strings.TrimSpace(req.Key)
-		if key != "" {
-			key = strings.Split(key, "\n")[0]
-		}
-		channel = &model.Channel{
-			Type: req.Type,
-			Key:  key,
-		}
-	}
-
-	if channel.Type != constant.ChannelTypeAdvancedCustom {
-		return nil, fmt.Errorf("channel type must be advanced custom")
-	}
-	if req.BaseURL != nil {
-		baseURL := strings.TrimSpace(*req.BaseURL)
-		channel.BaseURL = &baseURL
-	}
-
-	settings := channel.GetOtherSettings()
-	if req.AdvancedCustom != nil {
-		rawConfig := strings.TrimSpace(*req.AdvancedCustom)
-		if rawConfig == "" {
-			return nil, fmt.Errorf("advanced_custom is required")
-		}
-		var config dto.AdvancedCustomConfig
-		if err := common.UnmarshalJsonStr(rawConfig, &config); err != nil {
-			return nil, err
-		}
-		settings.AdvancedCustom = &config
-	} else if req.ChannelID <= 0 {
-		return nil, fmt.Errorf("advanced_custom is required")
-	}
-	channel.SetOtherSettings(settings)
-
-	if req.HeaderOverride != nil {
-		rawHeaderOverride := strings.TrimSpace(*req.HeaderOverride)
-		if rawHeaderOverride != "" {
-			var headerOverride map[string]any
-			if err := common.UnmarshalJsonStr(rawHeaderOverride, &headerOverride); err != nil {
-				return nil, fmt.Errorf("header_override must be a JSON object: %w", err)
-			}
-		}
-		channel.HeaderOverride = &rawHeaderOverride
-	}
-	if req.Proxy != nil {
-		channelSettings := channel.GetSetting()
-		channelSettings.Proxy = strings.TrimSpace(*req.Proxy)
-		channel.SetSetting(channelSettings)
-	}
-
-	if err := validateChannel(channel, false); err != nil {
-		return nil, err
-	}
-	return channel, nil
 }
 
 func FetchModels(c *gin.Context) {
@@ -1435,9 +1248,9 @@ func FetchModels(c *gin.Context) {
 	}
 
 	var channel *model.Channel
-	if req.Type == constant.ChannelTypeAdvancedCustom || req.ChannelID > 0 {
+	if req.ChannelID > 0 {
 		var err error
-		channel, err = buildAdvancedCustomModelPreviewChannel(req)
+		channel, err = model.GetChannelById(req.ChannelID, true)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -1582,7 +1395,7 @@ func CopyChannel(c *gin.Context) {
 		clone.UsedQuota = 0
 	}
 
-	if err := clone.ValidateSettings(); err != nil {
+	if err := validateChannel(&clone, false); err != nil {
 		common.SysError(common.LogText("failed to validate cloned channel: %s", err.Error()))
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "Failed to copy channel: invalid channel settings"})
 		return
@@ -2067,260 +1880,4 @@ func ManageMultiKeys(c *gin.Context) {
 
 func multiKeyActionRequiresSensitiveWrite(action string) bool {
 	return action == "delete_key" || action == "delete_disabled_keys"
-}
-
-// OllamaPullModel 拉取 Ollama 模型
-func OllamaPullModel(c *gin.Context) {
-	var req struct {
-		ChannelID int    `json:"channel_id"`
-		ModelName string `json:"model_name"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request parameters",
-		})
-		return
-	}
-
-	if req.ChannelID == 0 || req.ModelName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Channel ID and model name are required",
-		})
-		return
-	}
-
-	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "Channel not found",
-		})
-		return
-	}
-
-	// 检查是否是 Ollama 渠道
-	if channel.Type != constant.ChannelTypeOllama {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "This operation is only supported for Ollama channels",
-		})
-		return
-	}
-
-	baseURL := constant.GetChannelBaseURL(channel.Type)
-	if channel.GetBaseURL() != "" {
-		baseURL = channel.GetBaseURL()
-	}
-
-	key := strings.Split(channel.Key, "\n")[0]
-	err = ollama.PullOllamaModel(baseURL, key, req.ModelName)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("Failed to pull model: %s", err.Error()),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": fmt.Sprintf("Model %s pulled successfully", req.ModelName),
-	})
-}
-
-// OllamaPullModelStream 流式拉取 Ollama 模型
-func OllamaPullModelStream(c *gin.Context) {
-	var req struct {
-		ChannelID int    `json:"channel_id"`
-		ModelName string `json:"model_name"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request parameters",
-		})
-		return
-	}
-
-	if req.ChannelID == 0 || req.ModelName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Channel ID and model name are required",
-		})
-		return
-	}
-
-	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "Channel not found",
-		})
-		return
-	}
-
-	// 检查是否是 Ollama 渠道
-	if channel.Type != constant.ChannelTypeOllama {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "This operation is only supported for Ollama channels",
-		})
-		return
-	}
-
-	baseURL := constant.GetChannelBaseURL(channel.Type)
-	if channel.GetBaseURL() != "" {
-		baseURL = channel.GetBaseURL()
-	}
-
-	// 设置 SSE 头部
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("Access-Control-Allow-Origin", "*")
-
-	key := strings.Split(channel.Key, "\n")[0]
-
-	// 创建进度回调函数
-	progressCallback := func(progress ollama.OllamaPullResponse) {
-		data, _ := json.Marshal(progress)
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(data))
-		c.Writer.Flush()
-	}
-
-	// 执行拉取
-	err = ollama.PullOllamaModelStream(baseURL, key, req.ModelName, progressCallback)
-
-	if err != nil {
-		errorData, _ := json.Marshal(gin.H{
-			"error": err.Error(),
-		})
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(errorData))
-	} else {
-		successData, _ := json.Marshal(gin.H{
-			"message": fmt.Sprintf("Model %s pulled successfully", req.ModelName),
-		})
-		fmt.Fprintf(c.Writer, "data: %s\n\n", string(successData))
-	}
-
-	// 发送结束标志
-	fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
-	c.Writer.Flush()
-}
-
-// OllamaDeleteModel 删除 Ollama 模型
-func OllamaDeleteModel(c *gin.Context) {
-	var req struct {
-		ChannelID int    `json:"channel_id"`
-		ModelName string `json:"model_name"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid request parameters",
-		})
-		return
-	}
-
-	if req.ChannelID == 0 || req.ModelName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Channel ID and model name are required",
-		})
-		return
-	}
-
-	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "Channel not found",
-		})
-		return
-	}
-
-	// 检查是否是 Ollama 渠道
-	if channel.Type != constant.ChannelTypeOllama {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "This operation is only supported for Ollama channels",
-		})
-		return
-	}
-
-	baseURL := constant.GetChannelBaseURL(channel.Type)
-	if channel.GetBaseURL() != "" {
-		baseURL = channel.GetBaseURL()
-	}
-
-	key := strings.Split(channel.Key, "\n")[0]
-	err = ollama.DeleteOllamaModel(baseURL, key, req.ModelName)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("Failed to delete model: %s", err.Error()),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": fmt.Sprintf("Model %s deleted successfully", req.ModelName),
-	})
-}
-
-// OllamaVersion 获取 Ollama 服务版本信息
-func OllamaVersion(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid channel id",
-		})
-		return
-	}
-
-	channel, err := model.GetChannelById(id, true)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "Channel not found",
-		})
-		return
-	}
-
-	if channel.Type != constant.ChannelTypeOllama {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "This operation is only supported for Ollama channels",
-		})
-		return
-	}
-
-	baseURL := constant.GetChannelBaseURL(channel.Type)
-	if channel.GetBaseURL() != "" {
-		baseURL = channel.GetBaseURL()
-	}
-
-	key := strings.Split(channel.Key, "\n")[0]
-	version, err := ollama.FetchOllamaVersion(baseURL, key)
-	if err != nil {
-		common.ApiErrorT(c, "Failed to fetch Ollama version: {{error}}", map[string]any{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"version": version,
-		},
-	})
 }

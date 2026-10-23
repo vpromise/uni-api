@@ -29,24 +29,20 @@ import {
 } from '@/components/ui/popover'
 import dayjs from '@/lib/dayjs'
 import { cn } from '@/lib/utils'
-
 interface CompactDateTimeRangePickerProps {
   start?: Date
   end?: Date
   onChange: (range: { start?: Date; end?: Date }) => void
   className?: string
 }
-
 function toInputValue(date?: Date): string {
   return date ? dayjs(date).format('YYYY-MM-DDTHH:mm:ss') : ''
 }
-
 function fromInputValue(value: string): Date | undefined {
   if (!value) return undefined
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? undefined : date
 }
-
 export function CompactDateTimeRangePicker({
   start,
   end,
@@ -57,14 +53,12 @@ export function CompactDateTimeRangePicker({
   const [open, setOpen] = useState(false)
   const [draftStart, setDraftStart] = useState(toInputValue(start))
   const [draftEnd, setDraftEnd] = useState(toInputValue(end))
-
   const label = useMemo(() => {
     if (!start && !end) return t('Date Range')
     const startText = start ? dayjs(start).format('YYYY-MM-DD HH:mm:ss') : '-'
     const endText = end ? dayjs(end).format('YYYY-MM-DD HH:mm:ss') : '-'
     return `${startText} ~ ${endText}`
   }, [end, start, t])
-
   const mobileLabel = useMemo(() => {
     if (!start || !end) return label
     if (dayjs(start).isSame(end, 'day')) {
@@ -72,7 +66,6 @@ export function CompactDateTimeRangePicker({
     }
     return label
   }, [start, end, label])
-
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setDraftStart(toInputValue(start))
@@ -80,7 +73,6 @@ export function CompactDateTimeRangePicker({
     }
     setOpen(nextOpen)
   }
-
   const applyDraft = () => {
     onChange({
       start: fromInputValue(draftStart),
@@ -88,7 +80,6 @@ export function CompactDateTimeRangePicker({
     })
     setOpen(false)
   }
-
   const applyPreset = (kind: 'today' | '7d' | 'week' | '30d' | 'month') => {
     const now = dayjs()
     const presets = {
@@ -119,7 +110,6 @@ export function CompactDateTimeRangePicker({
     onChange(range)
     setOpen(false)
   }
-
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger

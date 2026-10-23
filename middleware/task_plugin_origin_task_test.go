@@ -41,10 +41,10 @@ func setupOriginTaskDB(t *testing.T) {
 func insertOriginTaskChannel(t *testing.T, status int) *model.Channel {
 	t.Helper()
 	channel := &model.Channel{
+		Type:   constant.ChannelTypeOpenAI,
 		Name:   "origin-channel",
 		Key:    "sk-origin",
 		Status: status,
-		Type:   constant.ChannelTypeDoubaoVideo,
 	}
 	require.NoError(t, model.DB.Create(channel).Error)
 	return channel
@@ -96,7 +96,7 @@ func TestApplyOriginTaskIntent(t *testing.T) {
 	insertOriginOwnedTask(t, "task-other-channel", 7, otherEnabled.Id, "origin-plugin")
 	insertOriginOwnedTask(t, "task-foreign", 8, enabled.Id, "origin-plugin")
 	insertOriginOwnedTask(t, "task-wrong-platform", 7, enabled.Id, "other-plugin")
-	insertOriginOwnedTask(t, "task-legacy", 7, enabled.Id, constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeDoubaoVideo)))
+	insertOriginOwnedTask(t, "task-legacy", 7, enabled.Id, constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)))
 	insertOriginOwnedTask(t, "task-disabled", 7, disabled.Id, "origin-plugin")
 
 	tooMany := make([]any, 17)
@@ -127,14 +127,7 @@ func TestApplyOriginTaskIntent(t *testing.T) {
 			wantPinned: enabled.Id,
 			wantIDs:    []string{"task-own", "task-own-b"},
 		},
-		{
-			name:        "legacy platform matches channelType",
-			userID:      7,
-			intent:      map[string]any{"originTaskIds": []any{"task-legacy"}},
-			channelType: constant.ChannelTypeDoubaoVideo,
-			wantPinned:  enabled.Id,
-			wantIDs:     []string{"task-legacy"},
-		},
+
 		{
 			name:     "unknown id",
 			userID:   7,

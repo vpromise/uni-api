@@ -37,10 +37,6 @@ type Function struct {
 	// re-encoded from a decoded map, which would sort the properties.
 	Parameters json.RawMessage
 	Strict     *bool
-	// OpenAPISchema marks Parameters written in Gemini's OpenAPI schema
-	// subset (uppercase type names, nullable, propertyOrdering) rather than
-	// JSON Schema.
-	OpenAPISchema bool
 }
 
 // ApproximateLocation and WebSearch are the convmeta types, so a host
@@ -85,12 +81,11 @@ type Choice struct {
 }
 
 type Set struct {
-	Source           types.RelayFormat
-	Definitions      []Definition
-	Choice           *Choice
-	ParallelAllowed  *bool
-	NativeToolConfig json.RawMessage
-	History          []HostedHistoryItem
+	Source          types.RelayFormat
+	Definitions     []Definition
+	Choice          *Choice
+	ParallelAllowed *bool
+	History         []HostedHistoryItem
 	// Diagnostics reports losses found while extracting the definitions; they
 	// are returned with the attach diagnostics.
 	Diagnostics []types.ConversionDiagnostic
@@ -100,7 +95,7 @@ type Set struct {
 }
 
 func (s Set) Empty() bool {
-	return len(s.Definitions) == 0 && s.Choice == nil && s.ParallelAllowed == nil && len(s.NativeToolConfig) == 0 && len(s.History) == 0 && len(s.Diagnostics) == 0
+	return len(s.Definitions) == 0 && s.Choice == nil && s.ParallelAllowed == nil && len(s.History) == 0 && len(s.Diagnostics) == 0
 }
 
 type HostedHistoryItem struct {

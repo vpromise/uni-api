@@ -7,18 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseGeminiModelSuffixNoThinkingDisablesReasoning(t *testing.T) {
-	t.Parallel()
-
-	base, intent, found, err := ParseGeminiModelSuffix("gemini-2.5-flash-nothinking", true)
-	require.NoError(t, err)
-	require.True(t, found)
-	assert.Equal(t, "gemini-2.5-flash", base)
-	assert.Equal(t, ModeDisabled, intent.Mode)
-	assert.Equal(t, EffortNone, intent.Effort)
-	assert.Equal(t, SourceSuffix, intent.Source)
-}
-
 func TestParseKnownProviderModelSuffix(t *testing.T) {
 	t.Parallel()
 
@@ -69,14 +57,7 @@ func TestParseKnownProviderModelSuffix(t *testing.T) {
 			wantMode:           ModeEnabled,
 			wantEffort:         EffortHigh,
 		},
-		{
-			name:               "gemini thinking alias",
-			model:              "gemini-2.5-flash-thinking",
-			allowThinkingAlias: true,
-			wantBase:           "gemini-2.5-flash",
-			wantFound:          true,
-			wantMode:           ModeEnabled,
-		},
+
 		{
 			name:               "malformed thinking budget",
 			model:              "claude-3-7-sonnet-thinking-abc",

@@ -28,11 +28,10 @@ func TestModelFamily(t *testing.T) {
 		{"claude-fable-5-1", FamilyClaude47},
 		{"Claude-Opus-5-5", FamilyClaude47},
 		{"claude-mythos-preview", FamilyClaude47},
-		{"gemini-3.7-flash", FamilyGemini},
+
 		{"gpt-5.6-sol", FamilyOpenAI},
 		{"gpt-6-astra", FamilyOpenAI},
 		{"o3-mini", FamilyOpenAI},
-		{"deepseek-v4", FamilyUnknown},
 	} {
 		assert.Equal(t, tc.family, ModelFamily(tc.model), tc.model)
 	}

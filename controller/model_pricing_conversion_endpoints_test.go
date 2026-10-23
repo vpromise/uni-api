@@ -29,12 +29,7 @@ func TestModelPricingConversionAcceptsDeclaredEndpointArray(t *testing.T) {
 			model.PricingValues{"ModelRatio": 1.7875, "CompletionRatio": 6, "ImageRatio": 1.6}, false},
 		{"array-endpoints-image-fixed", `["image-generation","openai"]`,
 			model.PricingValues{"ModelPrice": 1}, true},
-		{"array-endpoints-gemini", `["gemini","openai"]`,
-			model.PricingValues{"ModelRatio": 0.10725, "CompletionRatio": 100}, false},
-		{"array-endpoints-gemini-cache", `["gemini","openai"]`,
-			model.PricingValues{"ModelRatio": 0.715, "CompletionRatio": 60, "CacheRatio": 0.1}, false},
-		{"array-endpoints-openai-response", `["openai","openai-response","openai-response-compact","gemini"]`,
-			model.PricingValues{"ModelRatio": 0.17875, "CompletionRatio": 120}, false},
+
 		{"map-endpoints-image", `{"image-generation": {"path": "/v1/images/generations", "method": "POST"}}`,
 			model.PricingValues{"ModelPrice": 1}, true},
 		// Endpoint names must be trimmed before the switch matches them: a

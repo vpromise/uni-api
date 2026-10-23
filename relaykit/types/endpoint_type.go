@@ -10,14 +10,12 @@ const (
 	EndpointTypeOpenAIResponse        EndpointType = "openai-response"
 	EndpointTypeOpenAIResponseCompact EndpointType = "openai-response-compact"
 	EndpointTypeOpenAIAlphaSearch     EndpointType = "openai-alpha-search"
-	EndpointTypeDeepSeekToolsSearch   EndpointType = "deepseek-tools-search"
-	EndpointTypeDeepSeekToolsFetch    EndpointType = "deepseek-tools-fetch"
-	EndpointTypeAnthropic             EndpointType = "anthropic"
-	EndpointTypeGemini                EndpointType = "gemini"
-	EndpointTypeJinaRerank            EndpointType = "jina-rerank"
-	EndpointTypeImageGeneration       EndpointType = "image-generation"
-	EndpointTypeEmbeddings            EndpointType = "embeddings"
-	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
+
+	EndpointTypeAnthropic EndpointType = "anthropic"
+
+	EndpointTypeImageGeneration EndpointType = "image-generation"
+	EndpointTypeEmbeddings      EndpointType = "embeddings"
+	EndpointTypeOpenAIVideo     EndpointType = "openai-video"
 )
 
 // Finish reasons shared by the OpenAI-compatible response formats.

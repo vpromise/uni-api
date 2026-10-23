@@ -29,9 +29,7 @@ import { translateServerText } from '@/lib/server-error-message'
 import type { UsageLog } from '../data/schema'
 import type { LogOtherData } from '../types'
 import { buildQuotaAuditOperation } from './quota-audit-operation'
-
 export { normalizeTierLabel }
-
 const PARAM_OVERRIDE_ACTION_MAP: Record<string, string> = {
   set: 'Set',
   delete: 'Delete',
@@ -71,12 +69,20 @@ export function getParamOverrideActionLabel(
 /**
  * Parse a param override audit line into action and content
  */
-export function parseAuditLine(
-  line: string
-): { action: string; content: string } | null {
-  if (typeof line !== 'string') return null
+export function parseAuditLine(line: string): {
+  action: string
+  content: string
+} | null {
+  if (typeof line !== 'string') {
+    return null
+  }
   const firstSpace = line.indexOf(' ')
-  if (firstSpace <= 0) return { action: line, content: line }
+  if (firstSpace <= 0) {
+    return {
+      action: line,
+      content: line,
+    }
+  }
   return {
     action: line.slice(0, firstSpace),
     content: line.slice(firstSpace + 1),
@@ -87,18 +93,18 @@ export function parseAuditLine(
  * Check if the log is a violation fee log
  */
 export function isViolationFeeLog(other: LogOtherData | null): boolean {
-  if (!other) return false
+  if (!other) {
+    return false
+  }
   return (
     other.violation_fee === true ||
     Boolean(other.violation_fee_code) ||
     Boolean(other.violation_fee_marker)
   )
 }
-
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
-
 function hasLegacySearchSurcharge(
   enabled: boolean | undefined,
   count: number | undefined,
@@ -117,8 +123,9 @@ function hasLegacySearchSurcharge(
  * historical Web Search, File Search, and Image Generation logs visible.
  */
 export function hasToolSurcharge(other: LogOtherData | null): boolean {
-  if (!other) return false
-
+  if (!other) {
+    return false
+  }
   const hasStructuredSurcharge =
     Array.isArray(other.tool_surcharges) &&
     other.tool_surcharges.some(
@@ -128,8 +135,9 @@ export function hasToolSurcharge(other: LogOtherData | null): boolean {
         isPositiveFiniteNumber(item.count) &&
         isPositiveFiniteNumber(item.price)
     )
-  if (hasStructuredSurcharge) return true
-
+  if (hasStructuredSurcharge) {
+    return true
+  }
   if (
     hasLegacySearchSurcharge(
       other.web_search,
@@ -139,7 +147,6 @@ export function hasToolSurcharge(other: LogOtherData | null): boolean {
   ) {
     return true
   }
-
   if (
     hasLegacySearchSurcharge(
       other.file_search,
@@ -149,7 +156,6 @@ export function hasToolSurcharge(other: LogOtherData | null): boolean {
   ) {
     return true
   }
-
   return (
     other.image_generation_call === true &&
     isPositiveFiniteNumber(other.image_generation_call_price)
@@ -160,7 +166,9 @@ export function hasToolSurcharge(other: LogOtherData | null): boolean {
  * Parse the 'other' field from JSON string to object
  */
 export function parseLogOther(other: string): LogOtherData | null {
-  if (!other) return null
+  if (!other) {
+    return null
+  }
   try {
     return JSON.parse(other) as LogOtherData
   } catch (error) {
@@ -169,7 +177,6 @@ export function parseLogOther(other: string): LogOtherData | null {
     return null
   }
 }
-
 export function getReasoningEffortVariant(
   effort: string | undefined
 ): StatusBadgeProps['variant'] {
@@ -195,8 +202,12 @@ export function getReasoningEffortVariant(
 export function getTimeColor(
   seconds: number
 ): 'success' | 'warning' | 'danger' {
-  if (seconds < 10) return 'success'
-  if (seconds < 30) return 'warning'
+  if (seconds < 10) {
+    return 'success'
+  }
+  if (seconds < 30) {
+    return 'warning'
+  }
   return 'danger'
 }
 
@@ -206,8 +217,12 @@ export function getTimeColor(
 export function getFirstResponseTimeColor(
   seconds: number
 ): 'success' | 'warning' | 'danger' {
-  if (seconds < 5) return 'success'
-  if (seconds < 10) return 'warning'
+  if (seconds < 5) {
+    return 'success'
+  }
+  if (seconds < 10) {
+    return 'warning'
+  }
   return 'danger'
 }
 
@@ -217,8 +232,12 @@ export function getFirstResponseTimeColor(
 export function getThroughputColor(
   tokensPerSecond: number
 ): 'success' | 'warning' | 'danger' {
-  if (tokensPerSecond >= 30) return 'success'
-  if (tokensPerSecond >= 15) return 'warning'
+  if (tokensPerSecond >= 30) {
+    return 'success'
+  }
+  if (tokensPerSecond >= 15) {
+    return 'warning'
+  }
   return 'danger'
 }
 
@@ -229,7 +248,9 @@ export function getResponseTimeColor(
   seconds: number,
   completionTokens: number
 ): 'success' | 'warning' | 'danger' {
-  if (completionTokens < 100 || seconds <= 0) return getTimeColor(seconds)
+  if (completionTokens < 100 || seconds <= 0) {
+    return getTimeColor(seconds)
+  }
   return getThroughputColor(completionTokens / seconds)
 }
 
@@ -248,7 +269,6 @@ export function formatModelName(log: UsageLog): {
     other?.upstream_model_name &&
     other.upstream_model_name !== ''
   )
-
   return {
     name: log.model_name,
     isMapped,
@@ -262,22 +282,21 @@ export function formatModelName(log: UsageLog): {
  * when the input is missing or malformed (e.g. legacy logs without expr_b64).
  */
 export function decodeBillingExprB64(exprB64: string | undefined): string {
-  if (!exprB64) return ''
+  if (!exprB64) {
+    return ''
+  }
   try {
     const binaryString =
       typeof window !== 'undefined'
         ? window.atob(exprB64)
         : Buffer.from(exprB64, 'base64').toString('binary')
     const bytes = new Uint8Array(binaryString.length)
-
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i)
     }
-
     if (typeof TextDecoder !== 'undefined') {
       return new TextDecoder().decode(bytes)
     }
-
     return decodeURIComponent(
       Array.prototype.map
         .call(bytes, (byte: number) => `%${byte.toString(16).padStart(2, '0')}`)
@@ -297,8 +316,12 @@ export function resolveMatchedTier(
   tiers: ParsedTier[],
   matchedLabel: string | undefined
 ): ParsedTier | null {
-  if (tiers.length === 0) return null
-  if (!matchedLabel) return null
+  if (tiers.length === 0) {
+    return null
+  }
+  if (!matchedLabel) {
+    return null
+  }
   const found = tiers.find((tier) => {
     const l1 = normalizeTierLabel(tier.label)
     const l2 = normalizeTierLabel(matchedLabel)
@@ -331,7 +354,9 @@ export interface TieredBillingSummary {
 export function hasAnyCacheTokens(
   other: LogOtherData | null | undefined
 ): boolean {
-  if (!other) return false
+  if (!other) {
+    return false
+  }
   return (
     (other.cache_tokens || 0) > 0 ||
     (other.image_cache_tokens || 0) > 0 ||
@@ -341,13 +366,16 @@ export function hasAnyCacheTokens(
     (other.cache_creation_tokens_12h || 0) > 0
   )
 }
-
 export function getTieredBillingSummary(
   other: LogOtherData | null
 ): TieredBillingSummary | null {
-  if (!other || other.billing_mode !== 'tiered_expr') return null
+  if (!other || other.billing_mode !== 'tiered_expr') {
+    return null
+  }
   const exprStr = decodeBillingExprB64(other.expr_b64)
-  if (!exprStr) return null
+  if (!exprStr) {
+    return null
+  }
   const tiers = parseTiersFromExpr(
     splitBillingExprAndRequestRules(exprStr).billingExpr
   )
@@ -385,7 +413,9 @@ export function getTieredBillingSummary(
       ],
     }
   }
-  if (!tier) return null
+  if (!tier) {
+    return null
+  }
   if (tier.billingUnit === 'request' && typeof tier.fixedPrice === 'number') {
     return {
       tiers,
@@ -400,13 +430,15 @@ export function getTieredBillingSummary(
       ],
     }
   }
-
   const cacheTokensPresent = hasAnyCacheTokens(other)
-
   const priceEntries: TieredBillingSummary['priceEntries'] = []
   for (const v of BILLING_PRICING_VARS) {
-    if (!v.field) continue
-    if (v.group === 'cache' && !cacheTokensPresent) continue
+    if (!v.field) {
+      continue
+    }
+    if (v.group === 'cache' && !cacheTokensPresent) {
+      continue
+    }
     const raw = tier[v.field as keyof ParsedTier]
     const price = Number(raw)
     if (Number.isFinite(price) && price >= 0) {
@@ -417,7 +449,11 @@ export function getTieredBillingSummary(
       })
     }
   }
-  return { tiers, tier, priceEntries }
+  return {
+    tiers,
+    tier,
+    priceEntries,
+  }
 }
 
 /**
@@ -430,15 +466,21 @@ export function formatDuration(
   submitTime?: number,
   finishTime?: number,
   unit: 'seconds' | 'milliseconds' = 'milliseconds'
-): { durationSec: number; variant: StatusBadgeProps['variant'] } | null {
-  if (!submitTime || !finishTime) return null
-
+): {
+  durationSec: number
+  variant: StatusBadgeProps['variant']
+} | null {
+  if (!submitTime || !finishTime) {
+    return null
+  }
   const durationSec =
     unit === 'milliseconds'
       ? (finishTime - submitTime) / 1000
       : finishTime - submitTime
-
-  return { durationSec, variant: durationSec > 60 ? 'red' : 'green' }
+  return {
+    durationSec,
+    variant: durationSec > 60 ? 'red' : 'green',
+  }
 }
 
 /**
@@ -471,7 +513,6 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'user.binding_bind': 'Account binding',
   'user.binding_unbind': 'Account unlinking',
   'user.email_binding_resend': 'Email confirmation code resend',
-
   login: 'Logged in successfully via {{method}}',
   // User management
   'user.create': 'Created user {{username}} (role {{role}})',
@@ -578,7 +619,9 @@ export function renderLogContent(
   t: (key: string, opts?: Record<string, unknown>) => string
 ): string | null {
   const parts = other?.content_parts
-  if (!Array.isArray(parts) || parts.length === 0) return null
+  if (!Array.isArray(parts) || parts.length === 0) {
+    return null
+  }
   return parts.map((part) => t(part.key, part.params)).join(', ')
 }
 
@@ -605,7 +648,9 @@ export function renderAuditContent(
   t: (key: string, opts?: Record<string, unknown>) => string
 ): string | null {
   const op = other?.op
-  if (!op?.action) return null
+  if (!op?.action) {
+    return null
+  }
   if (
     op.action === 'redemption.delete_batch' ||
     (op.action === 'redemption.delete' &&
@@ -620,12 +665,16 @@ export function renderAuditContent(
       Number.isSafeInteger(count) &&
       count >= 0
     ) {
-      return t('Batch deleted {{count}} redemption codes', { count })
+      return t('Batch deleted {{count}} redemption codes', {
+        count,
+      })
     }
     return t('Batch deleted redemption codes (count not recorded)')
   }
   const template = AUDIT_TEMPLATES[op.action]
-  if (!template) return null
+  if (!template) {
+    return null
+  }
   const quotaOperation = buildQuotaAuditOperation(
     op.action,
     op.params ?? {},
@@ -635,6 +684,8 @@ export function renderAuditContent(
   if (quotaOperation) {
     return `${quotaOperation.summary} · ${quotaOperation.description}`
   }
-  const params = { ...op.params }
+  const params = {
+    ...op.params,
+  }
   return t(template, params)
 }

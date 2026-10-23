@@ -20,11 +20,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  ListOrdered,
+  Shuffle,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
-  ListOrdered,
-  Shuffle,
   SlidersHorizontal,
 } from 'lucide-react'
 import { useState, useMemo, useContext, useEffect } from 'react'
@@ -35,7 +35,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { BadgeListCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { ProviderBadge } from '@/components/provider-badge'
-import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
+import { type StatusBadgeProps, StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { TruncatedText } from '@/components/truncated-text'
 import { Button } from '@/components/ui/button'
@@ -64,8 +64,6 @@ import { getCodexUsage, updateChannelBalance } from '../api'
 import {
   CHANNEL_STATUS_CONFIG,
   CHANNEL_TYPE_TASK_PLUGIN,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
   MODEL_FETCHABLE_TYPES,
 } from '../constants'
 import {
@@ -95,29 +93,10 @@ import { DataTableRowActions } from './data-table-row-actions'
 import { DataTableTagRowActions } from './data-table-tag-row-actions'
 import { BalanceQueryDialog } from './dialogs/balance-query-dialog'
 import {
-  CodexUsageDialog,
   type CodexUsageDialogData,
+  CodexUsageDialog,
 } from './dialogs/codex-usage-dialog'
 import { NumericSpinnerInput } from './numeric-spinner-input'
-
-function parseIonetMeta(otherInfo: string | null | undefined): null | {
-  source?: string
-  deployment_id?: string
-} {
-  if (!otherInfo) {
-    return null
-  }
-  try {
-    const parsed = JSON.parse(otherInfo)
-    if (parsed && typeof parsed === 'object') {
-      return parsed
-    }
-  } catch {
-    return null
-  }
-  return null
-}
-
 /**
  * Upstream update tags (+N / -N) shown on channel name for model-fetchable channels
  */
@@ -126,18 +105,15 @@ function UpstreamUpdateTags({ channel }: { channel: Channel }) {
   if (!MODEL_FETCHABLE_TYPES.has(channel.type)) {
     return null
   }
-
   const meta = parseUpstreamUpdateMeta(channel.settings)
   if (!meta.enabled) {
     return null
   }
-
   const addCount = meta.pendingAddModels.length
   const removeCount = meta.pendingRemoveModels.length
   if (addCount === 0 && removeCount === 0) {
     return null
   }
-
   return (
     <div className='flex items-center gap-0.5'>
       {addCount > 0 && (
@@ -189,7 +165,6 @@ function PriorityCell({ channel }: { channel: Channel }) {
   if (isTagAggregateRow(channel)) {
     return <TagPriorityCell channel={channel} />
   }
-
   return (
     <ChannelFieldCell
       channelId={channel.id}
@@ -199,7 +174,6 @@ function PriorityCell({ channel }: { channel: Channel }) {
     />
   )
 }
-
 function TagPriorityCell({ channel }: { channel: TagRow }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -208,7 +182,6 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
   const [pendingValue, setPendingValue] = useState<number | null>(null)
   const tag = channel.tag || ''
   const channelCount = channel.children?.length || 0
-
   return (
     <>
       <NumericSpinnerInput
@@ -225,7 +198,11 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
         title={t('Confirm Batch Update')}
         desc={t(
           'This will update the priority to {{value}} for all {{count}} channel(s) with tag "{{tag}}". Continue?',
-          { value: pendingValue, count: channelCount, tag }
+          {
+            value: pendingValue,
+            count: channelCount,
+            tag,
+          }
         )}
         confirmText={t('Update')}
         handleConfirm={() => {
@@ -238,7 +215,6 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
     </>
   )
 }
-
 function ChannelFieldCell({
   channelId,
   value,
@@ -258,9 +234,7 @@ function ChannelFieldCell({
       }),
     [channelId, field, queryClient]
   )
-
   useEffect(() => () => fieldUpdateScheduler.flush(), [fieldUpdateScheduler])
-
   return (
     <NumericSpinnerInput
       value={value ?? 0}
@@ -278,7 +252,6 @@ function WeightCell({ channel }: { channel: Channel }) {
   if (isTagAggregateRow(channel)) {
     return <TagWeightCell channel={channel} />
   }
-
   return (
     <ChannelFieldCell
       channelId={channel.id}
@@ -288,7 +261,6 @@ function WeightCell({ channel }: { channel: Channel }) {
     />
   )
 }
-
 function TagWeightCell({ channel }: { channel: TagRow }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -297,7 +269,6 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
   const [pendingValue, setPendingValue] = useState<number | null>(null)
   const tag = channel.tag || ''
   const channelCount = channel.children?.length || 0
-
   return (
     <>
       <NumericSpinnerInput
@@ -314,7 +285,11 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
         title={t('Confirm Batch Update')}
         desc={t(
           'This will update the weight to {{value}} for all {{count}} channel(s) with tag "{{tag}}". Continue?',
-          { value: pendingValue, count: channelCount, tag }
+          {
+            value: pendingValue,
+            count: channelCount,
+            tag,
+          }
         )}
         confirmText={t('Update')}
         handleConfirm={() => {
@@ -342,7 +317,7 @@ export function BalanceCell({ channel }: { channel: Channel }) {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const layout = useContext(ChannelRowActionsLayoutContext)
-  const { sensitiveVisible, setCurrentRow, setOpen } = useChannels()
+  const { sensitiveVisible, setCurrentRow } = useChannels()
   const isTagRow = isTagAggregateRow(channel)
   const balance = channel.balance || 0
   const usedQuota = channel.used_quota || 0
@@ -357,7 +332,6 @@ export function BalanceCell({ channel }: { channel: Channel }) {
   const tokenSuffix = currencyLabel === 'Tokens' ? ' Tokens' : ''
   const withSuffix = (value: string) =>
     tokenSuffix && value !== '-' ? `${value}${tokenSuffix}` : value
-
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const balanceFormatOptions = {
     digitsLarge: 2,
@@ -433,21 +407,10 @@ export function BalanceCell({ channel }: { channel: Channel }) {
 
   // Regular channel row: show used and remaining with click to update
   const variant = getBalanceVariant(balance)
-  const isInferenceChannel =
-    channel.type === CHANNEL_TYPE_VLLM || channel.type === CHANNEL_TYPE_SGLANG
-  const inferenceStatusLabel =
-    channel.type === CHANNEL_TYPE_SGLANG ? t('SGLang status') : t('vLLM status')
-
   const handleClickUpdate = async () => {
-    if (isInferenceChannel) {
-      setCurrentRow(channel)
-      setOpen('inference-status')
-      return
-    }
     if (isUpdating) {
       return
     }
-
     setIsUpdating(true)
     if (channel.type === 57) {
       try {
@@ -464,7 +427,6 @@ export function BalanceCell({ channel }: { channel: Channel }) {
       }
       return
     }
-
     try {
       const response = await updateChannelBalance(channel.id)
       if (response.success && response.balance !== undefined) {
@@ -497,19 +459,15 @@ export function BalanceCell({ channel }: { channel: Channel }) {
     remainingBadgeLabel = t('Updating...')
   } else if (sensitiveVisible && channel.type === 57) {
     remainingBadgeLabel = t('Account Info')
-  } else if (sensitiveVisible && isInferenceChannel) {
-    remainingBadgeLabel = inferenceStatusLabel
   }
   let remainingTooltipLabel = remainingLabel
   if (!sensitiveVisible) {
     remainingTooltipLabel = maskedRemainingLabel
   } else if (channel.type === 57) {
     remainingTooltipLabel = t('Click to view Codex usage')
-  } else if (isInferenceChannel) {
-    remainingTooltipLabel = inferenceStatusLabel
   }
   let remainingBadgeVariant: StatusBadgeProps['variant'] = variant
-  if (channel.type === 57 || isInferenceChannel) {
+  if (channel.type === 57 || false) {
     remainingBadgeVariant = 'info'
   } else if (isUpdating) {
     remainingBadgeVariant = 'neutral'
@@ -522,10 +480,9 @@ export function BalanceCell({ channel }: { channel: Channel }) {
       copyable={false}
       showDot={false}
       className='cursor-pointer'
-      onClick={isInferenceChannel ? undefined : handleClickUpdate}
+      onClick={handleClickUpdate}
     />
   )
-
   return (
     <TooltipProvider>
       <div className='-ml-1.5 flex items-center gap-1'>
@@ -547,26 +504,10 @@ export function BalanceCell({ channel }: { channel: Channel }) {
           </TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger
-            render={
-              isInferenceChannel ? (
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='h-auto rounded-full p-0'
-                  aria-haspopup='dialog'
-                  onClick={handleClickUpdate}
-                >
-                  {remainingBadge}
-                </Button>
-              ) : (
-                remainingBadge
-              )
-            }
-          />
+          <TooltipTrigger render={remainingBadge} />
           <TooltipContent>
             <p>{remainingTooltipLabel}</p>
-            {channel.type !== 57 && !isInferenceChannel && (
+            {channel.type !== 57 && !false && (
               <p>{t('Click to update balance')}</p>
             )}
           </TooltipContent>
@@ -655,7 +596,6 @@ export function useChannelsColumns(
                 if (isTagRow) {
                   return null
                 }
-
                 return (
                   <Checkbox
                     checked={row.getIsSelected()}
@@ -671,12 +611,13 @@ export function useChannelsColumns(
             } satisfies ColumnDef<Channel>,
           ]
         : []),
-
       // ID column
       {
         accessorKey: 'id',
         header: t('ID'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const id = row.getValue('id') as number
           return <TableId value={sensitiveVisible ? id : SENSITIVE_MASK} />
@@ -687,7 +628,9 @@ export function useChannelsColumns(
       {
         accessorKey: 'name',
         header: t('Name'),
-        meta: { mobileTitle: true },
+        meta: {
+          mobileTitle: true,
+        },
         cell: ({ row }) => {
           const isTagRow = isTagAggregateRow(row.original)
           const name = row.getValue('name') as string
@@ -697,7 +640,6 @@ export function useChannelsColumns(
           if (isTagRow) {
             const tag = (row.original as TagRow).tag || name
             const childrenCount = (row.original as TagRow).children?.length || 0
-
             return (
               <div className='flex items-center gap-2'>
                 <Button
@@ -729,7 +671,6 @@ export function useChannelsColumns(
           const settings = parseChannelSettings(channel.setting)
           const isPassThrough = settings.pass_through_body_enabled === true
           const hasParamOverride = Boolean(channel.param_override?.trim())
-
           return (
             <div className='flex max-w-full min-w-0 items-center gap-2'>
               <div className='flex max-w-full min-w-0 flex-col gap-1'>
@@ -794,14 +735,12 @@ export function useChannelsColumns(
         size: 260,
         minSize: 200,
       },
-
       // Type column
       {
         accessorKey: 'type',
         header: t('Type'),
         cell: ({ row }) => {
           const isTagRow = isTagAggregateRow(row.original)
-
           if (isTagRow) {
             return (
               <StatusBadge
@@ -813,7 +752,6 @@ export function useChannelsColumns(
               />
             )
           }
-
           const type = row.getValue('type') as number
           const typeNameKey = getChannelTypeLabel(type)
           const typeName = t(typeNameKey)
@@ -827,14 +765,6 @@ export function useChannelsColumns(
             multiKeyMode === 'random'
               ? t('Multi-key: Random rotation')
               : t('Multi-key: Polling rotation')
-
-          const ionetMeta = parseIonetMeta(channel.other_info)
-          const isIonet = ionetMeta?.source === 'ionet'
-          const deploymentId =
-            typeof ionetMeta?.deployment_id === 'string'
-              ? ionetMeta?.deployment_id
-              : undefined
-
           return (
             <div className='flex max-w-full min-w-0 items-center gap-2 overflow-hidden'>
               {isMultiKey && (
@@ -881,50 +811,6 @@ export function useChannelsColumns(
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {isIonet && (
-                <TooltipProvider delay={100}>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span
-                          className='flex cursor-pointer items-center gap-1.5 text-xs font-medium'
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (!deploymentId) {
-                              return
-                            }
-                            const targetUrl = `/models/deployments?dFilter=${encodeURIComponent(String(deploymentId))}`
-                            window.open(targetUrl, '_blank', 'noopener')
-                          }}
-                        />
-                      }
-                    >
-                      <StatusBadge
-                        label='IO.NET'
-                        variant='purple'
-                        size='sm'
-                        copyable={false}
-                        className='cursor-pointer'
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side='top'>
-                      <div className='max-w-xs space-y-1'>
-                        <div className='text-xs'>
-                          {t('From IO.NET deployment')}
-                        </div>
-                        {deploymentId && (
-                          <div className='text-muted-foreground font-mono text-xs'>
-                            {t('Deployment ID')}: {deploymentId}
-                          </div>
-                        )}
-                        <div className='text-muted-foreground text-xs'>
-                          {t('Click to open deployment')}
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </div>
           )
         },
@@ -937,12 +823,13 @@ export function useChannelsColumns(
         size: 220,
         enableSorting: false,
       },
-
       // Status column
       {
         accessorKey: 'status',
         header: t('Status'),
-        meta: { mobileBadge: true },
+        meta: {
+          mobileBadge: true,
+        },
         cell: ({ row }) => {
           const isTagRow = isTagAggregateRow(row.original)
           const status = row.getValue('status') as number
@@ -952,7 +839,6 @@ export function useChannelsColumns(
           if (isTagRow) {
             const childrenCount = (row.original as TagRow).children?.length || 0
             const hasEnabled = status === 1
-
             if (hasEnabled) {
               return (
                 <StatusBadge
@@ -981,7 +867,6 @@ export function useChannelsColumns(
             CHANNEL_STATUS_CONFIG[
               status as keyof typeof CHANNEL_STATUS_CONFIG
             ] || CHANNEL_STATUS_CONFIG[0]
-
           const isMultiKey = isMultiKeyChannel(channel)
           const keySize = channel.channel_info?.multi_key_size ?? 0
           const disabledCount = channel.channel_info?.multi_key_status_list
@@ -1010,7 +895,6 @@ export function useChannelsColumns(
             } catch {
               /* empty */
             }
-
             if (statusReason || statusTime) {
               return (
                 <TooltipProvider delay={100}>
@@ -1043,7 +927,6 @@ export function useChannelsColumns(
               )
             }
           }
-
           return (
             <StatusBadge
               label={label}
@@ -1069,12 +952,13 @@ export function useChannelsColumns(
         size: 120,
         enableSorting: false,
       },
-
       // Models column
       {
         accessorKey: 'models',
         header: t('Models'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const models = row.getValue('models') as string
           const modelArray = parseModelsList(models)
@@ -1095,12 +979,13 @@ export function useChannelsColumns(
         size: 200,
         enableSorting: false,
       },
-
       // Group column
       {
         accessorKey: 'group',
         header: t('Groups'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const group = row.getValue('group') as string
           const groupArray = parseGroupsList(group)
@@ -1128,18 +1013,18 @@ export function useChannelsColumns(
         size: 150,
         enableSorting: false,
       },
-
       // Tag column
       {
         accessorKey: 'tag',
         header: t('Tag'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const tag = row.getValue('tag') as string | null
           if (!tag) {
             return <span className='text-muted-foreground text-xs'>-</span>
           }
-
           return (
             <StatusBadge
               label={tag}
@@ -1152,26 +1037,27 @@ export function useChannelsColumns(
         size: 120,
         enableSorting: false,
       },
-
       // Priority column
       {
         accessorKey: 'priority',
         header: t('Priority'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => <PriorityCell channel={row.original} />,
         size: 100,
       },
-
       // Weight column
       {
         accessorKey: 'weight',
         header: t('Weight'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => <WeightCell channel={row.original} />,
         size: 90,
         enableSorting: false,
       },
-
       // Balance column (Used/Remaining)
       {
         accessorKey: 'balance',
@@ -1179,16 +1065,16 @@ export function useChannelsColumns(
         cell: ({ row }) => <BalanceCell channel={row.original} />,
         size: 180,
       },
-
       // Response Time column
       {
         accessorKey: 'response_time',
         header: t('Response'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const responseTime = row.getValue('response_time') as number
           const config = getResponseTimeConfig(responseTime)
-
           return (
             <StatusBadge
               label={formatResponseTime(responseTime, t)}
@@ -1201,12 +1087,13 @@ export function useChannelsColumns(
         },
         size: 110,
       },
-
       // Test Time column
       {
         accessorKey: 'test_time',
         header: t('Last Tested'),
-        meta: { mobileHidden: true },
+        meta: {
+          mobileHidden: true,
+        },
         cell: ({ row }) => {
           const testTime = row.getValue('test_time') as number
 
@@ -1214,7 +1101,6 @@ export function useChannelsColumns(
           if (!testTime || testTime === 0) {
             return <span className='text-muted-foreground text-xs'>-</span>
           }
-
           const timeText = formatRelativeTime(testTime, locale)
           const fullDate = formatTimestampToDate(testTime)
 
@@ -1243,7 +1129,6 @@ export function useChannelsColumns(
         size: 120,
         enableSorting: false,
       },
-
       // Actions column
       {
         id: 'actions',
@@ -1251,7 +1136,6 @@ export function useChannelsColumns(
         cell: ({ row }) => {
           // Check if this is a tag row (has children)
           const isTagRow = isTagAggregateRow(row.original)
-
           if (isTagRow) {
             return (
               <DataTableTagRowActions
@@ -1260,12 +1144,13 @@ export function useChannelsColumns(
               />
             )
           }
-
           return <DataTableRowActions row={row} />
         },
         enableSorting: false,
         enableHiding: false,
-        meta: { pinned: 'right' as const },
+        meta: {
+          pinned: 'right' as const,
+        },
       },
     ],
     [enableSelection, t, locale, sensitiveVisible]

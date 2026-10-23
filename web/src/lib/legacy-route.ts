@@ -17,11 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 const legacyOrigin = 'https://legacy-route.invalid'
-
 const legacyConsoleRoutes: Record<string, string> = {
   '/console': '/dashboard',
   '/console/models': '/models',
-  '/console/deployment': '/models/deployments',
   '/console/subscription': '/subscriptions',
   '/console/channel': '/channels',
   '/console/token': '/keys',
@@ -30,30 +28,25 @@ const legacyConsoleRoutes: Record<string, string> = {
   '/console/user': '/users',
   '/console/personal': '/profile',
   '/console/log': '/usage-logs',
-  '/console/midjourney': '/usage-logs/drawing',
   '/console/task': '/usage-logs/task',
 }
-
 const legacySettingsTabs: Record<string, string> = {
   operation: '/system-settings/operations/behavior',
+  drawing: '/system-settings/content/drawing',
   dashboard: '/system-settings/content/dashboard',
   chats: '/system-settings/content/chat',
-  drawing: '/system-settings/content/drawing',
   payment: '/system-settings/billing/payment',
   ratio: '/system-settings/billing/model-pricing',
   ratelimit: '/system-settings/security/rate-limit',
   models: '/system-settings/models/global',
-  'model-deployment': '/system-settings/models/model-deployment',
   performance: '/system-settings/operations/performance',
   system: '/system-settings/site/system-info',
   other: '/system-settings/site/system-info',
 }
-
 function normalizeLegacyPath(pathname: string): string {
   if (pathname === '/') return pathname
   return pathname.replace(/\/+$/, '')
 }
-
 function buildTargetHref(targetPath: string, source: URL): string {
   const target = new URL(targetPath, legacyOrigin)
   source.searchParams.forEach((value, key) => {
@@ -62,7 +55,6 @@ function buildTargetHref(targetPath: string, source: URL): string {
   target.hash = source.hash
   return `${target.pathname}${target.search}${target.hash}`
 }
-
 export function resolveLegacyRoute(rawHref: string): string | null {
   let source: URL
   try {
@@ -70,7 +62,6 @@ export function resolveLegacyRoute(rawHref: string): string | null {
   } catch {
     return null
   }
-
   const pathname = normalizeLegacyPath(source.pathname)
   if (pathname === '/login') {
     return buildTargetHref('/sign-in', source)
@@ -93,12 +84,10 @@ export function resolveLegacyRoute(rawHref: string): string | null {
     const chatID = pathname.slice('/console/chat/'.length)
     return buildTargetHref(chatID ? `/chat/${chatID}` : '/dashboard', source)
   }
-
   const target = legacyConsoleRoutes[pathname]
   if (target) return buildTargetHref(target, source)
   if (pathname.startsWith('/console/')) {
     return buildTargetHref('/dashboard', source)
   }
-
   return null
 }

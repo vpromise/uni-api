@@ -14,12 +14,10 @@ func TestShouldPreserveThinkingSuffixExactAndRegex(t *testing.T) {
 	original := append([]string(nil), settings.ThinkingModelBlacklist...)
 	t.Cleanup(func() { settings.ThinkingModelBlacklist = original })
 
-	assert.True(t, ShouldPreserveThinkingSuffix("kimi-k2-thinking"))
-	assert.True(t, ShouldPreserveThinkingSuffix("moonshotai/kimi-k2-thinking"))
 	assert.False(t, ShouldPreserveThinkingSuffix("m@sha256:abc"))
 
 	settings.ThinkingModelBlacklist = []string{
-		"kimi-k2-thinking",
+		"custom-base-thinking",
 		"re:[",
 		"re:",
 		"re:.*@sha256:.*",
@@ -30,10 +28,10 @@ func TestShouldPreserveThinkingSuffixExactAndRegex(t *testing.T) {
 	gin.DefaultErrorWriter = &logged
 	t.Cleanup(func() { gin.DefaultErrorWriter = previous })
 
-	assert.True(t, ShouldPreserveThinkingSuffix("kimi-k2-thinking"))
+	assert.True(t, ShouldPreserveThinkingSuffix("custom-base-thinking"))
 	assert.True(t, ShouldPreserveThinkingSuffix("m@sha256:abc"))
 	assert.False(t, ShouldPreserveThinkingSuffix("m@sha256"))
-	assert.False(t, ShouldPreserveThinkingSuffix("qwen3-max@thinking:on"))
+	assert.False(t, ShouldPreserveThinkingSuffix("gpt-custom@thinking:on"))
 	require.Contains(t, logged.String(), `invalid thinking_model_blacklist regex "re:["`)
 	require.Contains(t, logged.String(), `invalid thinking_model_blacklist regex "re:"`)
 

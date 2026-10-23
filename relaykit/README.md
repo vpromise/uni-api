@@ -1,21 +1,20 @@
 # RelayKit
 
-RelayKit 是一个 Go 模块，在 OpenAI Chat Completions、OpenAI Responses、Anthropic Messages 和 Gemini `generateContent` 四种协议之间转换请求、非流式响应和流式事件。
+RelayKit 是一个 Go 模块，在 OpenAI Chat Completions、OpenAI Responses、Anthropic Messages 三种协议之间转换请求、非流式响应和流式事件。
 
 它从 [new-api](https://github.com/QuantumNous/new-api) 中拆出，模块路径是 `github.com/QuantumNous/new-api/relaykit`，运行时依赖是 uuid、lo、gjson 和 sjson 四个包。它做协议数据的建模和转换，HTTP 收发、SSE 读写、渠道选择、鉴权和计费由宿主程序完成，所以可以嵌进其他 Go 网关或代理。
 
 ## 支持矩阵
 
-四种协议两两之间都能转换，请求、非流式响应和流式响应覆盖同一张表：
+三种协议两两之间都能转换，请求、非流式响应和流式响应覆盖同一张表：
 
-| 源格式 \ 目标格式 | OpenAI Chat | OpenAI Responses | Claude Messages | Gemini |
-|---|---:|---:|---:|---:|
-| OpenAI Chat | | `good` | `fair` | `fair` |
-| OpenAI Responses | `good` | | `fair` | `fair` |
-| Claude Messages | `fair` | `fair` | | `discouraged` |
-| Gemini | `fair` | `fair` | `discouraged` | |
+| 源格式 \ 目标格式 | OpenAI Chat | OpenAI Responses | Claude Messages |
+|---|---:|---:|---:|
+| OpenAI Chat | | `good` | `fair` |
+| OpenAI Responses | `good` | | `fair` |
+| Claude Messages | `fair` | `fair` | |
 
-`good` 表示两种协议结构接近，字段基本一一对应。`fair` 表示主要内容都能转，协议独有的字段以诊断报告。其中 Gemini 转 Responses 的请求和响应、Claude 转 Responses 的响应、Responses 转 Gemini 的响应经 OpenAI Chat 中转。`discouraged` 表示 Claude 和 Gemini 之间请求和响应都经 OpenAI Chat 中转两跳，丢字段的机会更多。实际走的路径在转换结果的 `Steps` 里，等级在 `Quality` 里。
+`good` 表示协议结构接近；`fair` 表示协议独有字段可能通过诊断报告损失。实际转换路径见 `Steps`，等级见 `Quality`。
 
 ## 功能
 
@@ -25,11 +24,11 @@ RelayKit 是一个 Go 模块，在 OpenAI Chat Completions、OpenAI Responses、
 
 ### 工具调用
 
-function tool 的定义、调用和结果在四种协议之间互转。Responses 的 custom tool 和带 namespace 的工具发往 Chat、Claude、Gemini 上游时改成普通 function tool，编码方式记在 `convmeta.ResponsesToolState` 里，响应转换时按这份记录还原成 Responses 的形状。托管 web search 按目标协议重新编码：Chat 用 `web_search_options`，Responses、Claude 和 Gemini 各用自己协议的 web search 工具定义，宿主可以通过 `Options.WebSearch` 为某个上游改写编码。其他托管工具在目标协议里表达不了的部分，转换照常完成，缺失写进诊断。
+function tool 的定义、调用和结果在三种协议之间互转。Responses 的 custom tool 和带 namespace 的工具发往 Chat、Claude 上游时改成普通 function tool，编码方式记在 `convmeta.ResponsesToolState` 里，响应转换时按这份记录还原成 Responses 的形状。托管 web search 按目标协议重新编码：Chat 用 `web_search_options`，Responses 和 Claude 各用自己协议的 web search 工具定义，宿主可以通过 `Options.WebSearch` 为某个上游改写编码。其他托管工具在目标协议里表达不了的部分，转换照常完成，缺失写进诊断。
 
 ### 推理设置
 
-reasoning effort、thinking budget 和是否返回思考内容用 `dto.ReasoningConversionState` 在转换步骤之间传递，多跳路径上的每一步都能读到精确的 budget 和 effort。Claude 的 max_tokens 和 budget 超出模型范围时会调整，Gemini 的 thinkingConfig 按模型归一化，这些改动都以诊断返回，例如 `claude_max_tokens_raised` 和 `claude_budget_adjusted`。
+reasoning effort、thinking budget 和是否返回思考内容用 `dto.ReasoningConversionState` 在转换步骤之间传递，多跳路径上的每一步都能读到精确的 budget 和 effort。Claude 的 max_tokens 和 budget 超出模型范围时会调整，这些改动都以诊断返回，例如 `claude_max_tokens_raised` 和 `claude_budget_adjusted`。
 
 ### 多模态
 
@@ -145,7 +144,6 @@ usage := result.Usage
 | OpenAI Chat | `dto.OpenAITextResponse` | `dto.ChatCompletionsStreamResponse` |
 | OpenAI Responses | `dto.OpenAIResponsesResponse` | `dto.ResponsesStreamResponse` |
 | Claude Messages | `dto.ClaudeResponse` | `dto.ClaudeResponse` |
-| Gemini | `dto.GeminiChatResponse` | `dto.GeminiChatResponse` |
 
 ### 流式响应
 
@@ -204,9 +202,6 @@ meta := &convmeta.Values{
 				return 4096
 			},
 		},
-		Gemini: convmeta.GeminiOptions{
-			ThinkingAdapterEnabled: true,
-		},
 	},
 }
 ```
@@ -214,20 +209,16 @@ meta := &convmeta.Values{
 | 选项 | 作用 |
 |---|---|
 | `Claude.DefaultMaxTokens` | 源请求没有 max_tokens 时，转 Claude 用这个函数取值 |
-| `Claude.ThinkingAdapterEnabled`、`Gemini.ThinkingAdapterEnabled` | 模型名尾缀适配开关，见下文 |
-| `Claude.ThinkingAdapterBudgetTokensPercentage`、`Gemini.ThinkingAdapterBudgetTokensPercentage` | 尾缀适配触发时，thinking budget 占 max_tokens 的比例 |
+| `Claude.ThinkingAdapterEnabled` | 模型名尾缀适配开关，见下文 |
+| `Claude.ThinkingAdapterBudgetTokensPercentage` | 尾缀适配触发时，thinking budget 占 max_tokens 的比例 |
 | `Claude.WebSearchToolVersion` | 转 Claude 时 web search 工具的版本，空值用 `web_search_20250305` |
-| `Gemini.FunctionCallThoughtSignatureEnabled` | 给 function call 部分附加 thoughtSignature |
-| `Gemini.SupportsImagine` | 判断模型是否支持生图，支持时切换响应模态 |
-| `Gemini.SafetySetting` | 按分类返回 safetySettings 的阈值 |
 | `ToolLossPolicy` | 跨协议丢失工具行为时的处理，见下文 |
-| `OpenRouterDialect` | 上游是 OpenRouter 时打开，转换器会输出它额外接受的字段 |
 | `WebSearch` | 为某个上游改写托管 web search 的编码 |
 | `PreserveThinkingSuffix`、`PreserveEffortTail` | 判断哪些模型名要原样保留尾缀 |
 
 转 Claude 时请求需要 `max_tokens`。源请求没有时，RelayKit 调用 `Claude.DefaultMaxTokens` 取值，两者都没有时返回错误。
 
-RelayKit 按请求里的 `Model` 生成上游请求，调用前把它设成上游使用的模型名。带 `-thinking`、`-nothinking`、`-thinking-<budget>` 或 `-high` 这类尾缀的 Claude、Gemini 模型名由调用方在转换前解析：调用 `reasoning.ParseClaudeModelSuffix` 或 `reasoning.ParseGeminiModelSuffix`，`allowSuffixAlias` 参数传 `ThinkingAdapterEnabled`，把返回的 `Intent` 用 `reasoning.StateFromIntent` 写进 `Values.ReasoningConversion`，再把裁掉尾缀的模型名放进请求。开关关闭时这两个函数原样返回模型名，推理设置来自请求字段。
+RelayKit 按请求里的 `Model` 生成上游请求，调用前把它设成上游使用的模型名。带 `-thinking`、`-nothinking`、`-thinking-<budget>` 或 `-high` 这类尾缀的 Claude 模型名由调用方在转换前解析：调用 `reasoning.ParseClaudeModelSuffix`，`allowSuffixAlias` 参数传 `ThinkingAdapterEnabled`，把返回的 `Intent` 用 `reasoning.StateFromIntent` 写进 `Values.ReasoningConversion`，再把裁掉尾缀的模型名放进请求。开关关闭时该函数原样返回模型名，推理设置来自请求字段。
 
 ## 诊断与损耗策略
 

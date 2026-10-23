@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 
@@ -185,41 +185,6 @@ func TestDashboardTaskArtifactsReturnsLegacyCapabilityWithoutUpstreamURL(t *test
 	assert.NotContains(t, recorder.Body.String(), "signature=secret")
 }
 
-// Task lists no longer carry the persisted snapshot, so the dashboard reads a
-// legacy Suno task's playable clips from the artifacts endpoint instead.
-func TestDashboardTaskArtifactsProjectsLegacySunoAudioClips(t *testing.T) {
-	task := setupGenericTaskTest(t)
-	task.Platform = constant.TaskPlatformSuno
-	task.Action = "MUSIC"
-	task.Data = []byte(`[{"id":"clip-1","title":"Song","audio_url":"https://cdn.example/a.mp3","metadata":{"tags":"pop","duration":30},"lyric":"private"},{"id":"clip-2","title":"No audio"}]`)
-	require.NoError(t, model.DB.Save(task).Error)
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Set("id", task.UserId)
-	c.Set("role", common.RoleCommonUser)
-	c.Params = gin.Params{{Key: "task_id", Value: task.TaskID}}
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/task/"+task.TaskID+"/artifacts", nil)
-
-	GetDashboardTaskArtifacts(c)
-
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	var response struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Artifacts        []taskArtifactResponse `json:"artifacts"`
-			LegacyAudioClips []map[string]any       `json:"legacy_audio_clips"`
-		} `json:"data"`
-	}
-	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
-	assert.True(t, response.Success)
-	assert.Empty(t, response.Data.Artifacts)
-	require.Len(t, response.Data.LegacyAudioClips, 1)
-	assert.Equal(t, "https://cdn.example/a.mp3", response.Data.LegacyAudioClips[0]["audio_url"])
-	assert.Equal(t, "Song", response.Data.LegacyAudioClips[0]["title"])
-	assert.NotContains(t, recorder.Body.String(), "private")
-}
-
 // Task lists omit the data column; the API DTO keeps the key as null so shape
 // checks survive while the payload no longer travels with every row.
 func TestTaskListsOmitPersistedSnapshot(t *testing.T) {
@@ -354,7 +319,7 @@ func TestLegacyVideoArtifactContentUsesGetResultURL(t *testing.T) {
 func TestDisabledArtifactStorePreservesPluginUpstreamContent(t *testing.T) {
 	task := setupGenericTaskTest(t)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "provider-key", r.Header.Get("x-goog-api-key"))
+		assert.Equal(t, "Bearer provider-key", r.Header.Get("Authorization"))
 		assert.Equal(t, "provider-key", r.Header.Get("X-API-Key"), "channel header overrides reach credentialed downloads")
 		assert.NotEqual(t, "ignored.example", r.Host)
 		assert.Equal(t, "bytes=0-13", r.Header.Get("Range"))
@@ -370,20 +335,16 @@ func TestDisabledArtifactStorePreservesPluginUpstreamContent(t *testing.T) {
 	t.Cleanup(func() { common.MemoryCacheEnabled = previousMemoryCache })
 
 	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", task.ChannelId).Updates(map[string]any{
-		"type":            constant.ChannelTypeGemini,
+
+		"type":            constant.ChannelTypeOpenAI,
 		"key":             "provider-key",
 		"base_url":        upstream.URL,
 		"header_override": `{"X-API-Key":"{api_key}","Host":"ignored.example"}`,
 	}).Error)
-	task.Platform = constant.TaskPlatform("google")
-	task.PrivateData.Execution = &model.TaskExecutionSnapshot{TaskPlugin: &model.TaskPluginSnapshot{
-		Key: "google", Name: "Google Veo (Gemini API)", Version: "1.0.0", APIVersion: 1,
-	}}
-	task.SetData(map[string]any{"response": map[string]any{
-		"generateVideoResponse": map[string]any{
-			"generatedVideos": []any{map[string]any{"video": map[string]any{"uri": upstream.URL}}},
-		},
-	}})
+	task.Platform = constant.TaskPlatform("sora")
+	task.PrivateData.Execution = &model.TaskExecutionSnapshot{TaskPlugin: &model.TaskPluginSnapshot{Key: "sora"}}
+	task.PrivateData.UpstreamTaskID = "private-video"
+	task.SetData(map[string]any{"id": "private-video", "status": "completed"})
 	require.NoError(t, model.DB.Save(task).Error)
 	require.False(t, service.GetTaskArtifactStore().Enabled())
 
@@ -407,87 +368,6 @@ func TestDisabledArtifactStorePreservesPluginUpstreamContent(t *testing.T) {
 
 // hailuo looks the MiniMax download link up with utils.fetch; the signed OSS
 // link then gets a plain GET without the channel key, even for HEAD clients.
-func TestTaskArtifactContentFollowsHailuoRetrieveLink(t *testing.T) {
-	task := setupGenericTaskTest(t)
-	var mu sync.Mutex
-	var ossRequests []string
-	var upstream *httptest.Server
-	upstream = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/v1/files/retrieve":
-			assert.Equal(t, "Bearer provider-key", r.Header.Get("Authorization"))
-			if r.URL.Query().Get("file_id") == "login-fail" {
-				_, _ = w.Write([]byte(`{"base_resp":{"status_code":1004,"status_msg":"login fail"}}`))
-				return
-			}
-			_, _ = w.Write([]byte(`{"file":{"download_url":"` + upstream.URL + `/oss/video.mp4?Expires=1&Signature=sig"},"base_resp":{"status_code":0}}`))
-		case "/oss/video.mp4":
-			mu.Lock()
-			ossRequests = append(ossRequests, r.Method+" range="+r.Header.Get("Range")+" authorization="+r.Header.Get("Authorization"))
-			mu.Unlock()
-			w.Header().Set("Content-Type", "video/mp4")
-			if r.Header.Get("Range") != "" {
-				w.Header().Set("Content-Range", "bytes 0-3/10")
-				w.WriteHeader(http.StatusPartialContent)
-				_, _ = w.Write([]byte("mp4!"))
-				return
-			}
-			_, _ = w.Write([]byte("mp4!video!"))
-		default:
-			t.Errorf("unexpected upstream request %s", r.URL.Path)
-		}
-	}))
-	defer upstream.Close()
-	allowPrivateTaskMediaTest(t)
-	previousMemoryCache := common.MemoryCacheEnabled
-	common.MemoryCacheEnabled = false
-	t.Cleanup(func() { common.MemoryCacheEnabled = previousMemoryCache })
-
-	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", task.ChannelId).Updates(map[string]any{
-		"type":     constant.ChannelTypeMiniMax,
-		"key":      "provider-key",
-		"base_url": upstream.URL,
-		// Neither utils.fetch nor the credentialless OSS link gets overrides.
-		"header_override": `{"Authorization":"Bearer override"}`,
-	}).Error)
-	task.Platform = constant.TaskPlatform("hailuo")
-	task.PrivateData.Execution = &model.TaskExecutionSnapshot{TaskPlugin: &model.TaskPluginSnapshot{
-		Key: "hailuo", Name: "Hailuo", Version: "1.2.0", APIVersion: 1,
-	}}
-	request := func(method, fileID string) *httptest.ResponseRecorder {
-		task.SetData(map[string]any{"file_id": fileID})
-		require.NoError(t, model.DB.Save(task).Error)
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Set("id", 7)
-		c.Params = gin.Params{{Key: "key", Value: task.TaskID}, {Key: "artifact_key", Value: "video"}}
-		c.Request = httptest.NewRequest(method, "/v1/tasks/"+task.TaskID+"/artifacts/video/content", nil)
-		if method == http.MethodGet {
-			c.Request.Header.Set("Range", "bytes=0-3")
-		}
-		TaskArtifactContent(c)
-		return recorder
-	}
-
-	ranged := request(http.MethodGet, "file-1")
-	assert.Equal(t, http.StatusPartialContent, ranged.Code)
-	assert.Equal(t, "mp4!", ranged.Body.String())
-	assert.Equal(t, "bytes 0-3/10", ranged.Header().Get("Content-Range"))
-
-	head := request(http.MethodHead, "file-1")
-	assert.Equal(t, http.StatusOK, head.Code)
-	assert.Empty(t, head.Body.String())
-	assert.Equal(t, "video/mp4", head.Header().Get("Content-Type"))
-
-	failed := request(http.MethodGet, "login-fail")
-	assert.Equal(t, http.StatusInternalServerError, failed.Code)
-	assert.Contains(t, failed.Body.String(), "artifact_plugin_error")
-
-	mu.Lock()
-	defer mu.Unlock()
-	assert.Equal(t, []string{"GET range=bytes=0-3 authorization=", "GET range= authorization="}, ossRequests)
-}
-
 func TestProjectedTaskArtifactValidationRejectsAmbiguousIdentity(t *testing.T) {
 	validated, err := validateProjectedTaskArtifacts([]relaychannel.TaskArtifact{
 		{Key: "video-main", Type: "video", MimeType: "video/mp4"},

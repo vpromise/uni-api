@@ -127,9 +127,6 @@ export function MarketplaceCapabilities(props: MarketplaceCapabilitiesProps) {
     if (authentication === 'none') {
       authentication = t('None (plugin declaration)')
     }
-    if (authentication === 'oauth2_jwt' || authentication === 'vertex_oauth') {
-      authentication = t('OAuth 2.0 service account')
-    }
   }
   let baseUrl = t('Information unavailable')
   if (fields.baseUrl.state === 'missing') {

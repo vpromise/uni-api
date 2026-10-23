@@ -1115,7 +1115,7 @@ func (a *TaskAdaptor) BuildContentRequest(ctx context.Context, task *model.Task,
 			return nil, fmt.Errorf("credentialless artifact requests cannot contain headers or a body")
 		}
 		parsedURL, parseErr := url.Parse(descriptor.URL)
-		if parseErr != nil || parsedURL.Host == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		if parseErr != nil || parsedURL.Host == "" || parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 			return nil, fmt.Errorf("credentialless artifact request URL must be absolute HTTP(S)")
 		}
 	} else if err = pluginruntime.ValidateRequestURL(descriptor.URL, a.info.ChannelBaseUrl, a.plugin.Meta.AllowedHosts); err != nil {
@@ -1286,13 +1286,7 @@ func (a *TaskAdaptor) channelSetting() kitdto.ChannelSettings {
 // channel key is that gateway's token, so it is sent as a Bearer header for
 // every auth type instead of running the plugin's vendor auth scheme.
 func (a *TaskAdaptor) applyUpstreamCredentials(ctx map[string]any, channelType int, key, proxy string) error {
-	if channelType == constant.ChannelTypeNewAPI {
-		ctx["upstream"] = map[string]any{"kind": pluginruntime.UpstreamKindNewAPI}
-		ctx["auth"] = map[string]any{"authHeader": "Bearer " + key}
-		ctx["authHeader"] = "Bearer " + key
-		ctx["apiKey"] = key
-		return nil
-	}
+
 	ctx["upstream"] = map[string]any{"kind": pluginruntime.UpstreamKindVendor}
 	auth, err := resolveAuth(a.plugin.Meta.Auth, key, proxy)
 	if err != nil {

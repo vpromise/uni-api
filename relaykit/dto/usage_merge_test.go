@@ -27,142 +27,6 @@ func TestMergeClaudeUsageCacheCreationReplacesWholeObject(t *testing.T) {
 	assert.Equal(t, 0, merged.CacheCreation.Ephemeral1hInputTokens)
 }
 
-func TestMergeGeminiUsageMetadataCandidatesAndThoughtsReplacedAsPair(t *testing.T) {
-	t.Parallel()
-
-	merged := MergeGeminiUsageMetadataNonZero(
-		&GeminiUsageMetadata{
-			PromptTokenCount:   10,
-			ThoughtsTokenCount: 100,
-		},
-		&GeminiUsageMetadata{
-			PromptTokenCount:     10,
-			CandidatesTokenCount: 150,
-			ThoughtsTokenCount:   0,
-			TotalTokenCount:      160,
-		},
-	)
-	require.NotNil(t, merged)
-	assert.Equal(t, 150, merged.CandidatesTokenCount)
-	assert.Equal(t, 0, merged.ThoughtsTokenCount)
-
-	billing := NewGeminiChatBillingUsage(merged)
-	usage, ok := billing.CanonicalUsage()
-	require.True(t, ok)
-	assert.Equal(t, 150, usage.CompletionTokens)
-}
-
-func TestGeminiModalityKeysSettleConsistentlyAndDuplicateEntriesSum(t *testing.T) {
-	t.Parallel()
-
-	for _, modality := range []string{"audio", " AUDIO ", "AUDIO"} {
-		t.Run("settle_"+modality, func(t *testing.T) {
-			t.Parallel()
-			billing := NewGeminiChatBillingUsage(&GeminiUsageMetadata{
-				PromptTokenCount: 100,
-				PromptTokensDetails: []GeminiPromptTokensDetails{
-					{Modality: modality, TokenCount: 40},
-					{Modality: "TEXT", TokenCount: 60},
-				},
-			})
-			usage, ok := billing.CanonicalUsage()
-			require.True(t, ok)
-			assert.Equal(t, 40, usage.PromptTokensDetails.AudioTokens)
-			assert.Equal(t, 60, usage.PromptTokensDetails.TextTokens)
-		})
-	}
-
-	// A case variant in a later cumulative frame is the same modality and
-	// replaces the earlier value.
-	mergedDetails := mergeGeminiTokenDetails(
-		[]GeminiPromptTokensDetails{{Modality: "AUDIO", TokenCount: 10}},
-		[]GeminiPromptTokensDetails{{Modality: "audio", TokenCount: 15}},
-	)
-	assert.Equal(t, []GeminiPromptTokensDetails{{Modality: "audio", TokenCount: 15}}, mergedDetails)
-
-	// Duplicate entries inside one snapshot settle as their sum, and merging
-	// that snapshot again (every frame repeats it) does not add it twice.
-	snapshot := &GeminiUsageMetadata{
-		PromptTokenCount: 25,
-		PromptTokensDetails: []GeminiPromptTokensDetails{
-			{Modality: "AUDIO", TokenCount: 10},
-			{Modality: "audio", TokenCount: 15},
-		},
-	}
-	streamMerged := MergeGeminiUsageMetadataNonZero(MergeGeminiUsageMetadataNonZero(nil, snapshot), snapshot)
-	require.NotNil(t, streamMerged)
-	streamUsage, ok := NewGeminiChatBillingUsage(streamMerged).CanonicalUsage()
-	require.True(t, ok)
-
-	decodedUsage, ok := NewGeminiChatBillingUsage(snapshot).CanonicalUsage()
-	require.True(t, ok)
-	assert.Equal(t, 25, decodedUsage.PromptTokensDetails.AudioTokens)
-	assert.Equal(t, 25, streamUsage.PromptTokensDetails.AudioTokens)
-}
-
-func TestMergeGeminiUsageMetadataStreamDetailsAreCumulativeSnapshots(t *testing.T) {
-	t.Parallel()
-
-	prompt := []GeminiPromptTokensDetails{
-		{Modality: "IMAGE", TokenCount: 1089},
-		{Modality: "TEXT", TokenCount: 42},
-	}
-	frames := []*GeminiUsageMetadata{
-		{PromptTokenCount: 1131, TotalTokenCount: 1131, PromptTokensDetails: prompt},
-		{
-			PromptTokenCount:           1131,
-			ToolUsePromptTokenCount:    7,
-			CandidatesTokenCount:       5,
-			TotalTokenCount:            1143,
-			PromptTokensDetails:        prompt,
-			ToolUsePromptTokensDetails: []GeminiPromptTokensDetails{{Modality: "TEXT", TokenCount: 7}},
-			CandidatesTokensDetails:    []GeminiPromptTokensDetails{{Modality: "TEXT", TokenCount: 5}},
-		},
-		{
-			PromptTokenCount:           1131,
-			ToolUsePromptTokenCount:    7,
-			CandidatesTokenCount:       1310,
-			ThoughtsTokenCount:         76,
-			TotalTokenCount:            2524,
-			PromptTokensDetails:        prompt,
-			ToolUsePromptTokensDetails: []GeminiPromptTokensDetails{{Modality: "TEXT", TokenCount: 7}},
-			CandidatesTokensDetails: []GeminiPromptTokensDetails{
-				{Modality: "TEXT", TokenCount: 20},
-				{Modality: "IMAGE", TokenCount: 1290},
-			},
-		},
-		// A trailing frame without details keeps the last reported ones.
-		{PromptTokenCount: 1131, CandidatesTokenCount: 1310, ThoughtsTokenCount: 76, TotalTokenCount: 2524},
-	}
-	var merged *GeminiUsageMetadata
-	for _, frame := range frames {
-		merged = MergeGeminiUsageMetadataNonZero(merged, frame)
-	}
-	require.NotNil(t, merged)
-	assert.Equal(t, prompt, merged.PromptTokensDetails)
-	assert.Equal(t, []GeminiPromptTokensDetails{{Modality: "TEXT", TokenCount: 7}}, merged.ToolUsePromptTokensDetails)
-	assert.Equal(t, []GeminiPromptTokensDetails{
-		{Modality: "TEXT", TokenCount: 20},
-		{Modality: "IMAGE", TokenCount: 1290},
-	}, merged.CandidatesTokensDetails)
-
-	streamUsage, ok := NewGeminiChatBillingUsage(merged).CanonicalUsage()
-	require.True(t, ok)
-	nonStreamUsage, ok := NewGeminiChatBillingUsage(frames[2]).CanonicalUsage()
-	require.True(t, ok)
-	assert.Equal(t, nonStreamUsage, streamUsage)
-	assert.Equal(t, 1089, streamUsage.PromptTokensDetails.ImageTokens)
-	assert.Equal(t, 1290, streamUsage.CompletionTokenDetails.ImageTokens)
-
-	// Converted streams remember the same cumulative sidecar at several
-	// pipeline steps; repeated merges must not change the result.
-	sidecar := NewGeminiChatBillingUsage(merged)
-	again := MergeBillingUsageNonZero(MergeBillingUsageNonZero(sidecar, sidecar), sidecar)
-	repeatedUsage, ok := again.CanonicalUsage()
-	require.True(t, ok)
-	assert.Equal(t, nonStreamUsage, repeatedUsage)
-}
-
 func TestClaudeCacheCreationSubObjectZeroDoesNotReviveFlatLegacyFields(t *testing.T) {
 	t.Parallel()
 
@@ -203,41 +67,38 @@ func TestClaudeCacheCreationFlatFieldsStillSettleWhenSnapshotNeverHadSubObject(t
 func TestMergeBillingUsageORsEstimatedOnSameAndCrossDialect(t *testing.T) {
 	t.Parallel()
 
-	estimated := NewEstimatedGeminiChatBillingUsage(&Usage{PromptTokens: 10, CompletionTokens: 2})
+	estimated := NewOpenAIChatBillingUsage(&Usage{PromptTokens: 10, CompletionTokens: 2})
 	require.NotNil(t, estimated)
+	estimated.Estimated = true
 	require.True(t, estimated.Estimated)
 
-	sameDialect := MergeBillingUsageNonZero(estimated, NewGeminiChatBillingUsage(&GeminiUsageMetadata{
-		PromptTokenCount:     11,
-		CandidatesTokenCount: 3,
-		TotalTokenCount:      14,
+	sameDialect := MergeBillingUsageNonZero(estimated, NewOpenAIChatBillingUsage(&Usage{
+		PromptTokens:     11,
+		CompletionTokens: 3,
+		TotalTokens:      14,
 	}))
 	require.NotNil(t, sameDialect)
 	assert.True(t, sameDialect.Estimated)
 
-	crossDialect := MergeBillingUsageNonZero(estimated, NewOpenAIChatBillingUsage(&Usage{
-		PromptTokens:     12,
-		CompletionTokens: 4,
-		TotalTokens:      16,
-	}))
+	crossDialect := MergeBillingUsageNonZero(estimated, NewClaudeMessagesBillingUsage(&ClaudeUsage{InputTokens: 12, OutputTokens: 4}))
 	require.NotNil(t, crossDialect)
 	assert.True(t, crossDialect.Estimated)
-	require.NotNil(t, crossDialect.OpenAIUsage)
-	assert.Equal(t, 12, crossDialect.OpenAIUsage.PromptTokens)
+	require.NotNil(t, crossDialect.ClaudeUsage)
+	assert.Equal(t, 12, crossDialect.ClaudeUsage.InputTokens)
 }
 
 func TestMergeClaudeUsageNonZeroPreservesBillingUsage(t *testing.T) {
 	t.Parallel()
 
-	currentSidecar := NewGeminiChatBillingUsage(&GeminiUsageMetadata{
-		PromptTokenCount:        3868,
-		TotalTokenCount:         3868,
-		CachedContentTokenCount: 20,
+	currentSidecar := NewOpenAIChatBillingUsage(&Usage{
+		PromptTokens:        3868,
+		TotalTokens:         3868,
+		PromptTokensDetails: InputTokenDetails{CachedTokens: 20},
 	})
-	incomingSidecar := NewGeminiChatBillingUsage(&GeminiUsageMetadata{
-		PromptTokenCount:     3868,
-		CandidatesTokenCount: 12,
-		TotalTokenCount:      3880,
+	incomingSidecar := NewOpenAIChatBillingUsage(&Usage{
+		PromptTokens:     3868,
+		CompletionTokens: 12,
+		TotalTokens:      3880,
 	})
 	require.NotNil(t, currentSidecar)
 	require.NotNil(t, incomingSidecar)
@@ -255,10 +116,10 @@ func TestMergeClaudeUsageNonZeroPreservesBillingUsage(t *testing.T) {
 		},
 	)
 	require.NotNil(t, withIncoming.BillingUsage)
-	assert.Equal(t, BillingUsageSourceGeminiChat, withIncoming.BillingUsage.Source)
-	assert.Equal(t, BillingUsageSemanticGemini, withIncoming.BillingUsage.Semantic)
-	require.NotNil(t, withIncoming.BillingUsage.GeminiUsageMetadata)
-	assert.Equal(t, 12, withIncoming.BillingUsage.GeminiUsageMetadata.CandidatesTokenCount)
+	assert.Equal(t, BillingUsageSourceOAIChat, withIncoming.BillingUsage.Source)
+	assert.Equal(t, BillingUsageSemanticOpenAI, withIncoming.BillingUsage.Semantic)
+	require.NotNil(t, withIncoming.BillingUsage.OpenAIUsage)
+	assert.Equal(t, 12, withIncoming.BillingUsage.OpenAIUsage.CompletionTokens)
 	assert.Equal(t, 20, withIncoming.CacheReadInputTokens)
 	assert.NotSame(t, incomingSidecar, withIncoming.BillingUsage)
 
@@ -271,9 +132,9 @@ func TestMergeClaudeUsageNonZeroPreservesBillingUsage(t *testing.T) {
 		&ClaudeUsage{InputTokens: 3868, OutputTokens: 12},
 	)
 	require.NotNil(t, keepCurrent.BillingUsage)
-	require.NotNil(t, keepCurrent.BillingUsage.GeminiUsageMetadata)
-	assert.Equal(t, 20, keepCurrent.BillingUsage.GeminiUsageMetadata.CachedContentTokenCount)
-	assert.Equal(t, 0, keepCurrent.BillingUsage.GeminiUsageMetadata.CandidatesTokenCount)
+	require.NotNil(t, keepCurrent.BillingUsage.OpenAIUsage)
+	assert.Equal(t, 20, keepCurrent.BillingUsage.OpenAIUsage.PromptTokensDetails.CachedTokens)
+	assert.Equal(t, 0, keepCurrent.BillingUsage.OpenAIUsage.CompletionTokens)
 	assert.Equal(t, 20, keepCurrent.CacheReadInputTokens)
 }
 

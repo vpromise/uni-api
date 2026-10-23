@@ -22,7 +22,6 @@ import { describe, test } from 'vitest'
 
 import {
   getSafePluginAuthorUrl,
-  parseLegacyAudioClips,
   parseTaskArtifactsResponse,
   resolveTaskPreviewMode,
   shouldLoadTaskArtifacts,
@@ -280,17 +279,7 @@ describe('task artifact projection', () => {
 })
 
 describe('legacy task preview compatibility', () => {
-  test('preserves old Suno and video previews without duplicating plugin previews', () => {
-    assert.equal(
-      resolveTaskPreviewMode(
-        taskFixture({
-          platform: 'suno',
-          admin_info: undefined,
-          data: [{ audio_url: 'https://media.example/audio.mp3' }],
-        })
-      ),
-      'legacy-suno'
-    )
+  test('preserves existing video previews without duplicating plugin previews', () => {
     assert.equal(
       resolveTaskPreviewMode(
         taskFixture({
@@ -380,47 +369,6 @@ describe('plugin author links', () => {
         url: 'javascript:alert(1)',
       }),
       undefined
-    )
-  })
-})
-
-describe('legacy Suno audio clips', () => {
-  test('keeps only playable clips from array or JSON string snapshots', () => {
-    const clips = [
-      { id: 'a', title: 'Song A', audio_url: 'https://media.example/a.mp3' },
-      { id: 'b', title: 'No audio' },
-      'not a clip',
-    ]
-    const expected = [
-      { id: 'a', title: 'Song A', audio_url: 'https://media.example/a.mp3' },
-    ]
-    assert.deepEqual(parseLegacyAudioClips(clips), expected)
-    assert.deepEqual(parseLegacyAudioClips(JSON.stringify(clips)), expected)
-    assert.deepEqual(parseLegacyAudioClips('{not json'), [])
-    assert.deepEqual(parseLegacyAudioClips(undefined), [])
-  })
-
-  test('projects legacy_audio_clips from the artifacts response', () => {
-    assert.deepEqual(
-      parseTaskArtifactsResponse({
-        success: true,
-        data: {
-          artifacts: [],
-          legacy_audio_clips: [
-            { audio_url: 'https://media.example/a.mp3', title: 'Song A' },
-          ],
-        },
-      }),
-      {
-        artifacts: [],
-        legacyAudioClips: [
-          { audio_url: 'https://media.example/a.mp3', title: 'Song A' },
-        ],
-      }
-    )
-    assert.deepEqual(
-      parseTaskArtifactsResponse({ success: true, data: { artifacts: [] } }),
-      { artifacts: [] }
     )
   })
 })

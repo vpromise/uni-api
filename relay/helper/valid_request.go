@@ -25,14 +25,7 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 	switch format {
 	case types.RelayFormatOpenAI:
 		request, err = GetAndValidateTextRequest(c, relayMode)
-	case types.RelayFormatGemini:
-		if strings.Contains(c.Request.URL.Path, ":embedContent") {
-			request, err = GetAndValidateGeminiEmbeddingRequest(c)
-		} else if strings.Contains(c.Request.URL.Path, ":batchEmbedContents") {
-			request, err = GetAndValidateGeminiBatchEmbeddingRequest(c)
-		} else {
-			request, err = GetAndValidateGeminiRequest(c)
-		}
+
 	case types.RelayFormatClaude:
 		request, err = GetAndValidateClaudeRequest(c)
 	case types.RelayFormatOpenAIResponses:
@@ -41,15 +34,12 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidateResponsesCompactionRequest(c)
 	case types.RelayFormatOpenAIAlphaSearch:
 		request, err = GetAndValidateAlphaSearchRequest(c)
-	case types.RelayFormatDeepSeekTools:
-		request, err = GetAndValidateDeepSeekToolsRequest(c)
 
 	case types.RelayFormatOpenAIImage:
 		request, err = GetAndValidOpenAIImageRequest(c, relayMode)
 	case types.RelayFormatEmbedding:
 		request, err = GetAndValidateEmbeddingRequest(c, relayMode)
-	case types.RelayFormatRerank:
-		request, err = GetAndValidateRerankRequest(c)
+
 	case types.RelayFormatOpenAIAudio:
 		request, err = GetAndValidAudioRequest(c, relayMode)
 	case types.RelayFormatOpenAIRealtime:
@@ -80,23 +70,6 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		}
 	}
 	return audioRequest, nil
-}
-
-func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
-	var rerankRequest *dto.RerankRequest
-	err := common.UnmarshalBodyReusable(c, &rerankRequest)
-	if err != nil {
-		logger.LogError(c, common.LogText("getAndValidateTextRequest failed: %s", err.Error()))
-		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-
-	if rerankRequest.Query == "" {
-		return nil, types.NewError(fmt.Errorf("query is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-	if len(rerankRequest.Documents) == 0 {
-		return nil, types.NewError(fmt.Errorf("documents is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-	return rerankRequest, nil
 }
 
 func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.EmbeddingRequest, error) {
@@ -172,27 +145,6 @@ func GetAndValidateAlphaSearchRequest(c *gin.Context) (*dto.AlphaSearchRequest, 
 	return request, nil
 }
 
-// GetAndValidateDeepSeekToolsRequest keeps the raw body for forwarding. The
-// upstream validates query/url itself, and no field changes the per-call price.
-func GetAndValidateDeepSeekToolsRequest(c *gin.Context) (*dto.DeepSeekToolsRequest, error) {
-	request := &dto.DeepSeekToolsRequest{}
-	if err := common.UnmarshalBodyReusable(c, request); err != nil {
-		return nil, err
-	}
-	storage, err := common.GetBodyStorage(c)
-	if err != nil {
-		return nil, err
-	}
-	rawBody, err := storage.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	if len(rawBody) == 0 {
-		return nil, errors.New("request body is empty")
-	}
-	request.RawBody = rawBody
-	return request, nil
-}
 
 func GetAndValidateResponsesCompactionRequest(c *gin.Context) (*dto.OpenAIResponsesCompactionRequest, error) {
 	request := &dto.OpenAIResponsesCompactionRequest{}
@@ -378,8 +330,7 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 			return nil, errors.New("field prompt is required")
 		}
 	case relayconstant.RelayModeChatCompletions:
-		// For FIM (Fill-in-the-middle) requests with prefix/suffix, messages is optional
-		// It will be filled by provider-specific adaptors if needed (e.g., SiliconFlow)。Or it is allowed by model vendor(s) (e.g., DeepSeek)
+
 		if len(textRequest.Messages) == 0 && textRequest.Prefix == nil && textRequest.Suffix == nil {
 			return nil, errors.New("field messages is required")
 		}
@@ -394,42 +345,4 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 		}
 	}
 	return textRequest, nil
-}
-
-func GetAndValidateGeminiRequest(c *gin.Context) (*dto.GeminiChatRequest, error) {
-	request := &dto.GeminiChatRequest{}
-	err := common.UnmarshalBodyReusable(c, request)
-	if err != nil {
-		return nil, err
-	}
-	if len(request.Contents) == 0 && len(request.Requests) == 0 {
-		return nil, errors.New("contents is required")
-	}
-	if ExceedsMaxTokensLimit(request.GenerationConfig.MaxOutputTokens) {
-		return nil, errors.New("maxOutputTokens is invalid")
-	}
-
-	//if c.Query("alt") == "sse" {
-	//	relayInfo.IsStream = true
-	//}
-
-	return request, nil
-}
-
-func GetAndValidateGeminiEmbeddingRequest(c *gin.Context) (*dto.GeminiEmbeddingRequest, error) {
-	request := &dto.GeminiEmbeddingRequest{}
-	err := common.UnmarshalBodyReusable(c, request)
-	if err != nil {
-		return nil, err
-	}
-	return request, nil
-}
-
-func GetAndValidateGeminiBatchEmbeddingRequest(c *gin.Context) (*dto.GeminiBatchEmbeddingRequest, error) {
-	request := &dto.GeminiBatchEmbeddingRequest{}
-	err := common.UnmarshalBodyReusable(c, request)
-	if err != nil {
-		return nil, err
-	}
-	return request, nil
 }

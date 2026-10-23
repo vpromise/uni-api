@@ -92,9 +92,6 @@ type ChatCompletionsStreamResponseChoiceDelta struct {
 	Reasoning        *string            `json:"reasoning,omitempty"`
 	Role             string             `json:"role,omitempty"`
 	ToolCalls        []ToolCallResponse `json:"tool_calls,omitempty"`
-	// Annotations is an OpenAI-compatible streaming extension supported by
-	// providers such as OpenRouter. Relaykit uses it to preserve streaming URL
-	// citations, including Claude round-trip metadata.
 	Annotations json.RawMessage `json:"annotations,omitempty"`
 }
 
@@ -245,7 +242,6 @@ type Usage struct {
 	ClaudeCacheCreation5mTokens int `json:"claude_cache_creation_5_m_tokens"`
 	ClaudeCacheCreation1hTokens int `json:"claude_cache_creation_1_h_tokens"`
 
-	// OpenRouter Params
 	Cost any `json:"cost,omitempty"`
 }
 
@@ -583,7 +579,6 @@ const (
 	BuildInToolWebSearchPreview = "web_search_preview"
 	BuildInToolWebSearch        = "web_search"
 	BuildInToolFileSearch       = "file_search"
-	BuildInToolGoogleSearch     = "google_search"
 	BuildInToolImageGeneration  = "image_generation"
 )
 

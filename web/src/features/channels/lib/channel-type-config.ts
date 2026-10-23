@@ -16,11 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  CHANNEL_TYPES,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
-} from '../constants'
+import { CHANNEL_TYPES } from '../constants'
 
 // ============================================================================
 // Channel Type Configuration
@@ -49,26 +45,6 @@ export interface ChannelTypeConfig {
  * Configuration for each channel type
  */
 export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
-  [CHANNEL_TYPE_SGLANG]: {
-    id: CHANNEL_TYPE_SGLANG,
-    name: CHANNEL_TYPES[CHANNEL_TYPE_SGLANG],
-    icon: 'SGLang',
-    hints: {
-      baseUrl: 'SGLang server address, without /v1',
-      key: 'SGLang API key, or EMPTY if authentication is disabled',
-      models: 'Models fetched from upstream /v1/models',
-    },
-  },
-  [CHANNEL_TYPE_VLLM]: {
-    id: CHANNEL_TYPE_VLLM,
-    name: CHANNEL_TYPES[CHANNEL_TYPE_VLLM],
-    icon: 'Vllm',
-    hints: {
-      baseUrl: 'vLLM server address, without /v1',
-      key: 'vLLM API key, or EMPTY if authentication is disabled',
-      models: 'Models fetched from upstream /v1/models',
-    },
-  },
   1: {
     id: 1,
     name: CHANNEL_TYPES[1],
@@ -83,17 +59,6 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       keyMinLength: 20,
     },
   },
-  3: {
-    id: 3,
-    name: CHANNEL_TYPES[3],
-    icon: 'azure',
-    requiresRegion: true,
-    hints: {
-      baseUrl: 'Azure OpenAI Endpoint',
-      key: 'Azure API Key',
-      models: 'Deployment names',
-    },
-  },
   14: {
     id: 14,
     name: CHANNEL_TYPES[14],
@@ -101,83 +66,6 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
     hints: {
       key: 'Format: sk-ant-...',
       models: 'claude-3-opus,claude-3-sonnet,claude-3-haiku',
-    },
-  },
-  24: {
-    id: 24,
-    name: CHANNEL_TYPES[24],
-    icon: 'google',
-    hints: {
-      key: 'Google API Key',
-      models: 'gemini-pro,gemini-pro-vision',
-    },
-  },
-  41: {
-    id: 41,
-    name: CHANNEL_TYPES[41],
-    icon: 'google',
-    requiresRegion: true,
-    hints: {
-      key: 'Service account JSON or API key',
-      models: 'gemini-pro,gemini-1.5-pro',
-      other: 'Region config: {"default": "us-central1"}',
-    },
-  },
-  43: {
-    id: 43,
-    name: CHANNEL_TYPES[43],
-    icon: 'deepseek',
-    hints: {
-      key: 'DeepSeek API Key',
-      models: 'deepseek-chat,deepseek-coder',
-    },
-  },
-  20: {
-    id: 20,
-    name: CHANNEL_TYPES[20],
-    icon: 'openrouter',
-    hints: {
-      key: 'OpenRouter API Key',
-      models: 'Use model IDs from OpenRouter',
-    },
-  },
-  56: {
-    id: 56,
-    name: CHANNEL_TYPES[56],
-    icon: 'replicate',
-    hints: {
-      key: 'Replicate API Token',
-      models: 'Replicate model IDs',
-    },
-  },
-  58: {
-    id: 58,
-    name: CHANNEL_TYPES[58],
-    icon: 'newapi',
-    hints: {
-      baseUrl: 'Fallback base URL',
-      key: 'Used by route auth templates',
-      models: 'Models exposed by this channel',
-    },
-  },
-  59: {
-    id: 59,
-    name: CHANNEL_TYPES[59],
-    icon: 'Sub2API',
-    hints: {
-      baseUrl: 'Sub2API gateway base URL',
-      key: 'Sub2API API Key',
-      models: 'Models fetched from upstream /v1/models',
-    },
-  },
-  60: {
-    id: 60,
-    name: CHANNEL_TYPES[60],
-    icon: 'NewAPI',
-    hints: {
-      baseUrl: 'Base URL is required for this channel type',
-      key: 'Enter API key for this channel',
-      models: 'Models',
     },
   },
 }
@@ -222,16 +110,12 @@ export function getChannelTypeHints(type: number) {
 export function validateKeyFormat(type: number, key: string): boolean {
   const config = CHANNEL_TYPE_CONFIGS[type]
   if (!config?.validation) return true
-
   const { keyFormat, keyMinLength } = config.validation
-
   if (keyMinLength && key.length < keyMinLength) {
     return false
   }
-
   if (keyFormat && !keyFormat.test(key)) {
     return false
   }
-
   return true
 }

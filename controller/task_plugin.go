@@ -16,6 +16,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
@@ -518,21 +519,19 @@ func SetTaskPluginStatus(c *gin.Context) {
 		}
 		cascade := c.Query("cascade") == "true"
 		force := c.Query("force") == "true"
-		if (len(channels) > 0 && !cascade) || (inFlight > 0 && !force) {
+		if len(channels) > 0 && !cascade || inFlight > 0 && !force {
 			c.JSON(200, gin.H{"success": false, "message": "task plugin is still in use", "data": gin.H{"channels": channels, "in_flight_count": inFlight}})
 			return
 		}
 		if cascade {
 			for _, channel := range channels {
-				if channel.Type == constant.ChannelTypeNewAPI {
-					// A gateway channel also carries ordinary traffic, so the
-					// cascade only drops this plugin from its bindings.
-					unbound, unbindErr := model.UnbindTaskPlugin(channel.Id, key)
-					if unbindErr != nil {
-						common.ApiError(c, unbindErr)
+				if channel.Type != constant.ChannelTypeTaskPlugin {
+					changed, err := model.UnbindTaskPlugin(channel.Id, key)
+					if err != nil {
+						common.ApiError(c, err)
 						return
 					}
-					if unbound {
+					if changed {
 						unboundChannels++
 					}
 					continue
@@ -629,7 +628,7 @@ func UpdateTaskPluginMarketplaceSources(c *gin.Context) {
 			return
 		}
 		parsed, err := url.Parse(indexURL)
-		if err != nil || !parsed.IsAbs() || parsed.Host == "" || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
+		if err != nil || !parsed.IsAbs() || parsed.Host == "" || !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
 			common.ApiErrorMsg(c, "marketplace source index_url must be an absolute http(s) URL")
 			return
 		}

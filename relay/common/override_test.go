@@ -2489,11 +2489,6 @@ func TestApplyParamOverrideWithRelayInfoRecordsConversationBodyOperationsWhenDeb
 						"value": "new instruction",
 					},
 					map[string]any{
-						"mode":  "append",
-						"path":  "contents.0.parts",
-						"value": map[string]any{"text": "new gemini part"},
-					},
-					map[string]any{
 						"mode": "copy",
 						"from": "system",
 						"to":   "metadata.system_copy",
@@ -2513,7 +2508,6 @@ func TestApplyParamOverrideWithRelayInfoRecordsConversationBodyOperationsWhenDeb
 		"input":[{"role":"user","content":[{"type":"input_text","text":"original response input"}]}],
 		"instructions":"old instruction",
 		"system":"old system",
-		"contents":[{"role":"user","parts":[{"text":"hello gemini"}]}],
 		"temperature":0.7
 	}`), info)
 	require.NoError(t, err)
@@ -2522,7 +2516,6 @@ func TestApplyParamOverrideWithRelayInfoRecordsConversationBodyOperationsWhenDeb
 		"input":[{"role":"user","content":[{"type":"input_text","text":"rewritten response input"}]}],
 		"instructions":"new instruction",
 		"system":"old system",
-		"contents":[{"role":"user","parts":[{"text":"hello gemini"},{"text":"new gemini part"}]}],
 		"temperature":0.1,
 		"metadata":{"system_copy":"old system"}
 	}`, string(out))
@@ -2531,7 +2524,6 @@ func TestApplyParamOverrideWithRelayInfoRecordsConversationBodyOperationsWhenDeb
 		"replace messages.0.content from hello to hi",
 		"set input.0.content.0.text = rewritten response input",
 		"set instructions = new instruction",
-		"append contents.0.parts with {\"text\":\"new gemini part\"}",
 		"copy system -> metadata.system_copy",
 	}, info.ParamOverrideAudit)
 }
@@ -2599,14 +2591,7 @@ func TestApplyParamOverrideWithRelayInfoSynchronizesReasoningEffort(t *testing.T
 			operation:     map[string]any{"mode": "delete", "path": "reasoning_effort"},
 			expected:      "",
 		},
-		{
-			name:          "OpenRouter nested set",
-			relayFormat:   types.RelayFormatOpenAI,
-			initialEffort: "medium",
-			input:         `{"reasoning":{"effort":"medium"}}`,
-			operation:     map[string]any{"mode": "set", "path": "reasoning.effort", "value": "xhigh"},
-			expected:      "xhigh",
-		},
+
 		{
 			name:          "Claude output config set",
 			relayFormat:   types.RelayFormatClaude,
@@ -2615,14 +2600,7 @@ func TestApplyParamOverrideWithRelayInfoSynchronizesReasoningEffort(t *testing.T
 			operation:     map[string]any{"mode": "set", "path": "output_config.effort", "value": "max"},
 			expected:      "max",
 		},
-		{
-			name:          "Gemini thinking level set",
-			relayFormat:   types.RelayFormatGemini,
-			initialEffort: "medium",
-			input:         `{"generationConfig":{"thinkingConfig":{"thinkingLevel":"medium"}}}`,
-			operation:     map[string]any{"mode": "set", "path": "generationConfig.thinkingConfig.thinkingLevel", "value": "high"},
-			expected:      "high",
-		},
+
 		{
 			name:          "non-string value clears effort",
 			relayFormat:   types.RelayFormatOpenAIResponses,

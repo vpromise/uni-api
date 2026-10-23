@@ -31,7 +31,6 @@ import { taskActionMapper, taskStatusMapper } from '../../lib/mappers'
 import { resolveTaskDetailAccess } from '../../lib/task-details'
 import type { TaskLog } from '../../types'
 import { PluginAuthorLink } from '../plugin-author-link'
-
 function DetailRow(props: {
   label: React.ReactNode
   value: React.ReactNode
@@ -51,7 +50,6 @@ function DetailRow(props: {
     </div>
   )
 }
-
 function DetailSection(props: {
   label: string
   icon?: React.ReactNode
@@ -69,11 +67,9 @@ function DetailSection(props: {
     </section>
   )
 }
-
 function formatTaskTimestamp(value?: number): string {
   return value ? formatTimestampToDate(value, 'seconds') : '-'
 }
-
 interface TaskDetailsDialogProps {
   log: TaskLog
   isAdmin: boolean
@@ -81,14 +77,12 @@ interface TaskDetailsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
 export function TaskDetailsDialog(props: TaskDetailsDialogProps) {
   const { t } = useTranslation()
   const access = resolveTaskDetailAccess(props.log, props.isAdmin, props.isRoot)
   const plugin = access.plugin
   const runtime = access.runtime
   const properties = props.log.properties
-
   return (
     <Dialog
       open={props.open}

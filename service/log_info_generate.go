@@ -247,8 +247,7 @@ func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other *model
 			chain = append(chain, "OpenAI Compatible")
 		case types.RelayFormatClaude:
 			chain = append(chain, "Claude Messages")
-		case types.RelayFormatGemini:
-			chain = append(chain, "Google Gemini")
+
 		case types.RelayFormatOpenAIResponses:
 			chain = append(chain, "OpenAI Responses")
 		default:

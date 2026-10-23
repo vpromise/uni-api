@@ -11,15 +11,12 @@ import (
 )
 
 var (
-	EffortSuffixes           = kitreasoning.EffortSuffixes
-	OpenAIEffortSuffixes     = kitreasoning.OpenAIEffortSuffixes
-	DeepSeekV4EffortSuffixes = kitreasoning.DeepSeekV4EffortSuffixes
+	EffortSuffixes       = kitreasoning.EffortSuffixes
+	OpenAIEffortSuffixes = kitreasoning.OpenAIEffortSuffixes
 )
 
 var (
-	TrimEffortSuffixWithSuffixes  = kitreasoning.TrimEffortSuffixWithSuffixes
-	ParseDeepSeekV4ThinkingSuffix = kitreasoning.ParseDeepSeekV4ThinkingSuffix
-	TrimGeminiThinkingSuffix      = kitreasoning.TrimGeminiThinkingSuffix
+	TrimEffortSuffixWithSuffixes = kitreasoning.TrimEffortSuffixWithSuffixes
 )
 
 // ParseOpenAIReasoningEffortFromModelSuffix applies RelayKit's positive family
@@ -29,10 +26,7 @@ func ParseOpenAIReasoningEffortFromModelSuffix(modelName string) (string, string
 	return kitreasoning.ParseOpenAIReasoningEffortFromModelSuffix(modelName, model_setting.ShouldPreserveEffortTail)
 }
 
-// ParseLegacyModelSuffix parses the old naked aliases only for positively
-// matched GPT/o-series, Claude, and Gemini model families. The provider prefix
-// before the final path segment is kept opaque.
-func ParseLegacyModelSuffix(modelName string, allowClaudeThinkingAlias bool, allowGeminiThinkingAlias bool) (string, kitreasoning.Intent, bool, error) {
+func ParseLegacyModelSuffix(modelName string, allowClaudeThinkingAlias bool) (string, kitreasoning.Intent, bool, error) {
 	prefix, bare := splitModelNamespace(modelName)
 
 	var (
@@ -44,8 +38,7 @@ func ParseLegacyModelSuffix(modelName string, allowClaudeThinkingAlias bool, all
 	switch {
 	case strings.HasPrefix(bare, "claude-"):
 		base, intent, found, err = kitreasoning.ParseClaudeModelSuffix(bare, allowClaudeThinkingAlias)
-	case strings.HasPrefix(bare, "gemini-"):
-		base, intent, found, err = kitreasoning.ParseGeminiModelSuffix(bare, allowGeminiThinkingAlias)
+
 	default:
 		effort, openAIBase := ParseOpenAIReasoningEffortFromModelSuffix(bare)
 		if effort == "" {
@@ -84,7 +77,6 @@ func BaseModelName(modelName string) string {
 	legacyBase, _, found, err := ParseLegacyModelSuffix(
 		base,
 		model_setting.GetClaudeSettings().ThinkingAdapterEnabled,
-		model_setting.GetGeminiSettings().ThinkingAdapterEnabled,
 	)
 	if err != nil {
 		return base
@@ -118,7 +110,6 @@ func CanonicalBillingModelNames(modelName string) []string {
 		legacyBase, legacyIntent, found, err := ParseLegacyModelSuffix(
 			base,
 			model_setting.GetClaudeSettings().ThinkingAdapterEnabled,
-			model_setting.GetGeminiSettings().ThinkingAdapterEnabled,
 		)
 		if err == nil && found {
 			base = legacyBase

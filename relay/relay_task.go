@@ -2,7 +2,7 @@ package relay
 
 import (
 	"bytes"
-	"context"
+
 	"errors"
 	"fmt"
 	"io"
@@ -18,7 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
+
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -488,12 +488,6 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
-	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
-	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
-		respBody = realtimeResp
-		return
-	}
-
 	// OpenAI Video API 格式: 走各 adaptor 的 ConvertToOpenAIVideo
 	if isOpenAIVideoAPI {
 		adaptor := GetTaskAdaptor(originTask.Platform)
@@ -523,143 +517,6 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
 	return
-}
-
-// tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
-// 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
-// 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
-func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
-	if err != nil {
-		return nil
-	}
-	if channelModel.Type != constant.ChannelTypeVertexAi && channelModel.Type != constant.ChannelTypeGemini {
-		return nil
-	}
-
-	baseURL := constant.GetChannelBaseURL(channelModel.Type)
-	if channelModel.GetBaseURL() != "" {
-		baseURL = channelModel.GetBaseURL()
-	}
-	proxy := channelModel.GetSetting().Proxy
-	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
-	if adaptor == nil {
-		return nil
-	}
-	adaptor.Init(&relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
-		ChannelType:     channelModel.Type,
-		ChannelId:       channelModel.Id,
-		ChannelBaseUrl:  baseURL,
-		ApiKey:          channelModel.Key,
-		ChannelSetting:  channelModel.GetSetting(),
-		HeadersOverride: channelModel.GetHeaderOverride(),
-	}})
-
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, task, proxy)
-	if err != nil || resp == nil {
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil
-	}
-
-	ti, err := adaptor.ParseTaskResult(task, resp, body)
-	if err != nil || ti == nil {
-		return nil
-	}
-
-	snap := task.Snapshot()
-	status := model.TaskStatus(ti.Status)
-	finished := status == model.TaskStatusSuccess || status == model.TaskStatusFailure
-	if finished && snap.Status != model.TaskStatusSuccess && snap.Status != model.TaskStatusFailure {
-		// Finishing a task settles or refunds it. Let the poller record the
-		// final status, as it does for every other task, so that happens once.
-		upstreamID := task.GetUpstreamTaskID()
-		_ = service.UpdateVideoTasks(context.Background(), task.Platform,
-			map[int][]string{task.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: task})
-	} else {
-		// 将上游最新状态更新到 task
-		if ti.Status != "" {
-			task.Status = status
-		}
-		if ti.Progress != "" {
-			task.Progress = ti.Progress
-		}
-		if strings.HasPrefix(ti.Url, "data:") {
-			// data: URI — kept in Data, not ResultURL
-		} else if ti.Url != "" {
-			task.PrivateData.ResultURL = ti.Url
-		} else if task.Status == model.TaskStatusSuccess {
-			// No URL from adaptor — construct proxy URL using public task ID
-			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-		}
-
-		if !snap.Equal(task.Snapshot()) {
-			_, _ = task.UpdateWithStatus(snap.Status)
-		}
-	}
-
-	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理
-	if isOpenAIVideoAPI {
-		return nil
-	}
-
-	// 非 OpenAI Video API: 构建自定义格式响应
-	format := detectVideoFormat(body)
-	out := map[string]any{
-		"error":    nil,
-		"format":   format,
-		"metadata": nil,
-		"status":   mapTaskStatusToSimple(task.Status),
-		"task_id":  task.TaskID,
-		"url":      task.GetResultURL(),
-	}
-	respBody, _ := common.Marshal(dto.TaskResponse[any]{
-		Code: "success",
-		Data: out,
-	})
-	return respBody
-}
-
-// detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式
-func detectVideoFormat(rawBody []byte) string {
-	var raw map[string]any
-	if err := common.Unmarshal(rawBody, &raw); err != nil {
-		return "mp4"
-	}
-	respObj, ok := raw["response"].(map[string]any)
-	if !ok {
-		return "mp4"
-	}
-	vids, ok := respObj["videos"].([]any)
-	if !ok || len(vids) == 0 {
-		return "mp4"
-	}
-	v0, ok := vids[0].(map[string]any)
-	if !ok {
-		return "mp4"
-	}
-	mt, ok := v0["mimeType"].(string)
-	if !ok || mt == "" || strings.Contains(mt, "mp4") {
-		return "mp4"
-	}
-	return mt
-}
-
-// mapTaskStatusToSimple 将内部 TaskStatus 映射为简化状态字符串
-func mapTaskStatusToSimple(status model.TaskStatus) string {
-	switch status {
-	case model.TaskStatusSuccess:
-		return "succeeded"
-	case model.TaskStatusFailure:
-		return "failed"
-	case model.TaskStatusQueued, model.TaskStatusSubmitted:
-		return "queued"
-	default:
-		return "processing"
-	}
 }
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {

@@ -18,7 +18,6 @@ import (
 	"github.com/QuantumNous/new-api/plugins"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -27,11 +26,11 @@ import (
 func setupTaskPluginControllerTest(t *testing.T) {
 	t.Helper()
 	originalDB := model.DB
-	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, database.AutoMigrate(&model.TaskPlugin{}, &model.Channel{}, &model.Ability{}, &model.Task{}, &model.Option{}))
+	originalType := common.MainDatabaseType()
+	database, dialect := openTaskDialectDatabase(t, &model.TaskPlugin{}, &model.Channel{}, &model.Ability{}, &model.Task{}, &model.Option{})
 	model.DB = database
-	t.Cleanup(func() { model.DB = originalDB })
+	common.SetMainDatabaseType(dialect)
+	t.Cleanup(func() { model.DB = originalDB; common.SetMainDatabaseType(originalType) })
 }
 
 const lifecyclePluginSource = `
@@ -106,7 +105,7 @@ func TestDisableThirdPartyPluginSupportsCascadeAndForce(t *testing.T) {
 	channel := model.Channel{Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Name: "linked", Models: "doc", Group: "default", BaseURL: &baseURL, Setting: &setting}
 	require.NoError(t, channel.Insert())
 	gatewaySetting := `{"task_extend_plugin_keys":["lifecycle-only","other"]}`
-	gateway := model.Channel{Type: constant.ChannelTypeNewAPI, Status: common.ChannelStatusEnabled, Name: "gateway", Models: "doc,gpt", Group: "default", BaseURL: &baseURL, Setting: &gatewaySetting}
+	gateway := model.Channel{Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Name: "gateway", Models: "doc,gpt", Group: "default", BaseURL: &baseURL, Setting: &gatewaySetting}
 	require.NoError(t, gateway.Insert())
 	require.NoError(t, model.DB.Create(&model.Task{Platform: "lifecycle-only", Status: model.TaskStatusSubmitted}).Error)
 
@@ -129,14 +128,14 @@ func TestDisableThirdPartyPluginSupportsCascadeAndForce(t *testing.T) {
 	assert.Equal(t, []string{"other"}, updatedGateway.GetSetting().TaskExtendPluginKeys, "only the disabled plugin is unbound")
 }
 
-// klingFactoryVersion returns the version declared in the embedded kling factory
+// soraFactoryVersion returns the version declared in the embedded sora factory
 // manifest so tests do not hardcode a value that moves with every plugin release.
-func klingFactoryVersion(t *testing.T) string {
+func soraFactoryVersion(t *testing.T) string {
 	t.Helper()
-	factorySource, err := plugins.Source("kling")
+	factorySource, err := plugins.Source("sora")
 	require.NoError(t, err)
 	match := regexp.MustCompile(`version:\s*"([^"]+)"`).FindStringSubmatch(factorySource)
-	require.Len(t, match, 2, "kling factory manifest must declare a version")
+	require.Len(t, match, 2, "sora factory manifest must declare a version")
 	return match[1]
 }
 
@@ -215,14 +214,14 @@ func taskPluginOptionsHasKey(t *testing.T, key string) bool {
 
 func TestDisableFactoryPluginPersistsOptionAndHidesFromBindOptions(t *testing.T) {
 	setupTaskPluginFactoryDisableTest(t)
-	const key = "kling"
+	const key = "sora"
 
 	recorder := postTaskPluginStatus(t, key, "", `{"enabled":false}`)
 	assert.Contains(t, recorder.Body.String(), `"success":true`)
 	assert.Equal(t, []string{key}, setting.GetTaskPluginDisabledFactoryKeys())
 	var stored model.Option
 	require.NoError(t, model.DB.Where("key = ?", setting.TaskPluginDisabledFactoryKeysKey).First(&stored).Error)
-	assert.Equal(t, `["kling"]`, stored.Value)
+	assert.Equal(t, `["sora"]`, stored.Value)
 
 	item := listTaskPluginItem(t, key)
 	assert.Equal(t, "factory", item.Source)
@@ -245,9 +244,9 @@ func TestDisableFactoryPluginPersistsOptionAndHidesFromBindOptions(t *testing.T)
 
 func TestDisableFactoryPluginRespectsInUseGuard(t *testing.T) {
 	setupTaskPluginFactoryDisableTest(t)
-	const key = "kling"
+	const key = "sora"
 	baseURL := "https://example.com"
-	channelSetting := `{"task_plugin_key":"kling"}`
+	channelSetting := `{"task_plugin_key":"sora"}`
 	channel := model.Channel{Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Name: "linked-factory", Models: "doc", Group: "default", BaseURL: &baseURL, Setting: &channelSetting}
 	require.NoError(t, channel.Insert())
 
@@ -261,53 +260,53 @@ func TestDisableFactoryPluginRespectsInUseGuard(t *testing.T) {
 
 func TestDisableFactoryOverrideRowSuppressesBothLayers(t *testing.T) {
 	setupTaskPluginFactoryDisableTest(t)
-	factorySource, err := plugins.Source("kling")
+	factorySource, err := plugins.Source("sora")
 	require.NoError(t, err)
-	factoryVersion := klingFactoryVersion(t)
+	factoryVersion := soraFactoryVersion(t)
 	overrideSource := strings.Replace(factorySource, `version: "`+factoryVersion+`"`, `version: "`+factoryVersion+`-test-factory-status"`, 1)
-	require.NotEqual(t, factorySource, overrideSource, "factory version marker must be found in kling source")
+	require.NotEqual(t, factorySource, overrideSource, "factory version marker must be found in sora source")
 	loaded, err := jsplugin.DefaultRegistry.Register(overrideSource, jsplugin.Options{})
 	require.NoError(t, err)
-	t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister("kling") })
+	t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister("sora") })
 	plugin := model.TaskPlugin{
-		Key: "kling", APIVersion: loaded.Meta.APIVersion, Version: loaded.Meta.Version,
+		Key: "sora", APIVersion: loaded.Meta.APIVersion, Version: loaded.Meta.Version,
 		Source: model.LongText(overrideSource), SourceHash: "test-hash", Enabled: true,
 	}
 	require.NoError(t, model.SaveTaskPlugin(&plugin))
 	require.NoError(t, syncTaskPluginsOnce())
 
-	recorder := postTaskPluginStatus(t, "kling", "", `{"enabled":false}`)
+	recorder := postTaskPluginStatus(t, "sora", "", `{"enabled":false}`)
 	assert.Contains(t, recorder.Body.String(), `"success":true`)
-	assert.Equal(t, []string{"kling"}, setting.GetTaskPluginDisabledFactoryKeys())
-	row, err := model.GetTaskPluginVersion("kling", "")
+	assert.Equal(t, []string{"sora"}, setting.GetTaskPluginDisabledFactoryKeys())
+	row, err := model.GetTaskPluginVersion("sora", "")
 	require.NoError(t, err)
 	assert.False(t, row.Enabled)
-	item := listTaskPluginItem(t, "kling")
+	item := listTaskPluginItem(t, "sora")
 	assert.Equal(t, "override_over_factory", item.Source)
 	assert.False(t, item.Enabled)
 	assert.Equal(t, "disabled", item.RuntimeStatus)
-	assert.False(t, taskPluginOptionsHasKey(t, "kling"))
-	_, ok := jsplugin.DefaultRegistry.Get("kling")
+	assert.False(t, taskPluginOptionsHasKey(t, "sora"))
+	_, ok := jsplugin.DefaultRegistry.Get("sora")
 	assert.False(t, ok, "factory built-in must not keep serving after the plugin is switched off")
 
-	recorder = postTaskPluginStatus(t, "kling", "", `{"enabled":true}`)
+	recorder = postTaskPluginStatus(t, "sora", "", `{"enabled":true}`)
 	assert.Contains(t, recorder.Body.String(), `"success":true`)
 	assert.Empty(t, setting.GetTaskPluginDisabledFactoryKeys())
-	row, err = model.GetTaskPluginVersion("kling", "")
+	row, err = model.GetTaskPluginVersion("sora", "")
 	require.NoError(t, err)
 	assert.True(t, row.Enabled)
-	got, ok := jsplugin.DefaultRegistry.Get("kling")
+	got, ok := jsplugin.DefaultRegistry.Get("sora")
 	require.True(t, ok)
 	assert.Equal(t, loaded.Meta.Version, got.Meta.Version)
-	assert.Equal(t, "registered", listTaskPluginItem(t, "kling").RuntimeStatus)
+	assert.Equal(t, "registered", listTaskPluginItem(t, "sora").RuntimeStatus)
 
-	// Regression: with every kling layer off, a plugin whose model differs from
-	// a built-in kling model only by case must upload without a routing conflict.
-	recorder = postTaskPluginStatus(t, "kling", "", `{"enabled":false}`)
+	// Regression: with every sora layer off, a plugin whose model differs from
+	// a built-in sora model only by case must upload without a routing conflict.
+	recorder = postTaskPluginStatus(t, "sora", "", `{"enabled":false}`)
 	require.Contains(t, recorder.Body.String(), `"success":true`)
-	cleanupTaskPluginControllerRuntime(t, "kling-shadow")
+	cleanupTaskPluginControllerRuntime(t, "sora-shadow")
 	const shadowSource = `
-export const meta = {apiVersion: 1, key: "kling-shadow", name: "Shadow", version: "1.0.0", author: {name: "Test"}, models: ["KLING-V1"], fetchMode: "per_task"};
+export const meta = {apiVersion: 1, key: "sora-shadow", name: "Shadow", version: "1.0.0", author: {name: "Test"}, models: ["SORA-2"], fetchMode: "per_task"};
 export function buildSubmitRequest() { return {}; }
 export function parseSubmitResponse() { return {}; }
 export function buildQueryRequest() { return {}; }
@@ -321,7 +320,7 @@ export function parseTaskResult() { return {}; }
 	uploadContext.Request.Header.Set("Content-Type", "application/json")
 	UploadTaskPlugin(uploadContext)
 	assert.Contains(t, uploadRecorder.Body.String(), `"success":true`)
-	_, ok = jsplugin.DefaultRegistry.Get("kling-shadow")
+	_, ok = jsplugin.DefaultRegistry.Get("sora-shadow")
 	assert.True(t, ok)
 }
 
@@ -336,19 +335,20 @@ func TestTaskPluginSourceAboveMySQLTextLimitRoundTrips(t *testing.T) {
 	model.DB = database
 	t.Cleanup(func() { model.DB = originalDB })
 
-	source, err := plugins.Source("alibaba")
+	source, err := plugins.Source("sora")
 	require.NoError(t, err)
+	source += "\n/*" + strings.Repeat("fixture padding ", 5000) + "*/"
 	require.Greater(t, len(source), 65535, "fixture must exceed the MySQL TEXT limit")
 	icon := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(strings.Repeat(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`, 2048)))
 	require.Greater(t, len(icon), 65535, "icon fixture must exceed the MySQL TEXT limit")
 
-	plugin := model.TaskPlugin{Key: "alibaba", APIVersion: 1, Version: "roundtrip", Source: model.LongText(source), SourceHash: "hash", Enabled: true}
+	plugin := model.TaskPlugin{Key: "sora", APIVersion: 1, Version: "roundtrip", Source: model.LongText(source), SourceHash: "hash", Enabled: true}
 	require.NoError(t, model.SaveTaskPlugin(&plugin))
 	// Re-saving the same version attaches the icon through the update path.
-	withIcon := model.TaskPlugin{Key: "alibaba", APIVersion: 1, Version: "roundtrip", Source: model.LongText(source), SourceHash: "hash", Icon: model.LongText(icon), Enabled: true}
+	withIcon := model.TaskPlugin{Key: "sora", APIVersion: 1, Version: "roundtrip", Source: model.LongText(source), SourceHash: "hash", Icon: model.LongText(icon), Enabled: true}
 	require.NoError(t, model.SaveTaskPlugin(&withIcon))
 
-	stored, err := model.GetTaskPluginVersion("alibaba", "roundtrip")
+	stored, err := model.GetTaskPluginVersion("sora", "roundtrip")
 	require.NoError(t, err)
 	assert.Equal(t, source, string(stored.Source))
 	assert.Equal(t, icon, string(stored.Icon))
@@ -412,7 +412,7 @@ func TestListTaskPluginsIncludesFactoryWithoutDatabaseRows(t *testing.T) {
 	require.True(t, response.Success)
 	var factoryItem *taskPluginListItem
 	for i := range response.Data {
-		if response.Data[i].Meta.Key == "kling" {
+		if response.Data[i].Meta.Key == "sora" {
 			factoryItem = &response.Data[i]
 			break
 		}
@@ -432,10 +432,10 @@ func TestMasterSwitchEmptiesOptionsAndKeepsList(t *testing.T) {
 		jsplugin.DefaultRegistry.SetEnabled(originalEnabled)
 	})
 
-	assert.False(t, taskPluginOptionsHasKey(t, "kling"))
-	item := listTaskPluginItem(t, "kling")
+	assert.False(t, taskPluginOptionsHasKey(t, "sora"))
+	item := listTaskPluginItem(t, "sora")
 	assert.Equal(t, "factory", item.Source)
-	assert.Equal(t, "kling", item.Meta.Key)
+	assert.Equal(t, "sora", item.Meta.Key)
 }
 
 func TestGetTaskPluginOptionsIncludesDescriptionUsageSchemaIconBaseURLAndChannelTypes(t *testing.T) {
@@ -503,31 +503,31 @@ export function parseTaskResult() { return {}; }
 
 func TestDeleteActiveOverrideFallsBackToFactoryAndDeletesRecord(t *testing.T) {
 	setupTaskPluginControllerTest(t)
-	factorySource, err := plugins.Source("kling")
+	factorySource, err := plugins.Source("sora")
 	require.NoError(t, err)
-	factoryVersion := klingFactoryVersion(t)
+	factoryVersion := soraFactoryVersion(t)
 	overrideSource := strings.Replace(factorySource, `version: "`+factoryVersion+`"`, `version: "`+factoryVersion+`-test-override"`, 1)
-	require.NotEqual(t, factorySource, overrideSource, "factory version marker must be found in kling source")
-	loaded, err := jsplugin.DefaultRegistry.Register(overrideSource, jsplugin.Options{Key: "kling", Version: "test-override"})
+	require.NotEqual(t, factorySource, overrideSource, "factory version marker must be found in sora source")
+	loaded, err := jsplugin.DefaultRegistry.Register(overrideSource, jsplugin.Options{Key: "sora", Version: "test-override"})
 	require.NoError(t, err)
-	t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister("kling") })
+	t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister("sora") })
 	plugin := model.TaskPlugin{
-		Key: "kling", APIVersion: loaded.Meta.APIVersion, Version: loaded.Meta.Version,
+		Key: "sora", APIVersion: loaded.Meta.APIVersion, Version: loaded.Meta.Version,
 		Source: model.LongText(overrideSource), SourceHash: "test-hash", Enabled: true,
 	}
 	require.NoError(t, model.SaveTaskPlugin(&plugin))
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Params = gin.Params{{Key: "key", Value: "kling"}, {Key: "version", Value: loaded.Meta.Version}}
-	context.Request = httptest.NewRequest(http.MethodDelete, "/api/plugin/task/kling/versions/"+loaded.Meta.Version, nil)
+	context.Params = gin.Params{{Key: "key", Value: "sora"}, {Key: "version", Value: loaded.Meta.Version}}
+	context.Request = httptest.NewRequest(http.MethodDelete, "/api/plugin/task/sora/versions/"+loaded.Meta.Version, nil)
 
 	DeleteTaskPluginVersion(context)
 
 	assert.Contains(t, recorder.Body.String(), `"success":true`)
-	versions, err := model.ListTaskPluginVersions("kling")
+	versions, err := model.ListTaskPluginVersions("sora")
 	require.NoError(t, err)
 	assert.Empty(t, versions)
-	runtimePlugin, ok := jsplugin.DefaultRegistry.Get("kling")
+	runtimePlugin, ok := jsplugin.DefaultRegistry.Get("sora")
 	require.True(t, ok)
 	assert.NotEqual(t, loaded.Meta.Version, runtimePlugin.Meta.Version)
 }
@@ -931,7 +931,7 @@ func TestUploadTaskPluginPreflightConflict(t *testing.T) {
 		{
 			name:      "enabled conflict rejected",
 			key:       "preflight-reject",
-			wantError: "channelType 50 conflicts",
+			wantError: "channelType 1 conflicts",
 		},
 		{
 			name:        "force saves despite conflict",
@@ -949,7 +949,7 @@ func TestUploadTaskPluginPreflightConflict(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 			cleanupTaskPluginControllerRuntime(t, testCase.key)
-			source := taskPluginControllerChannelSource(testCase.key, "1.0.0", 50)
+			source := taskPluginControllerChannelSource(testCase.key, "1.0.0", 1)
 			payload := map[string]any{"source": source}
 			if testCase.enabled != nil {
 				payload["enabled"] = *testCase.enabled
@@ -974,7 +974,7 @@ func TestUploadTaskPluginPreflightConflict(t *testing.T) {
 			}
 			assert.Contains(t, recorder.Body.String(), `"success":false`)
 			assert.Contains(t, recorder.Body.String(), testCase.wantError)
-			assert.Contains(t, recorder.Body.String(), "kling")
+			assert.Contains(t, recorder.Body.String(), "sora")
 			var count int64
 			require.NoError(t, model.DB.Model(&model.TaskPlugin{}).Where("key = ?", testCase.key).Count(&count).Error)
 			assert.Zero(t, count)
@@ -1067,14 +1067,14 @@ func TestDeletePureFactoryPluginIsRejected(t *testing.T) {
 			setupTaskPluginControllerTest(t)
 			recorder := httptest.NewRecorder()
 			context, _ := gin.CreateTestContext(recorder)
-			context.Params = gin.Params{{Key: "key", Value: "kling"}, {Key: "version", Value: "1.0.0"}}
-			context.Request = httptest.NewRequest(http.MethodDelete, "/api/plugin/task/kling/versions/1.0.0"+query, nil)
+			context.Params = gin.Params{{Key: "key", Value: "sora"}, {Key: "version", Value: "1.0.0"}}
+			context.Request = httptest.NewRequest(http.MethodDelete, "/api/plugin/task/sora/versions/1.0.0"+query, nil)
 
 			DeleteTaskPluginVersion(context)
 
 			assert.Contains(t, recorder.Body.String(), `"success":false`)
 			assert.Contains(t, recorder.Body.String(), "factory plugins cannot be deleted")
-			_, ok := jsplugin.DefaultRegistry.Get("kling")
+			_, ok := jsplugin.DefaultRegistry.Get("sora")
 			assert.True(t, ok)
 		})
 	}

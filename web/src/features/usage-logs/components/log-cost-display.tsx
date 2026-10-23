@@ -36,17 +36,14 @@ import { formatLogQuota } from '@/lib/format'
 
 import { hasToolSurcharge } from '../lib/format'
 import type { LogOtherData } from '../types'
-
 interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
   showBillingSource?: boolean
 }
-
 function ToolSurchargeMarker() {
   const { t } = useTranslation()
   const label = t('Includes tool-call surcharge')
-
   return (
     <Tooltip>
       <TooltipTrigger
@@ -77,7 +74,6 @@ function ToolSurchargeMarker() {
     </Tooltip>
   )
 }
-
 export function LogCostDisplay(props: LogCostDisplayProps) {
   const { t } = useTranslation()
   const isSubscription = props.other?.billing_source === 'subscription'
@@ -99,7 +95,6 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
   ) {
     source = t('Wallet')
   }
-
   return (
     <TooltipProvider>
       <div className='inline-flex w-fit items-center gap-1.5'>

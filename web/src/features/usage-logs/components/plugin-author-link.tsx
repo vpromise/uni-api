@@ -23,22 +23,18 @@ import { cn } from '@/lib/utils'
 
 import { getSafePluginAuthorUrl } from '../lib/task-artifacts'
 import type { TaskPluginAuthor } from '../types'
-
 interface PluginAuthorLinkProps {
   author: TaskPluginAuthor
   showUrl?: boolean
   className?: string
 }
-
 export function PluginAuthorLink(props: PluginAuthorLinkProps) {
   const authorUrl = getSafePluginAuthorUrl(props.author)
   const authorName = props.author.name.trim()
   if (!authorName) return null
-
   if (!authorUrl) {
     return <span className={props.className}>{authorName}</span>
   }
-
   return (
     <span className={cn('inline-flex min-w-0 flex-col', props.className)}>
       <a

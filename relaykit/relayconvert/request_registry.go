@@ -12,7 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/convdiag"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
+
 	oaichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_chat"
 	oairesponses "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_responses"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/toolconv"
@@ -67,10 +67,8 @@ var (
 )
 
 const (
-	requestConverterClaudeToGemini    = "claude_messages_to_gemini_generate_content"
 	requestConverterClaudeToResponses = ConverterClaudeMessagesToOpenAIResponses
-	requestConverterGeminiToClaude    = "gemini_generate_content_to_claude_messages"
-	requestConverterGeminiToResponses = ConverterGeminiContentToOpenAIResponses
+
 	requestConverterResponsesToClaude = ConverterOpenAIResponsesToClaudeMessages
 )
 
@@ -81,11 +79,8 @@ const (
 	ConverterOpenAIChatToOpenAIResponses     = "openai_chat_completions_to_openai_responses"
 	ConverterOpenAIResponsesToOpenAIChat     = "openai_responses_to_openai_chat_completions"
 	ConverterOpenAIResponsesToClaudeMessages = "openai_responses_to_claude_messages"
-	ConverterOpenAIResponsesToGemini         = "openai_responses_to_gemini_generate_content"
-	ConverterGeminiContentToOpenAIChat       = "gemini_generate_content_to_openai_chat_completions"
-	ConverterOpenAIChatToGeminiContent       = "openai_chat_completions_to_gemini_generate_content"
+
 	ConverterClaudeMessagesToOpenAIResponses = "claude_messages_to_openai_responses"
-	ConverterGeminiContentToOpenAIResponses  = "gemini_generate_content_to_openai_responses"
 )
 
 func registerBuiltinRequestConverter(spec RequestConverterSpec) {
@@ -474,46 +469,12 @@ func convertOpenAIRequestToClaude(c context.Context, info convmeta.Meta, request
 	return oaichat.OpenAIChatRequestToClaudeMessages(c, info, *openAIRequest)
 }
 
-func convertGeminiRequestToOpenAI(c context.Context, info convmeta.Meta, request any) (any, error) {
-	geminiRequest, ok := request.(*dto.GeminiChatRequest)
-	if !ok {
-		if value, ok := request.(dto.GeminiChatRequest); ok {
-			geminiRequest = &value
-		}
-	}
-	if geminiRequest == nil {
-		return nil, fmt.Errorf("expected Gemini generateContent request, got %T", request)
-	}
-	return geminichat.GeminiGenerateContentRequestToOpenAIChat(c, geminiRequest, info)
-}
-
-func convertOpenAIRequestToGemini(c context.Context, info convmeta.Meta, request any) (any, error) {
-	openAIRequest, ok := request.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		if value, ok := request.(dto.GeneralOpenAIRequest); ok {
-			openAIRequest = &value
-		}
-	}
-	if openAIRequest == nil {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", request)
-	}
-	return oaichat.OpenAIChatRequestToGeminiGenerateContent(c, *openAIRequest, info)
-}
-
 func convertOpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Meta, request any) (any, error) {
 	responsesRequest, err := oairesponses.OpenAIResponsesRequestFromAny(request)
 	if err != nil {
 		return nil, err
 	}
 	return oairesponses.OpenAIResponsesRequestToClaudeMessages(c, info, responsesRequest)
-}
-
-func convertOpenAIResponsesRequestToGeminiChat(c context.Context, info convmeta.Meta, request any) (any, error) {
-	responsesRequest, err := oairesponses.OpenAIResponsesRequestFromAny(request)
-	if err != nil {
-		return nil, err
-	}
-	return oairesponses.OpenAIResponsesRequestToGeminiChat(c, responsesRequest, info)
 }
 
 func convertResponsesRequestToChat(c context.Context, _ convmeta.Meta, request any) (any, error) {

@@ -39,22 +39,21 @@ import {
   USAGE_LOGS_DEFAULT_SECTION,
   type UsageLogsSectionId,
 } from './section-registry'
-
 const route = getRouteApi('/_authenticated/usage-logs/$section')
-const TASK_LOG_SECTIONS = ['drawing', 'task'] as const
-
-const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
+const TASK_LOG_SECTIONS = ['task'] as const
+const SECTION_META: Record<
+  UsageLogsSectionId,
+  {
+    titleKey: string
+  }
+> = {
   common: {
     titleKey: 'Common Logs',
-  },
-  drawing: {
-    titleKey: 'Drawing Logs',
   },
   task: {
     titleKey: 'Task Logs',
   },
 }
-
 function UsageLogsContent() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -97,17 +96,17 @@ function UsageLogsContent() {
         ),
     [filteredTabGroups]
   )
-
   const handleSectionChange = useCallback(
     (section: string) => {
       void navigate({
         to: '/usage-logs/$section',
-        params: { section: section as UsageLogsSectionId },
+        params: {
+          section: section as UsageLogsSectionId,
+        },
       })
     },
     [navigate]
   )
-
   const handleViewScopeChange = useCallback(
     (scope: string) => {
       if (scope === 'all' || scope === 'self') {
@@ -116,12 +115,10 @@ function UsageLogsContent() {
     },
     [setViewScope]
   )
-
   const pageMeta =
     activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
   const showTaskSwitcher =
     activeCategory !== 'common' && visibleSections.length > 1
-
   return (
     <>
       <SectionPageLayout fixedContent>
@@ -184,7 +181,6 @@ function UsageLogsContent() {
     </>
   )
 }
-
 export function UsageLogs() {
   return (
     <UsageLogsProvider>

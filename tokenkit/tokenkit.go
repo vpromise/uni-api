@@ -1,11 +1,3 @@
-// Package tokenkit estimates LLM token counts for text and images without
-// calling an upstream API.
-//
-// Text is counted exactly with tiktoken for OpenAI GPT and o-series models and
-// estimated with per-tokenizer weights for Claude, Gemini, and other models.
-// Image costs follow each provider's published sizing rules. The weights were
-// calibrated against upstream usage on real agent traffic (Claude Code and
-// Codex sessions).
 package tokenkit
 
 import (
@@ -22,8 +14,8 @@ const (
 	FamilyOpenAI   Family = "openai"    // GPT and o-series models
 	FamilyClaude   Family = "claude"    // Claude models before Claude Opus 4.7
 	FamilyClaude47 Family = "claude4.7" // Claude Opus 4.7 and later, including Claude 5, Fable, and Mythos
-	FamilyGemini   Family = "gemini"    // Gemini models
-	FamilyUnknown  Family = "unknown"   // everything else
+
+	FamilyUnknown Family = "unknown" // everything else
 )
 
 // ModelFamily classifies a model name, case-insensitively. Vendor prefixes and
@@ -31,8 +23,7 @@ const (
 func ModelFamily(model string) Family {
 	model = strings.ToLower(model)
 	switch {
-	case strings.Contains(model, "gemini"):
-		return FamilyGemini
+
 	case strings.Contains(model, "claude"):
 		if claudeUsesOpus47Tokenizer(model) {
 			return FamilyClaude47
@@ -62,12 +53,9 @@ func claudeUsesOpus47Tokenizer(model string) bool {
 	if !ok {
 		return true
 	}
-	return major > 4 || (major == 4 && minor >= 7)
+	return major > 4 || major == 4 && minor >= 7
 }
 
-// modelVersion reads the first one- or two-digit version numbers after prefix,
-// skipping family names (claude-opus-4-7, claude-3-5-sonnet, gemini-3.7-flash).
-// A date such as 20250929 ends the version. ok is false when no version is found.
 func modelVersion(model, prefix string) (major, minor int, ok bool) {
 	_, name, found := strings.Cut(model, prefix)
 	if !found {
@@ -117,9 +105,7 @@ type weights struct {
 // up under 0.3% of that traffic and keep their earlier values. FamilyUnknown
 // keeps the earlier OpenAI weights; no other vendor was calibrated.
 var familyWeights = map[Family]weights{
-	FamilyGemini: {
-		Word: 0.89, Number: 2.42, CJK: 0.93, Symbol: 0.65, MathSymbol: 1.05, URLDelim: 1.3, AtSign: 2.5, Emoji: 1.08, Newline: 1.28, Space: 0,
-	},
+
 	FamilyClaude: {
 		Word: 1.24, Number: 1.53, CJK: 1.38, Symbol: 0.66, MathSymbol: 4.52, URLDelim: 0.74, AtSign: 2.82, Emoji: 2.6, Newline: 1.19, Space: 0.14,
 	},
@@ -220,24 +206,24 @@ func EstimateFamily(family Family, text string) int {
 
 func isCJK(r rune) bool {
 	return unicode.Is(unicode.Han, r) ||
-		(r >= 0x3040 && r <= 0x30FF) || // Japanese kana
-		(r >= 0xAC00 && r <= 0xD7A3) // Korean Hangul syllables
+		r >= 0x3040 && r <= 0x30FF || // Japanese kana
+		r >= 0xAC00 && r <= 0xD7A3 // Korean Hangul syllables
 }
 
 func isEmoji(r rune) bool {
-	return (r >= 0x1F300 && r <= 0x1F9FF) || // pictographs, emoticons, supplemental symbols
-		(r >= 0x2600 && r <= 0x26FF) || // miscellaneous symbols
-		(r >= 0x2700 && r <= 0x27BF) || // dingbats
-		(r >= 0x1FA00 && r <= 0x1FAFF) // symbols and pictographs extended-A
+	return r >= 0x1F300 && r <= 0x1F9FF || // pictographs, emoticons, supplemental symbols
+		r >= 0x2600 && r <= 0x26FF || // miscellaneous symbols
+		r >= 0x2700 && r <= 0x27BF || // dingbats
+		r >= 0x1FA00 && r <= 0x1FAFF // symbols and pictographs extended-A
 }
 
 func isMathSymbol(r rune) bool {
 	if strings.ContainsRune("∑∫∂√∞≤≥≠≈±×÷∈∉∋∌⊂⊃⊆⊇∪∩∧∨¬∀∃∄∅∆∇∝∟∠∡∢°′″‴⁺⁻⁼⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎²³¹⁴⁵⁶⁷⁸⁹⁰", r) {
 		return true
 	}
-	return (r >= 0x2200 && r <= 0x22FF) || // mathematical operators
-		(r >= 0x2A00 && r <= 0x2AFF) || // supplemental mathematical operators
-		(r >= 0x1D400 && r <= 0x1D7FF) // mathematical alphanumeric symbols
+	return r >= 0x2200 && r <= 0x22FF || // mathematical operators
+		r >= 0x2A00 && r <= 0x2AFF || // supplemental mathematical operators
+		r >= 0x1D400 && r <= 0x1D7FF // mathematical alphanumeric symbols
 }
 
 func isURLDelim(r rune) bool {

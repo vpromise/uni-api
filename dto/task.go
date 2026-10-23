@@ -15,9 +15,7 @@ type TaskError struct {
 	Error      error  `json:"-"`
 }
 
-type TaskData interface {
-	SunoDataResponse | []SunoDataResponse | string | any
-}
+type TaskData = any
 
 const TaskSuccessCode = "success"
 

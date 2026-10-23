@@ -27,7 +27,6 @@ describe('legacy frontend route migration', () => {
       '/forbidden': '/403',
       '/console': '/dashboard',
       '/console/models': '/models',
-      '/console/deployment': '/models/deployments',
       '/console/subscription': '/subscriptions',
       '/console/channel': '/channels',
       '/console/token': '/keys',
@@ -36,7 +35,6 @@ describe('legacy frontend route migration', () => {
       '/console/user': '/users',
       '/console/personal': '/profile',
       '/console/log': '/usage-logs',
-      '/console/midjourney': '/usage-logs/drawing',
       '/console/task': '/usage-logs/task',
       '/console/chat/42': '/chat/42',
     }
@@ -65,7 +63,6 @@ describe('legacy frontend route migration', () => {
       ratio: '/system-settings/billing/model-pricing',
       ratelimit: '/system-settings/security/rate-limit',
       models: '/system-settings/models/global',
-      'model-deployment': '/system-settings/models/model-deployment',
       performance: '/system-settings/operations/performance',
       system: '/system-settings/site/system-info',
       other: '/system-settings/site/system-info',

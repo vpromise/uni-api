@@ -141,26 +141,6 @@ func TestApplyReasoningModelSuffixModifierOverridesExplicitConflict(t *testing.T
 	assert.Equal(t, "model_modifier_overrode_request", diagnostics[0].Code)
 }
 
-func TestApplyReasoningModelSuffixGeminiNoThinkingWhenAdapterEnabled(t *testing.T) {
-	settings := model_setting.GetGeminiSettings()
-	original := settings.ThinkingAdapterEnabled
-	t.Cleanup(func() { settings.ThinkingAdapterEnabled = original })
-	settings.ThinkingAdapterEnabled = true
-
-	info := &relaycommon.RelayInfo{
-		OriginModelName: "gemini-2.5-flash-nothinking",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			UpstreamModelName: "gemini-2.5-flash-nothinking",
-		},
-	}
-
-	mustApplyReasoningModelSuffix(t, info)
-	assert.Equal(t, "gemini-2.5-flash", info.UpstreamModelName)
-	require.NotNil(t, info.ReasoningConversion)
-	assert.Equal(t, "disabled", info.ReasoningConversion.Mode)
-	assert.Equal(t, "none", info.ReasoningConversion.Effort)
-}
-
 func TestApplyReasoningModelSuffixClaudeEffortTailKeptWhenAdapterDisabled(t *testing.T) {
 	settings := model_setting.GetClaudeSettings()
 	original := settings.ThinkingAdapterEnabled
@@ -195,34 +175,6 @@ func TestApplyReasoningModelSuffixPreservesEffortTailModelID(t *testing.T) {
 	assert.Nil(t, info.ReasoningConversion)
 }
 
-func TestApplyReasoningModelSuffixLeavesDeepSeekV4SuffixForAdaptor(t *testing.T) {
-	info := &relaycommon.RelayInfo{
-		OriginModelName: "deepseek-v4-chat-max",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType:       constant.ChannelTypeDeepSeek,
-			UpstreamModelName: "deepseek-v4-chat-max",
-		},
-	}
-
-	mustApplyReasoningModelSuffix(t, info)
-	assert.Equal(t, "deepseek-v4-chat-max", info.UpstreamModelName)
-	assert.Nil(t, info.ReasoningConversion)
-}
-
-func TestApplyReasoningModelSuffixLeavesVolcengineDeepSeekThinkingForAdaptor(t *testing.T) {
-	info := &relaycommon.RelayInfo{
-		OriginModelName: "deepseek-r1-thinking",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType:       constant.ChannelTypeVolcEngine,
-			UpstreamModelName: "deepseek-r1-thinking",
-		},
-	}
-
-	mustApplyReasoningModelSuffix(t, info)
-	assert.Equal(t, "deepseek-r1-thinking", info.UpstreamModelName)
-	assert.Nil(t, info.ReasoningConversion)
-}
-
 func TestApplyReasoningModelSuffixStillParsesOpenAIEffortTail(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "gpt-5.1-high",
@@ -239,19 +191,6 @@ func TestApplyReasoningModelSuffixStillParsesOpenAIEffortTail(t *testing.T) {
 	assert.Equal(t, "high", info.ReasoningConversion.Effort)
 }
 
-func TestApplyReasoningModelSuffixLeavesUnknownOpenRouterThinkingModel(t *testing.T) {
-	openRouter := &relaycommon.RelayInfo{
-		OriginModelName: "some-model-thinking",
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType:       constant.ChannelTypeOpenRouter,
-			UpstreamModelName: "some-model-thinking",
-		},
-	}
-	mustApplyReasoningModelSuffix(t, openRouter)
-	assert.Equal(t, "some-model-thinking", openRouter.UpstreamModelName)
-	assert.Nil(t, openRouter.ReasoningConversion)
-}
-
 func TestApplyReasoningModelSuffixLeavesVersionedQwenMaxUntouched(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		OriginModelName: "qwen3.8-max",
@@ -263,18 +202,6 @@ func TestApplyReasoningModelSuffixLeavesVersionedQwenMaxUntouched(t *testing.T) 
 	mustApplyReasoningModelSuffix(t, info)
 	assert.Equal(t, "qwen3.8-max", info.UpstreamModelName)
 	assert.Empty(t, info.BillingModelName)
-	assert.Nil(t, info.ReasoningConversion)
-}
-
-func TestApplyReasoningModelSuffixTreatsCloudflareAtAsModelName(t *testing.T) {
-	const model = "@cf/meta/llama-3.1-8b-instruct"
-	info := &relaycommon.RelayInfo{
-		OriginModelName: model,
-		ChannelMeta:     &relaycommon.ChannelMeta{UpstreamModelName: model},
-	}
-
-	mustApplyReasoningModelSuffix(t, info)
-	assert.Equal(t, model, info.UpstreamModelName)
 	assert.Nil(t, info.ReasoningConversion)
 }
 

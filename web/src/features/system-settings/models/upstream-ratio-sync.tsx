@@ -64,8 +64,6 @@ import {
   MODELS_DEV_PRESET_ID,
   OFFICIAL_CHANNEL_ENDPOINT,
   OFFICIAL_CHANNEL_ID,
-  OPENROUTER_CHANNEL_TYPE,
-  OPENROUTER_ENDPOINT,
 } from './constants'
 import { PriceAdjustmentSelect } from './price-adjustment-select'
 import {
@@ -79,21 +77,21 @@ import {
   type PricingSourceSelection,
 } from './upstream-ratio-sync-helpers'
 import { UpstreamRatioSyncTable } from './upstream-ratio-sync-table'
-
 function getDefaultEndpointForChannel(channel: UpstreamChannel): string {
-  if (channel.id === MODELS_DEV_PRESET_ID) return MODELS_DEV_PRESET_ENDPOINT
-  if (channel.id === OFFICIAL_CHANNEL_ID) return OFFICIAL_CHANNEL_ENDPOINT
-  if (channel.type === OPENROUTER_CHANNEL_TYPE) return OPENROUTER_ENDPOINT
+  if (channel.id === MODELS_DEV_PRESET_ID) {
+    return MODELS_DEV_PRESET_ENDPOINT
+  }
+  if (channel.id === OFFICIAL_CHANNEL_ID) {
+    return OFFICIAL_CHANNEL_ENDPOINT
+  }
   return DEFAULT_ENDPOINT
 }
-
 type SyncPreview = {
   conflicts: ConflictItem[]
   changes: ModelPricingChange[]
   resolutions: Record<string, PricingSyncValues>
   exchangeRateSummary?: string
 }
-
 export function UpstreamRatioSync() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -114,7 +112,13 @@ export function UpstreamRatioSync() {
   const [differences, setDifferences] = useState<DifferencesMap>({})
   const [prices, setPrices] = useState<PricingSyncModels>({})
   const [selections, setSelections] = useState<
-    Record<string, { source: string; adjustment: PriceAdjustment }>
+    Record<
+      string,
+      {
+        source: string
+        adjustment: PriceAdjustment
+      }
+    >
   >({})
   const selectedSources = useMemo(
     () =>
@@ -145,9 +149,13 @@ export function UpstreamRatioSync() {
   })
   const channels = useMemo(() => channelsData?.data ?? [], [channelsData?.data])
   useEffect(() => {
-    if (!channels.length) return
+    if (!channels.length) {
+      return
+    }
     setChannelEndpoints((previous) => {
-      const next = { ...previous }
+      const next = {
+        ...previous,
+      }
       for (const channel of channels) {
         next[channel.id] ??= getDefaultEndpointForChannel(channel)
       }
@@ -236,7 +244,10 @@ export function UpstreamRatioSync() {
         Object.fromEntries(
           Object.entries(previous).map(([name, row]) => [
             name,
-            { ...row, current: saved[name] ?? row.current },
+            {
+              ...row,
+              current: saved[name] ?? row.current,
+            },
           ])
         )
       )
@@ -278,7 +289,11 @@ export function UpstreamRatioSync() {
     syncMutation.reset()
     try {
       setPricingBaseline(await getModelPricing())
-      fetchMutation.mutate({ upstreams, timeout: 10, include_unchanged: true })
+      fetchMutation.mutate({
+        upstreams,
+        timeout: 10,
+        include_unchanged: true,
+      })
     } catch (error) {
       handleServerError(error, t('Failed to load model pricing'))
     } finally {
@@ -288,11 +303,20 @@ export function UpstreamRatioSync() {
   const handleSelectPrices = useCallback(
     (selected: PricingSourceSelection[]) => {
       setSelections((previous) => {
-        const next = { ...previous }
+        const next = {
+          ...previous,
+        }
         for (const entry of selected) {
-          if (!prices[entry.model]?.upstreams[entry.source]) continue
-          if (next[entry.model]?.source === entry.source) continue
-          next[entry.model] = { source: entry.source, adjustment: 'keep' }
+          if (!prices[entry.model]?.upstreams[entry.source]) {
+            continue
+          }
+          if (next[entry.model]?.source === entry.source) {
+            continue
+          }
+          next[entry.model] = {
+            source: entry.source,
+            adjustment: 'keep',
+          }
         }
         return next
       })
@@ -301,7 +325,9 @@ export function UpstreamRatioSync() {
   )
   const handleUnselectPrices = useCallback((models: string[]) => {
     setSelections((previous) => {
-      const next = { ...previous }
+      const next = {
+        ...previous,
+      }
       for (const model of models) delete next[model]
       return next
     })
@@ -309,9 +335,16 @@ export function UpstreamRatioSync() {
   const handleAdjustPrices = useCallback(
     (models: string[], adjustment: PriceAdjustment) => {
       setSelections((previous) => {
-        const next = { ...previous }
+        const next = {
+          ...previous,
+        }
         for (const model of models) {
-          if (next[model]) next[model] = { ...next[model], adjustment }
+          if (next[model]) {
+            next[model] = {
+              ...next[model],
+              adjustment,
+            }
+          }
         }
         return next
       })
@@ -319,13 +352,17 @@ export function UpstreamRatioSync() {
     []
   )
   const handleApplySync = () => {
-    if (!pricingBaseline || hasAdjustmentErrors) return
+    if (!pricingBaseline || hasAdjustmentErrors) {
+      return
+    }
     const resolutions: Record<string, PricingSyncValues> = {}
     const conflicts: ConflictItem[] = []
     for (const [model, entry] of Object.entries(selections)) {
       const selected = adjustedPrices[model]?.values
       const row = prices[model]
-      if (!row || !selected) return
+      if (!row || !selected) {
+        return
+      }
       resolutions[model] = selected
       let adjustment = t('Keep source price')
       if (entry.adjustment === 'divide') {
@@ -530,12 +567,16 @@ export function UpstreamRatioSync() {
       <ConflictConfirmDialog
         open={conflictDialogOpen}
         onOpenChange={(open) => {
-          if (!syncMutation.isPending) setConflictDialogOpen(open)
+          if (!syncMutation.isPending) {
+            setConflictDialogOpen(open)
+          }
         }}
         conflicts={preview?.conflicts ?? []}
         exchangeRateSummary={preview?.exchangeRateSummary}
         onConfirm={() => {
-          if (preview) syncMutation.mutate(preview)
+          if (preview) {
+            syncMutation.mutate(preview)
+          }
         }}
         isLoading={syncMutation.isPending}
         error={syncMutation.error?.message}

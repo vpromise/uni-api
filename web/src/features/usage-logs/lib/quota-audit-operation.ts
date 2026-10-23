@@ -17,10 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { formatLogQuota } from '@/lib/format'
-
 type Translate = (key: string, opts?: Record<string, unknown>) => string
-
-const QUOTA_OPERATIONS: Record<string, { label: string; named: string }> = {
+const QUOTA_OPERATIONS: Record<
+  string,
+  {
+    label: string
+    named: string
+  }
+> = {
   'user.quota_add': {
     label: 'Increase user quota',
     named: 'Increase quota for user “{{name}}”',
@@ -34,7 +38,6 @@ const QUOTA_OPERATIONS: Record<string, { label: string; named: string }> = {
     named: 'Override quota for user “{{name}}”',
   },
 }
-
 function quotaText(value: unknown, t: Translate): string {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return formatLogQuota(value)
@@ -42,7 +45,6 @@ function quotaText(value: unknown, t: Translate): string {
   if (typeof value === 'string' && value.trim()) return value
   return t('Not recorded')
 }
-
 export function buildQuotaAuditOperation(
   action: string,
   params: Record<string, unknown>,
@@ -51,7 +53,10 @@ export function buildQuotaAuditOperation(
 ) {
   const unknownMode = action === 'generic' && params.action === 'add_quota'
   const operation = unknownMode
-    ? { label: 'Adjust user quota', named: 'Adjust quota for user “{{name}}”' }
+    ? {
+        label: 'Adjust user quota',
+        named: 'Adjust quota for user “{{name}}”',
+      }
     : QUOTA_OPERATIONS[action]
   if (!operation) return null
   const name =
@@ -67,28 +72,55 @@ export function buildQuotaAuditOperation(
   } else if (typeof params.target_user_id === 'string') {
     id = params.target_user_id.trim()
   }
-  let headline = name ? t(operation.named, { name }) : t(operation.label)
+  let headline = name
+    ? t(operation.named, {
+        name,
+      })
+    : t(operation.label)
   if (!name && !id) headline = `${headline} · ${t('Target not recorded')}`
-  const identifier = id ? t('(ID: {{id}})', { id }) : ''
+  const identifier = id
+    ? t('(ID: {{id}})', {
+        id,
+      })
+    : ''
   const summary = id
-    ? t('{{operation}} (ID: {{id}})', { operation: headline, id })
+    ? t('{{operation}} (ID: {{id}})', {
+        operation: headline,
+        id,
+      })
     : headline
   let requested = params.requested_quota ?? params.quota
   if (requested === undefined && success && action === 'user.quota_override') {
     requested = params.to
   }
   const amount = quotaText(requested, t)
-  let description = t('Requested quota: {{quota}}', { quota: amount })
-  const fields: { label: string; value: string; copyable?: boolean }[] = [
-    { label: t('Target username'), value: name || t('Not recorded') },
-    { label: t('User ID'), value: id || t('Not recorded'), copyable: !!id },
+  let description = t('Requested quota: {{quota}}', {
+    quota: amount,
+  })
+  const fields: {
+    label: string
+    value: string
+    copyable?: boolean
+  }[] = [
+    {
+      label: t('Target username'),
+      value: name || t('Not recorded'),
+    },
+    {
+      label: t('User ID'),
+      value: id || t('Not recorded'),
+      copyable: !!id,
+    },
     {
       label: t('Adjustment mode'),
       value: unknownMode
         ? String(params.mode || t('Not recorded'))
         : t(operation.label),
     },
-    { label: t('Requested quota'), value: amount },
+    {
+      label: t('Requested quota'),
+      value: amount,
+    },
   ]
   if (success) {
     const before = quotaText(params.from, t)
@@ -103,8 +135,14 @@ export function buildQuotaAuditOperation(
     if (unchanged) change = `${t('Quota unchanged')} · ${change}`
     description = `${description} · ${change}`
     fields.push(
-      { label: t('Quota before adjustment'), value: before },
-      { label: t('Quota after adjustment'), value: after }
+      {
+        label: t('Quota before adjustment'),
+        value: before,
+      },
+      {
+        label: t('Quota after adjustment'),
+        value: after,
+      }
     )
   } else {
     const reasons: Record<string, string> = {
@@ -124,5 +162,11 @@ export function buildQuotaAuditOperation(
       value: reason || t('Not recorded'),
     })
   }
-  return { headline, summary, identifier, description, fields }
+  return {
+    headline,
+    summary,
+    identifier,
+    description,
+    fields,
+  }
 }

@@ -94,13 +94,7 @@ func TestCountClaudeStreamBillableToolsServerToolKeys(t *testing.T) {
 			usage:      dto.ClaudeServerToolUse{WebSearchRequests: 2},
 			want:       map[string]int{"search_strategy_agent": 2},
 		},
-		{
-			name:       "vendor web search and web fetch keys",
-			billingKey: "deepseek_search",
-			fetchKey:   "deepseek_fetch",
-			usage:      dto.ClaudeServerToolUse{WebSearchRequests: 1, WebFetchRequests: 2},
-			want:       map[string]int{"deepseek_search": 1, "deepseek_fetch": 2},
-		},
+
 		{
 			name:  "every server tool",
 			usage: dto.ClaudeServerToolUse{WebSearchRequests: 1, WebFetchRequests: 2, CodeExecutionRequests: 3, ToolSearchRequests: 4},
@@ -123,11 +117,6 @@ func TestCountClaudeStreamBillableToolsServerToolKeys(t *testing.T) {
 	}
 }
 
-// On a channel whose upstream prices search itself (DeepSeek), each delivered
-// web_search_tool_result bills one search under the vendor key, so a stream cut
-// before message_delta still pays for the searches that ran;
-// usage.server_tool_use replaces that count when reported. Error results and
-// channels without a vendor key count nothing from blocks.
 func TestClaudeSearchResultBlocksBillVendorSearch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	const results = `{"type":"web_search_tool_result","tool_use_id":"call_0","content":[{"type":"web_search_result","url":"https://example.com/"}]}`
@@ -137,10 +126,7 @@ func TestClaudeSearchResultBlocksBillVendorSearch(t *testing.T) {
 		name, billingKey, blocks, usage string
 		want                            map[string]int
 	}{
-		{name: "stream cut before message_delta", billingKey: "deepseek_search", blocks: results + "," + empty + "," + failed,
-			want: map[string]int{"deepseek_search": 2}},
-		{name: "reported count replaces blocks", billingKey: "deepseek_search", blocks: results + "," + results,
-			usage: `{"input_tokens":1,"output_tokens":1,"server_tool_use":{"web_search_requests":3}}`, want: map[string]int{"deepseek_search": 3}},
+
 		{name: "no vendor key", blocks: results, want: map[string]int{}},
 	}
 	for _, tt := range tests {

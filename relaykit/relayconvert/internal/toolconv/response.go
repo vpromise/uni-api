@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
@@ -32,10 +31,7 @@ func InspectResponse(from types.RelayFormat, to types.RelayFormat, response any)
 		diagnostics = inspectOpenAIResponsesStreamResponse(value)
 	case dto.ResponsesStreamResponse:
 		diagnostics = inspectOpenAIResponsesStreamResponse(&value)
-	case *dto.GeminiChatResponse:
-		diagnostics = inspectGeminiResponse(value, to)
-	case dto.GeminiChatResponse:
-		diagnostics = inspectGeminiResponse(&value, to)
+
 	}
 	for index := range diagnostics {
 		diagnostics[index].From = from
@@ -44,53 +40,8 @@ func InspectResponse(from types.RelayFormat, to types.RelayFormat, response any)
 	return diagnostics
 }
 
-// InspectStreamResponse avoids treating a single Gemini streaming chunk as a
-// complete grounding document. Gemini grounding chunk indexes and segment
-// offsets are cumulative across the stream; the stateful converter validates
-// and resolves them after accumulating prior chunks.
 func InspectStreamResponse(from types.RelayFormat, to types.RelayFormat, response any) []types.ConversionDiagnostic {
-	if from != types.RelayFormatGemini {
-		return InspectResponse(from, to, response)
-	}
-	var value *dto.GeminiChatResponse
-	switch response := response.(type) {
-	case *dto.GeminiChatResponse:
-		value = response
-	case dto.GeminiChatResponse:
-		value = &response
-	default:
-		return InspectResponse(from, to, response)
-	}
-	if value == nil {
-		return nil
-	}
-	var diagnostics []types.ConversionDiagnostic
-	for index := range value.Candidates {
-		metadata := value.Candidates[index].GroundingMetadata
-		if metadata == nil {
-			continue
-		}
-		if len(metadata.WebSearchQueries) > 0 && to != types.RelayFormatOpenAIResponses {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				fmt.Sprintf("candidates[%d].groundingMetadata.webSearchQueries", index),
-				"web_search_call_unrepresentable",
-				"Gemini grounding confirms a hosted web search, but the target stream converter cannot produce an OpenAI Responses web_search_call lifecycle",
-			))
-		}
-		if len(metadata.WebSearchQueries) == 0 && len(metadata.RetrievalQueries) == 0 && len(metadata.SearchEntryPoint) == 0 && len(metadata.RetrievalMetadata) == 0 && len(metadata.SourceFlaggingUris) == 0 && metadata.GoogleMapsWidgetContextToken == "" {
-			continue
-		}
-		diagnostics = append(diagnostics, responsePresentationLoss(
-			fmt.Sprintf("candidates[%d].groundingMetadata", index),
-			"hosted_tool_metadata_reduced",
-			"Gemini grounding citations are preserved across stream chunks, but provider-specific search metadata has no target-protocol equivalent",
-		))
-	}
-	for index := range diagnostics {
-		diagnostics[index].From = from
-		diagnostics[index].To = to
-	}
-	return diagnostics
+	return InspectResponse(from, to, response)
 }
 
 func inspectClaudeResponse(response *dto.ClaudeResponse, to types.RelayFormat) []types.ConversionDiagnostic {
@@ -362,37 +313,6 @@ func isResponsesHostedOutput(outputType string) bool {
 	}
 }
 
-func inspectGeminiResponse(response *dto.GeminiChatResponse, to types.RelayFormat) []types.ConversionDiagnostic {
-	if response == nil {
-		return nil
-	}
-	var diagnostics []types.ConversionDiagnostic
-	for index := range response.Candidates {
-		metadata := response.Candidates[index].GroundingMetadata
-		if metadata == nil {
-			continue
-		}
-		path := fmt.Sprintf("candidates[%d].groundingMetadata", index)
-		if len(metadata.WebSearchQueries) > 0 && to != types.RelayFormatOpenAIResponses {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				path+".webSearchQueries",
-				"web_search_call_unrepresentable",
-				"Gemini grounding confirms a hosted web search, but the target converter cannot produce an OpenAI Responses web_search_call item",
-			))
-		}
-		diagnostics = append(diagnostics, inspectGeminiGroundingCitations(response.Candidates[index].Content, metadata, path)...)
-		if len(metadata.WebSearchQueries) == 0 && len(metadata.RetrievalQueries) == 0 && len(metadata.SearchEntryPoint) == 0 && len(metadata.RetrievalMetadata) == 0 && len(metadata.SourceFlaggingUris) == 0 && metadata.GoogleMapsWidgetContextToken == "" {
-			continue
-		}
-		diagnostics = append(diagnostics, responsePresentationLoss(
-			path,
-			"hosted_tool_metadata_reduced",
-			"Gemini grounding citations are preserved, but provider-specific search metadata has no target-protocol equivalent",
-		))
-	}
-	return diagnostics
-}
-
 type groundingSupportForInspection struct {
 	Segment struct {
 		PartIndex  *int   `json:"partIndex,omitempty"`
@@ -410,100 +330,6 @@ type groundingChunkForInspection struct {
 
 type groundingSourceForInspection struct {
 	URI string `json:"uri,omitempty"`
-}
-
-func inspectGeminiGroundingCitations(content dto.GeminiChatContent, metadata *dto.GeminiGroundingMetadata, path string) []types.ConversionDiagnostic {
-	if len(metadata.GroundingSupports) == 0 {
-		return nil
-	}
-	var chunks []groundingChunkForInspection
-	if len(metadata.GroundingChunks) == 0 || kitutil.Unmarshal(metadata.GroundingChunks, &chunks) != nil {
-		return []types.ConversionDiagnostic{responseSemanticLoss(
-			path+".groundingChunks",
-			"grounding_source_invalid",
-			"Gemini grounding chunks are missing or cannot be decoded",
-		)}
-	}
-	var supports []groundingSupportForInspection
-	if err := kitutil.Unmarshal(metadata.GroundingSupports, &supports); err != nil {
-		return []types.ConversionDiagnostic{responseSemanticLoss(
-			path+".groundingSupports",
-			"grounding_citation_invalid",
-			fmt.Sprintf("Gemini grounding supports cannot be decoded: %v", err),
-		)}
-	}
-	textPartCount := 0
-	soleTextPart := -1
-	for index := range content.Parts {
-		if content.Parts[index].Text == "" || content.Parts[index].Thought {
-			continue
-		}
-		textPartCount++
-		soleTextPart = index
-	}
-	var diagnostics []types.ConversionDiagnostic
-	for index, support := range supports {
-		segmentPath := fmt.Sprintf("%s.groundingSupports[%d].segment", path, index)
-		hasSource := false
-		for _, chunkIndex := range support.GroundingChunkIndices {
-			if chunkIndex < 0 || chunkIndex >= len(chunks) {
-				continue
-			}
-			source := chunks[chunkIndex].Web
-			if source == nil {
-				source = chunks[chunkIndex].RetrievedContext
-			}
-			if source != nil && source.URI != "" {
-				hasSource = true
-				break
-			}
-		}
-		if !hasSource {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				fmt.Sprintf("%s.groundingSupports[%d].groundingChunkIndices", path, index),
-				"grounding_source_invalid",
-				"Gemini grounding support does not reference a valid source URI",
-			))
-			continue
-		}
-		partIndex := soleTextPart
-		if support.Segment.PartIndex != nil {
-			partIndex = *support.Segment.PartIndex
-		} else if textPartCount != 1 {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				segmentPath+".partIndex",
-				"grounding_part_ambiguous",
-				"Gemini grounding omitted partIndex while multiple text parts are present, so citation placement is ambiguous",
-			))
-			continue
-		}
-		if partIndex < 0 || partIndex >= len(content.Parts) || content.Parts[partIndex].Text == "" || content.Parts[partIndex].Thought {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				segmentPath+".partIndex",
-				"grounding_part_invalid",
-				fmt.Sprintf("Gemini grounding references non-text part %d", partIndex),
-			))
-			continue
-		}
-		partText := content.Parts[partIndex].Text
-		start, end := support.Segment.StartIndex, support.Segment.EndIndex
-		if start < 0 || end <= start || end > len(partText) || !utf8.ValidString(partText[:start]) || !utf8.ValidString(partText[:end]) {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				segmentPath,
-				"grounding_offset_invalid",
-				"Gemini grounding byte offsets do not identify valid UTF-8 boundaries in the referenced part",
-			))
-			continue
-		}
-		if support.Segment.Text != "" && partText[start:end] != support.Segment.Text {
-			diagnostics = append(diagnostics, responseSemanticLoss(
-				segmentPath+".text",
-				"grounding_text_mismatch",
-				"Gemini grounding segment text does not match the referenced part range",
-			))
-		}
-	}
-	return diagnostics
 }
 
 func responseSemanticLoss(path string, code string, message string) types.ConversionDiagnostic {

@@ -41,7 +41,6 @@ import {
 import { ModelBadge, ResponseModelDetails } from './model-badge'
 import { StreamTpsCell, TimingMetricsCell } from './timing-metrics-cell'
 import { useUsageLogsContext } from './usage-logs-provider'
-
 type FieldName =
   | 'model'
   | 'cost'
@@ -140,7 +139,6 @@ export function CommonLogMobileCard<TData>(props: {
       log.completion_tokens > 0 ||
       cacheRead > 0 ||
       cacheWrite > 0)
-
   return (
     <div className='min-w-0 space-y-2.5 text-sm leading-5'>
       <div className='flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2'>

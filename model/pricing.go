@@ -8,7 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -119,13 +119,10 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 	return make([]constant.EndpointType, 0)
 }
 
-func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCustomConfigs map[int]*dto.AdvancedCustomConfig) []constant.EndpointType {
-	if ability.ChannelType != constant.ChannelTypeAdvancedCustom {
-		return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
-	}
-	if config := advancedCustomConfigs[ability.ChannelId]; config != nil {
-		return config.SupportedEndpointTypesForModel(ability.Model)
-	}
+func getPricingEndpointTypesForAbility(ability AbilityWithChannel) []constant.EndpointType {
+
+	return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
+
 	return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 }
 
@@ -137,50 +134,6 @@ func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCusto
 // The returned configs are pointers shared with the channel cache; they are
 // replaced wholesale on update and never mutated in place, so reading them after
 // RUnlock is safe.
-func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[int]*dto.AdvancedCustomConfig {
-	channelIDs := make([]int, 0)
-	seen := make(map[int]struct{})
-	for _, ability := range enableAbilities {
-		if ability.ChannelType != constant.ChannelTypeAdvancedCustom {
-			continue
-		}
-		if _, exists := seen[ability.ChannelId]; exists {
-			continue
-		}
-		seen[ability.ChannelId] = struct{}{}
-		channelIDs = append(channelIDs, ability.ChannelId)
-	}
-	if len(channelIDs) == 0 {
-		return nil
-	}
-
-	configs := make(map[int]*dto.AdvancedCustomConfig, len(channelIDs))
-	if common.MemoryCacheEnabled {
-		channelSyncLock.RLock()
-		defer channelSyncLock.RUnlock()
-		for _, channelID := range channelIDs {
-			if config := channel2advancedCustomConfig[channelID]; config != nil {
-				configs[channelID] = config
-			}
-		}
-		return configs
-	}
-
-	for _, channelID := range channelIDs {
-		channel, err := CacheGetChannel(channelID)
-		if err != nil {
-			common.SysLog(common.LogText("load advanced custom channel settings error: channel_id=%d, error=%v", channelID, err))
-			continue
-		}
-		if channel.Type != constant.ChannelTypeAdvancedCustom {
-			continue
-		}
-		if config := channel.GetOtherSettings().AdvancedCustom; config != nil {
-			configs[channelID] = config
-		}
-	}
-	return configs
-}
 
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
 	if endpoint == "" || common.StringsContains(endpoints, endpoint) {
@@ -240,12 +193,11 @@ func updatePricing() {
 
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
 	modelSupportEndpointsStr := make(map[string][]string)
-	advancedCustomConfigs := loadPricingAdvancedCustomConfigs(enableAbilities)
 
 	// 先根据已有能力填充原生端点
 	for _, ability := range enableAbilities {
 		endpoints := modelSupportEndpointsStr[ability.Model]
-		channelTypes := getPricingEndpointTypesForAbility(ability, advancedCustomConfigs)
+		channelTypes := getPricingEndpointTypesForAbility(ability)
 		for _, channelType := range channelTypes {
 			if !common.StringsContains(endpoints, string(channelType)) {
 				endpoints = append(endpoints, string(channelType))
@@ -404,7 +356,7 @@ func updatePricing() {
 				break
 			}
 		}
-		if hasProviderOverride || (len(providers) >= 2 && pricing.BillingMode == billing_setting.BillingModeTieredExpr) {
+		if hasProviderOverride || len(providers) >= 2 && pricing.BillingMode == billing_setting.BillingModeTieredExpr {
 			for _, provider := range providers {
 				schema, examples := provider.Meta.UsageForModel(model)
 				if schema == nil {

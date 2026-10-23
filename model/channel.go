@@ -53,7 +53,7 @@ type Channel struct {
 	// add after v0.8.5
 	ChannelInfo ChannelInfo `json:"channel_info" gorm:"type:json"`
 
-	OtherSettings string `json:"settings" gorm:"column:settings"` // 其他设置，存储azure版本等不需要检索的信息，详见dto.ChannelOtherSettings
+	OtherSettings string `json:"settings" gorm:"column:settings"`
 
 	// cache info
 	Keys []string `json:"-" gorm:"-"`
@@ -192,7 +192,7 @@ func (channel *Channel) GetKeys() []string {
 		return channel.Keys
 	}
 	trimmed := strings.TrimSpace(channel.Key)
-	// If the key starts with '[', try to parse it as a JSON array (e.g., for Vertex AI scenarios)
+
 	if strings.HasPrefix(trimmed, "[") {
 		var arr []json.RawMessage
 		if err := common.Unmarshal([]byte(trimmed), &arr); err == nil {
@@ -328,7 +328,7 @@ func (channel *Channel) GetOtherInfo() map[string]any {
 }
 
 func (channel *Channel) SetOtherInfo(otherInfo map[string]any) {
-	otherInfoBytes, err := json.Marshal(otherInfo)
+	otherInfoBytes, err := common.Marshal(otherInfo)
 	if err != nil {
 		common.SysLog(common.LogText("failed to marshal other info: channel_id=%d, tag=%s, name=%s, error=%v", channel.Id, channel.GetTag(), channel.Name, err))
 		return
@@ -1017,24 +1017,7 @@ func (channel *Channel) ValidateSettings() error {
 	if err := channelOtherSettings.ValidateToolLossPolicy(); err != nil {
 		return err
 	}
-	if preset := common.GetAdvancedCustomPreset(channel.Type); preset != nil {
-		channelOtherSettings.AdvancedCustom = preset
-	}
-	if constant.IsAdvancedCustomChannel(channel.Type) {
-		if channelOtherSettings.AdvancedCustom == nil {
-			return fmt.Errorf("advanced_custom is required")
-		}
-	}
-	if channelOtherSettings.AdvancedCustom != nil {
-		if err := channelOtherSettings.AdvancedCustom.Validate(); err != nil {
-			return err
-		}
-	}
-	if constant.IsAdvancedCustomChannel(channel.Type) && channelOtherSettings.UpstreamModelUpdateCheckEnabled {
-		if _, ok := channelOtherSettings.AdvancedCustom.ModelListRoute(); !ok {
-			return fmt.Errorf("advanced custom channels require a %s route when upstream model update checks are enabled", dto.AdvancedCustomModelListPath)
-		}
-	}
+
 	return nil
 }
 
@@ -1070,9 +1053,7 @@ func (channel *Channel) GetOtherSettings() dto.ChannelOtherSettings {
 			_ = channel.Save()           // 保存修改
 		}
 	}
-	if preset := common.GetAdvancedCustomPreset(channel.Type); preset != nil {
-		setting.AdvancedCustom = preset
-	}
+
 	return setting
 }
 

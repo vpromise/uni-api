@@ -732,8 +732,8 @@ func TestProductionPluginNativeQueryTraversesInnerRouter(t *testing.T) {
 	model.DB = database
 	t.Cleanup(func() { model.DB = previousDB })
 	require.NoError(t, database.Create(&model.Task{
-		TaskID:    "task_native_router",
-		Platform:  constant.TaskPlatform("kling"),
+		TaskID: "task_native_router", Platform: "native-fixture",
+
 		UserId:    91,
 		Status:    model.TaskStatusSuccess,
 		Progress:  "100%",
@@ -744,8 +744,6 @@ func TestProductionPluginNativeQueryTraversesInnerRouter(t *testing.T) {
 		},
 	}).Error)
 
-	kling, found := jsplugin.DefaultRegistry.Get("kling")
-	require.True(t, found)
 	authenticatedProductionHandlers := func(
 		generation *jsplugin.RoutingGeneration,
 		binding jsplugin.RouteBinding,
@@ -766,16 +764,17 @@ func TestProductionPluginNativeQueryTraversesInnerRouter(t *testing.T) {
 			production[6],
 		}
 	}
-	outer, registry := newPluginRouterTest(t, []*jsplugin.LoadedPlugin{kling}, authenticatedProductionHandlers)
+	plugin := compileRouterPlugin(t, "native-fixture", "1.0.0", `[{method:"GET",path:"/vendor/tasks/:task_id",type:"query",render:"native"}]`)
+	outer, registry := newPluginRouterTest(t, []*jsplugin.LoadedPlugin{plugin}, authenticatedProductionHandlers)
 	outer.NoRoute((&pluginRouteDispatcher{registry: registry}).dispatch)
 
-	request := httptest.NewRequest(http.MethodGet, "/kling/v1/videos/text2video/task_native_router", nil)
+	request := httptest.NewRequest(http.MethodGet, "/vendor/tasks/task_native_router", nil)
 	recorder := httptest.NewRecorder()
 	outer.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	assert.Contains(t, recorder.Body.String(), `"task_id":"task_native_router"`)
-	assert.Contains(t, recorder.Body.String(), `"task_status":"succeed"`)
+	assert.Contains(t, recorder.Body.String(), `"status":"SUCCESS"`)
 	assert.NotContains(t, recorder.Body.String(), "private_upstream_id")
 	assert.NotContains(t, recorder.Body.String(), "secret.example")
 }

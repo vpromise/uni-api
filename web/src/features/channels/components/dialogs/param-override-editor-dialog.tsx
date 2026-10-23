@@ -73,7 +73,6 @@ type ParamOverrideCondition = {
   invert: boolean
   pass_missing_key: boolean
 }
-
 type ParamOverrideOperation = {
   id: string
   description: string
@@ -87,7 +86,6 @@ type ParamOverrideOperation = {
   conditions: ParamOverrideCondition[]
   prune_draft: PruneObjectsDraft | null
 }
-
 export type ParamOverrideEditorDialogProps = {
   open: boolean
   value: string
@@ -100,58 +98,149 @@ export type ParamOverrideEditorDialogProps = {
 // ---------------------------------------------------------------------------
 
 const OPERATION_MODE_OPTIONS = [
-  { label: 'Set Field', value: 'set' },
-  { label: 'Delete Field', value: 'delete' },
-  { label: 'Append to End', value: 'append' },
-  { label: 'Prepend to Start', value: 'prepend' },
-  { label: 'Copy Field', value: 'copy' },
-  { label: 'Move Field', value: 'move' },
-  { label: 'String Replace', value: 'replace' },
-  { label: 'Regex Replace', value: 'regex_replace' },
-  { label: 'Trim Prefix', value: 'trim_prefix' },
-  { label: 'Trim Suffix', value: 'trim_suffix' },
-  { label: 'Ensure Prefix', value: 'ensure_prefix' },
-  { label: 'Ensure Suffix', value: 'ensure_suffix' },
-  { label: 'Trim Space', value: 'trim_space' },
-  { label: 'To Lowercase', value: 'to_lower' },
-  { label: 'To Uppercase', value: 'to_upper' },
-  { label: 'Return Custom Error', value: 'return_error' },
-  { label: 'Prune Object Items', value: 'prune_objects' },
-  { label: 'Pass Through Headers', value: 'pass_headers' },
-  { label: 'Sync Fields', value: 'sync_fields' },
-  { label: 'Set Request Header', value: 'set_header' },
-  { label: 'Delete Request Header', value: 'delete_header' },
-  { label: 'Copy Request Header', value: 'copy_header' },
-  { label: 'Move Request Header', value: 'move_header' },
+  {
+    label: 'Set Field',
+    value: 'set',
+  },
+  {
+    label: 'Delete Field',
+    value: 'delete',
+  },
+  {
+    label: 'Append to End',
+    value: 'append',
+  },
+  {
+    label: 'Prepend to Start',
+    value: 'prepend',
+  },
+  {
+    label: 'Copy Field',
+    value: 'copy',
+  },
+  {
+    label: 'Move Field',
+    value: 'move',
+  },
+  {
+    label: 'String Replace',
+    value: 'replace',
+  },
+  {
+    label: 'Regex Replace',
+    value: 'regex_replace',
+  },
+  {
+    label: 'Trim Prefix',
+    value: 'trim_prefix',
+  },
+  {
+    label: 'Trim Suffix',
+    value: 'trim_suffix',
+  },
+  {
+    label: 'Ensure Prefix',
+    value: 'ensure_prefix',
+  },
+  {
+    label: 'Ensure Suffix',
+    value: 'ensure_suffix',
+  },
+  {
+    label: 'Trim Space',
+    value: 'trim_space',
+  },
+  {
+    label: 'To Lowercase',
+    value: 'to_lower',
+  },
+  {
+    label: 'To Uppercase',
+    value: 'to_upper',
+  },
+  {
+    label: 'Return Custom Error',
+    value: 'return_error',
+  },
+  {
+    label: 'Prune Object Items',
+    value: 'prune_objects',
+  },
+  {
+    label: 'Pass Through Headers',
+    value: 'pass_headers',
+  },
+  {
+    label: 'Sync Fields',
+    value: 'sync_fields',
+  },
+  {
+    label: 'Set Request Header',
+    value: 'set_header',
+  },
+  {
+    label: 'Delete Request Header',
+    value: 'delete_header',
+  },
+  {
+    label: 'Copy Request Header',
+    value: 'copy_header',
+  },
+  {
+    label: 'Move Request Header',
+    value: 'move_header',
+  },
 ]
-
 const OPERATION_MODE_VALUES = new Set(
   OPERATION_MODE_OPTIONS.map((o) => o.value)
 )
-
 const OPERATION_MODE_LABEL_MAP = OPERATION_MODE_OPTIONS.reduce<
   Record<string, string>
 >((acc, item) => {
   acc[item.value] = item.label
   return acc
 }, {})
-
 const CONDITION_MODE_OPTIONS = [
-  { label: 'Exact Match', value: 'full' },
-  { label: 'Prefix', value: 'prefix' },
-  { label: 'Suffix', value: 'suffix' },
-  { label: 'Contains', value: 'contains' },
-  { label: 'Regex', value: 'regex' },
-  { label: 'Greater Than', value: 'gt' },
-  { label: 'Greater Than or Equal', value: 'gte' },
-  { label: 'Less Than', value: 'lt' },
-  { label: 'Less Than or Equal', value: 'lte' },
+  {
+    label: 'Exact Match',
+    value: 'full',
+  },
+  {
+    label: 'Prefix',
+    value: 'prefix',
+  },
+  {
+    label: 'Suffix',
+    value: 'suffix',
+  },
+  {
+    label: 'Contains',
+    value: 'contains',
+  },
+  {
+    label: 'Regex',
+    value: 'regex',
+  },
+  {
+    label: 'Greater Than',
+    value: 'gt',
+  },
+  {
+    label: 'Greater Than or Equal',
+    value: 'gte',
+  },
+  {
+    label: 'Less Than',
+    value: 'lt',
+  },
+  {
+    label: 'Less Than or Equal',
+    value: 'lte',
+  },
 ]
-
 const CONDITION_MODE_VALUES = new Set(
   CONDITION_MODE_OPTIONS.map((o) => o.value)
 )
-
 const MODE_META: Record<
   string,
   {
@@ -164,31 +253,103 @@ const MODE_META: Record<
     pathAlias?: boolean
   }
 > = {
-  delete: { path: true },
-  set: { path: true, value: true, keepOrigin: true },
-  append: { path: true, value: true, keepOrigin: true },
-  prepend: { path: true, value: true, keepOrigin: true },
-  copy: { from: true, to: true },
-  move: { from: true, to: true },
-  replace: { path: true, from: true, to: false },
-  regex_replace: { path: true, from: true, to: false },
-  trim_prefix: { path: true, value: true },
-  trim_suffix: { path: true, value: true },
-  ensure_prefix: { path: true, value: true },
-  ensure_suffix: { path: true, value: true },
-  trim_space: { path: true },
-  to_lower: { path: true },
-  to_upper: { path: true },
-  return_error: { value: true },
-  prune_objects: { pathOptional: true, value: true },
-  pass_headers: { value: true, keepOrigin: true },
-  sync_fields: { from: true, to: true },
-  set_header: { path: true, value: true, keepOrigin: true },
-  delete_header: { path: true },
-  copy_header: { from: true, to: true, keepOrigin: true, pathAlias: true },
-  move_header: { from: true, to: true, keepOrigin: true, pathAlias: true },
+  delete: {
+    path: true,
+  },
+  set: {
+    path: true,
+    value: true,
+    keepOrigin: true,
+  },
+  append: {
+    path: true,
+    value: true,
+    keepOrigin: true,
+  },
+  prepend: {
+    path: true,
+    value: true,
+    keepOrigin: true,
+  },
+  copy: {
+    from: true,
+    to: true,
+  },
+  move: {
+    from: true,
+    to: true,
+  },
+  replace: {
+    path: true,
+    from: true,
+    to: false,
+  },
+  regex_replace: {
+    path: true,
+    from: true,
+    to: false,
+  },
+  trim_prefix: {
+    path: true,
+    value: true,
+  },
+  trim_suffix: {
+    path: true,
+    value: true,
+  },
+  ensure_prefix: {
+    path: true,
+    value: true,
+  },
+  ensure_suffix: {
+    path: true,
+    value: true,
+  },
+  trim_space: {
+    path: true,
+  },
+  to_lower: {
+    path: true,
+  },
+  to_upper: {
+    path: true,
+  },
+  return_error: {
+    value: true,
+  },
+  prune_objects: {
+    pathOptional: true,
+    value: true,
+  },
+  pass_headers: {
+    value: true,
+    keepOrigin: true,
+  },
+  sync_fields: {
+    from: true,
+    to: true,
+  },
+  set_header: {
+    path: true,
+    value: true,
+    keepOrigin: true,
+  },
+  delete_header: {
+    path: true,
+  },
+  copy_header: {
+    from: true,
+    to: true,
+    keepOrigin: true,
+    pathAlias: true,
+  },
+  move_header: {
+    from: true,
+    to: true,
+    keepOrigin: true,
+    pathAlias: true,
+  },
 }
-
 const VALUE_REQUIRED_MODES = new Set([
   'trim_prefix',
   'trim_suffix',
@@ -199,7 +360,6 @@ const VALUE_REQUIRED_MODES = new Set([
   'prune_objects',
   'pass_headers',
 ])
-
 const FROM_REQUIRED_MODES = new Set([
   'copy',
   'move',
@@ -209,7 +369,6 @@ const FROM_REQUIRED_MODES = new Set([
   'move_header',
   'sync_fields',
 ])
-
 const TO_REQUIRED_MODES = new Set([
   'copy',
   'move',
@@ -217,7 +376,6 @@ const TO_REQUIRED_MODES = new Set([
   'move_header',
   'sync_fields',
 ])
-
 const MODE_DESCRIPTIONS: Record<string, string> = {
   set: 'Write value to the target field',
   delete: 'Remove the target field',
@@ -244,16 +402,23 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
   copy_header: 'Copy a request header',
   move_header: 'Move a request header',
 }
-
 const SYNC_TARGET_TYPE_OPTIONS = [
-  { label: 'Request Body Field', value: 'json' },
-  { label: 'Request Header Field', value: 'header' },
+  {
+    label: 'Request Body Field',
+    value: 'json',
+  },
+  {
+    label: 'Request Header Field',
+    value: 'header',
+  },
 ]
 
 // Templates
 
-const LEGACY_TEMPLATE = { temperature: 0, max_tokens: 1000 }
-
+const LEGACY_TEMPLATE = {
+  temperature: 0,
+  max_tokens: 1000,
+}
 const OPERATION_TEMPLATE = {
   operations: [
     {
@@ -261,12 +426,17 @@ const OPERATION_TEMPLATE = {
       path: 'temperature',
       mode: 'set',
       value: 0.7,
-      conditions: [{ path: 'model', mode: 'prefix', value: 'openai/' }],
+      conditions: [
+        {
+          path: 'model',
+          mode: 'prefix',
+          value: 'openai/',
+        },
+      ],
       logic: 'AND',
     },
   ],
 }
-
 const HEADER_PASSTHROUGH_TEMPLATE = {
   operations: [
     {
@@ -277,25 +447,6 @@ const HEADER_PASSTHROUGH_TEMPLATE = {
     },
   ],
 }
-
-const GEMINI_IMAGE_4K_TEMPLATE = {
-  operations: [
-    {
-      description:
-        'Set imageSize to 4K when model contains gemini/image and ends with 4k.',
-      mode: 'set',
-      path: 'generationConfig.imageConfig.imageSize',
-      value: '4K',
-      conditions: [
-        { path: 'original_model', mode: 'contains', value: 'gemini' },
-        { path: 'original_model', mode: 'contains', value: 'image' },
-        { path: 'original_model', mode: 'suffix', value: '4k' },
-      ],
-      logic: 'AND',
-    },
-  ],
-}
-
 // Keep in sync with upstream Codex request headers:
 // https://github.com/openai/codex/commit/7c7b4861d88960f7e3bd5b7f30f8351be666dd84
 // https://github.com/openai/codex/commit/14df0e8833aad0d6d78287954b61ffac67af936c
@@ -320,7 +471,6 @@ const CODEX_CLI_HEADER_PASSTHROUGH_HEADERS = [
   'X-ResponsesAPI-Include-Timing-Metrics',
   'X-OpenAI-Internal-Codex-Responses-Lite',
 ]
-
 const CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS = [
   'X-Stainless-Arch',
   'X-Stainless-Lang',
@@ -336,13 +486,15 @@ const CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS = [
   'Anthropic-Dangerous-Direct-Browser-Access',
   'Anthropic-Version',
 ]
-
 const buildPassHeadersTemplate = (headers: string[]) => ({
   operations: [
-    { mode: 'pass_headers', value: [...headers], keep_origin: true },
+    {
+      mode: 'pass_headers',
+      value: [...headers],
+      keep_origin: true,
+    },
   ],
 })
-
 const CODEX_CLI_HEADER_PASSTHROUGH_TEMPLATE = {
   operations: [
     {
@@ -355,61 +507,11 @@ const CODEX_CLI_HEADER_PASSTHROUGH_TEMPLATE = {
 const CLAUDE_CLI_HEADER_PASSTHROUGH_TEMPLATE = buildPassHeadersTemplate(
   CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS
 )
-
-const AWS_BEDROCK_ANTHROPIC_COMPAT_TEMPLATE = {
-  operations: [
-    {
-      description:
-        'Normalize anthropic-beta header tokens for Bedrock compatibility.',
-      mode: 'set_header',
-      path: 'anthropic-beta',
-      value: {
-        'advanced-tool-use-2025-11-20': 'tool-search-tool-2025-10-19',
-        bash_20241022: null,
-        bash_20250124: null,
-        'code-execution-2025-08-25': null,
-        'compact-2026-01-12': 'compact-2026-01-12',
-        'computer-use-2025-01-24': 'computer-use-2025-01-24',
-        'computer-use-2025-11-24': 'computer-use-2025-11-24',
-        'context-1m-2025-08-07': 'context-1m-2025-08-07',
-        'context-management-2025-06-27': 'context-management-2025-06-27',
-        'effort-2025-11-24': null,
-        'fast-mode-2026-02-01': null,
-        'files-api-2025-04-14': null,
-        'fine-grained-tool-streaming-2025-05-14': null,
-        'interleaved-thinking-2025-05-14': 'interleaved-thinking-2025-05-14',
-        'mcp-client-2025-11-20': null,
-        'mcp-client-2025-04-04': null,
-        'mcp-servers-2025-12-04': null,
-        'output-128k-2025-02-19': null,
-        'structured-output-2024-03-01': null,
-        'prompt-caching-scope-2026-01-05': null,
-        'skills-2025-10-02': null,
-        'structured-outputs-2025-11-13': null,
-        text_editor_20241022: null,
-        text_editor_20250124: null,
-        'token-efficient-tools-2025-02-19': null,
-        'tool-search-tool-2025-10-19': 'tool-search-tool-2025-10-19',
-        'web-fetch-2025-09-10': null,
-        'web-search-2025-03-05': null,
-        'oauth-2025-04-20': null,
-      },
-    },
-    {
-      description:
-        'Remove all tools[*].custom.input_examples before upstream relay.',
-      mode: 'delete',
-      path: 'tools.*.custom.input_examples',
-    },
-  ],
-}
-
 type TemplatePresetConfig = {
   label: string
   kind: 'operations' | 'legacy'
   payload: Record<string, unknown>
 }
-
 const TEMPLATE_PRESET_CONFIG: Record<string, TemplatePresetConfig> = {
   operations_default: {
     label: 'New Format Template',
@@ -426,11 +528,6 @@ const TEMPLATE_PRESET_CONFIG: Record<string, TemplatePresetConfig> = {
     kind: 'operations',
     payload: HEADER_PASSTHROUGH_TEMPLATE,
   },
-  gemini_image_4k: {
-    label: 'Gemini Image 4K',
-    kind: 'operations',
-    payload: GEMINI_IMAGE_4K_TEMPLATE,
-  },
   claude_cli_headers_passthrough: {
     label: 'Claude CLI Header Passthrough',
     kind: 'operations',
@@ -441,11 +538,6 @@ const TEMPLATE_PRESET_CONFIG: Record<string, TemplatePresetConfig> = {
     kind: 'operations',
     payload: CODEX_CLI_HEADER_PASSTHROUGH_TEMPLATE,
   },
-  aws_bedrock_anthropic_beta_override: {
-    label: 'AWS Bedrock Claude Compat',
-    kind: 'operations',
-    payload: AWS_BEDROCK_ANTHROPIC_COMPAT_TEMPLATE,
-  },
 }
 
 // ---------------------------------------------------------------------------
@@ -454,35 +546,39 @@ const TEMPLATE_PRESET_CONFIG: Record<string, TemplatePresetConfig> = {
 
 let localIdSeed = 0
 const nextLocalId = () => `po_${Date.now()}_${localIdSeed++}`
-
 const toValueText = (value: unknown): string => {
-  if (value === undefined) return ''
-  if (typeof value === 'string') return value
+  if (value === undefined) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
   try {
     return JSON.stringify(value)
   } catch {
     return String(value)
   }
 }
-
 const parseLooseValue = (valueText: string): unknown => {
   const raw = String(valueText ?? '').trim()
-  if (raw === '') return ''
+  if (raw === '') {
+    return ''
+  }
   try {
     return JSON.parse(raw)
   } catch {
     return raw
   }
 }
-
 const parseConditionValue = (
   condition: Pick<ParamOverrideCondition, 'mode' | 'value_text'>
 ): unknown => {
   // Regex patterns are literal strings, even when they look like JSON values.
-  if (condition.mode === 'regex') return condition.value_text
+  if (condition.mode === 'regex') {
+    return condition.value_text
+  }
   return parseLooseValue(condition.value_text)
 }
-
 const verifyJSON = (text: string): boolean => {
   try {
     JSON.parse(text)
@@ -491,7 +587,6 @@ const verifyJSON = (text: string): boolean => {
     return false
   }
 }
-
 const normalizeCondition = (
   condition: Record<string, unknown> = {}
 ): ParamOverrideCondition => ({
@@ -504,10 +599,8 @@ const normalizeCondition = (
   invert: condition.invert === true,
   pass_missing_key: condition.pass_missing_key === true,
 })
-
 const createDefaultCondition = (): ParamOverrideCondition =>
   normalizeCondition({})
-
 const normalizeOperation = (
   operation: Record<string, unknown> = {}
 ): ParamOverrideOperation => ({
@@ -533,28 +626,35 @@ const normalizeOperation = (
       )
     : [],
 })
-
 const createDefaultOperation = (): ParamOverrideOperation =>
-  normalizeOperation({ mode: 'set' })
-
+  normalizeOperation({
+    mode: 'set',
+  })
 const reorderOperations = (
   ops: ParamOverrideOperation[],
   sourceId: string,
   targetId: string,
   position: 'before' | 'after' = 'before'
 ): ParamOverrideOperation[] => {
-  if (!sourceId || !targetId || sourceId === targetId) return ops
+  if (!sourceId || !targetId || sourceId === targetId) {
+    return ops
+  }
   const srcIdx = ops.findIndex((o) => o.id === sourceId)
-  if (srcIdx < 0) return ops
+  if (srcIdx < 0) {
+    return ops
+  }
   const next = [...ops]
   const [moved] = next.splice(srcIdx, 1)
   let insertIdx = next.findIndex((o) => o.id === targetId)
-  if (insertIdx < 0) return ops
-  if (position === 'after') insertIdx += 1
+  if (insertIdx < 0) {
+    return ops
+  }
+  if (position === 'after') {
+    insertIdx += 1
+  }
   next.splice(insertIdx, 0, moved)
   return next
 }
-
 const isOperationBlank = (operation: ParamOverrideOperation): boolean => {
   const hasCondition = operation.conditions.some(
     (c) =>
@@ -574,7 +674,6 @@ const isOperationBlank = (operation: ParamOverrideOperation): boolean => {
     !hasCondition
   )
 }
-
 const getOperationSummary = (
   operation: ParamOverrideOperation,
   index: number
@@ -591,7 +690,6 @@ const getOperationSummary = (
   const to = operation.to.trim()
   return `${index + 1}. ${modeLabel} · ${path || from || to || '-'}`
 }
-
 const getModeTagTailwind = (mode: string): string => {
   if (mode.includes('header')) {
     return 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
@@ -610,47 +708,72 @@ const getModeTagTailwind = (mode: string): string => {
   }
   return 'bg-muted text-muted-foreground'
 }
-
 const getModePathLabel = (mode: string): string => {
-  if (mode === 'set_header' || mode === 'delete_header') return 'Header Name'
-  if (mode === 'prune_objects') return 'Target Path (optional)'
+  if (mode === 'set_header' || mode === 'delete_header') {
+    return 'Header Name'
+  }
+  if (mode === 'prune_objects') {
+    return 'Target Path (optional)'
+  }
   return 'Target Field Path'
 }
-
 const getModePathPlaceholder = (mode: string): string => {
-  if (mode === 'set_header') return 'Authorization'
-  if (mode === 'delete_header') return 'X-Debug-Mode'
-  if (mode === 'prune_objects') return 'messages'
+  if (mode === 'set_header') {
+    return 'Authorization'
+  }
+  if (mode === 'delete_header') {
+    return 'X-Debug-Mode'
+  }
+  if (mode === 'prune_objects') {
+    return 'messages'
+  }
   return 'temperature'
 }
-
 const getModeFromLabel = (mode: string): string => {
-  if (mode === 'replace') return 'Match Text'
-  if (mode === 'regex_replace') return 'Regex Pattern'
-  if (mode === 'copy_header' || mode === 'move_header') return 'Source Header'
+  if (mode === 'replace') {
+    return 'Match Text'
+  }
+  if (mode === 'regex_replace') {
+    return 'Regex Pattern'
+  }
+  if (mode === 'copy_header' || mode === 'move_header') {
+    return 'Source Header'
+  }
   return 'Source Field'
 }
-
 const getModeFromPlaceholder = (mode: string): string => {
-  if (mode === 'replace') return 'openai/'
-  if (mode === 'regex_replace') return '^gpt-'
-  if (mode === 'copy_header' || mode === 'move_header') return 'Authorization'
+  if (mode === 'replace') {
+    return 'openai/'
+  }
+  if (mode === 'regex_replace') {
+    return '^gpt-'
+  }
+  if (mode === 'copy_header' || mode === 'move_header') {
+    return 'Authorization'
+  }
   return 'model'
 }
-
 const getModeToLabel = (mode: string): string => {
-  if (mode === 'replace' || mode === 'regex_replace') return 'Replace With'
-  if (mode === 'copy_header' || mode === 'move_header') return 'Target Header'
+  if (mode === 'replace' || mode === 'regex_replace') {
+    return 'Replace With'
+  }
+  if (mode === 'copy_header' || mode === 'move_header') {
+    return 'Target Header'
+  }
   return 'Target Field'
 }
-
 const getModeToPlaceholder = (mode: string): string => {
-  if (mode === 'replace') return '(leave empty to delete)'
-  if (mode === 'regex_replace') return 'openai/gpt-'
-  if (mode === 'copy_header' || mode === 'move_header') return 'X-Upstream-Auth'
+  if (mode === 'replace') {
+    return '(leave empty to delete)'
+  }
+  if (mode === 'regex_replace') {
+    return 'openai/gpt-'
+  }
+  if (mode === 'copy_header' || mode === 'move_header') {
+    return 'X-Upstream-Auth'
+  }
   return 'original_model'
 }
-
 const getModeValueLabel = (mode: string): string => {
   if (mode === 'set_header') {
     return 'Header Value (supports string or JSON mapping)'
@@ -666,13 +789,18 @@ const getModeValueLabel = (mode: string): string => {
   ) {
     return 'Prefix/Suffix Text'
   }
-  if (mode === 'prune_objects') return 'Prune Rule (string or JSON object)'
+  if (mode === 'prune_objects') {
+    return 'Prune Rule (string or JSON object)'
+  }
   return 'Value (supports JSON or plain text)'
 }
-
 const getModeValuePlaceholder = (mode: string): string => {
-  if (mode === 'set_header') return 'Bearer sk-xxx'
-  if (mode === 'pass_headers') return 'Authorization, X-Request-Id'
+  if (mode === 'set_header') {
+    return 'Bearer sk-xxx'
+  }
+  if (mode === 'pass_headers') {
+    return 'Authorization, X-Request-Id'
+  }
   if (
     mode === 'trim_prefix' ||
     mode === 'trim_suffix' ||
@@ -681,24 +809,49 @@ const getModeValuePlaceholder = (mode: string): string => {
   ) {
     return 'openai/'
   }
-  if (mode === 'prune_objects') return '{"type":"redacted_thinking"}'
+  if (mode === 'prune_objects') {
+    return '{"type":"redacted_thinking"}'
+  }
   return '0.7'
 }
-
-const parseSyncTargetSpec = (spec: string): { type: string; key: string } => {
+const parseSyncTargetSpec = (
+  spec: string
+): {
+  type: string
+  key: string
+} => {
   const raw = String(spec ?? '').trim()
-  if (!raw) return { type: 'json', key: '' }
+  if (!raw) {
+    return {
+      type: 'json',
+      key: '',
+    }
+  }
   const idx = raw.indexOf(':')
-  if (idx < 0) return { type: 'json', key: raw }
+  if (idx < 0) {
+    return {
+      type: 'json',
+      key: raw,
+    }
+  }
   const prefix = raw.slice(0, idx).trim().toLowerCase()
   const key = raw.slice(idx + 1).trim()
-  return prefix === 'header' ? { type: 'header', key } : { type: 'json', key }
+  return prefix === 'header'
+    ? {
+        type: 'header',
+        key,
+      }
+    : {
+        type: 'json',
+        key,
+      }
 }
-
 const buildSyncTargetSpec = (type: string, key: string): string => {
   const normalizedType = type === 'header' ? 'header' : 'json'
   const normalizedKey = String(key ?? '').trim()
-  if (!normalizedKey) return ''
+  if (!normalizedKey) {
+    return ''
+  }
   return `${normalizedType}:${normalizedKey}`
 }
 
@@ -712,7 +865,6 @@ type ReturnErrorDraft = {
   skipRetry: boolean
   simpleMode: boolean
 }
-
 const parseReturnErrorDraft = (valueText: string): ReturnErrorDraft => {
   const defaults: ReturnErrorDraft = {
     message: '',
@@ -723,7 +875,9 @@ const parseReturnErrorDraft = (valueText: string): ReturnErrorDraft => {
     simpleMode: true,
   }
   const raw = String(valueText ?? '').trim()
-  if (!raw) return defaults
+  if (!raw) {
+    return defaults
+  }
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -750,14 +904,19 @@ const parseReturnErrorDraft = (valueText: string): ReturnErrorDraft => {
   } catch {
     /* treat as plain text */
   }
-  return { ...defaults, message: raw, simpleMode: true }
+  return {
+    ...defaults,
+    message: raw,
+    simpleMode: true,
+  }
 }
-
 const buildReturnErrorValueText = (
   draft: Partial<ReturnErrorDraft>
 ): string => {
   const message = String(draft.message || '').trim()
-  if (draft.simpleMode) return message
+  if (draft.simpleMode) {
+    return message
+  }
   const statusCode = Number(draft.statusCode)
   const payload: Record<string, unknown> = {
     message,
@@ -768,16 +927,21 @@ const buildReturnErrorValueText = (
   }
   const code = String(draft.code || '').trim()
   const type = String(draft.type || '').trim()
-  if (code) payload.code = code
-  if (type) payload.type = type
-  if (draft.skipRetry === false) payload.skip_retry = false
+  if (code) {
+    payload.code = code
+  }
+  if (type) {
+    payload.type = type
+  }
+  if (draft.skipRetry === false) {
+    payload.skip_retry = false
+  }
   return JSON.stringify(payload)
 }
 
 // prune_objects helpers
 
 type PruneRule = ParamOverrideCondition
-
 type PruneObjectsDraft = {
   simpleMode: boolean
   typeText: string
@@ -785,7 +949,6 @@ type PruneObjectsDraft = {
   recursive: boolean
   rules: PruneRule[]
 }
-
 const parsePruneObjectsDraft = (valueText: string): PruneObjectsDraft => {
   const defaults: PruneObjectsDraft = {
     simpleMode: true,
@@ -795,11 +958,16 @@ const parsePruneObjectsDraft = (valueText: string): PruneObjectsDraft => {
     rules: [],
   }
   const raw = String(valueText ?? '').trim()
-  if (!raw) return defaults
+  if (!raw) {
+    return defaults
+  }
   try {
     const parsed = JSON.parse(raw)
     if (typeof parsed === 'string') {
-      return { ...defaults, typeText: parsed.trim() }
+      return {
+        ...defaults,
+        typeText: parsed.trim(),
+      }
     }
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const rules: PruneRule[] = []
@@ -811,7 +979,13 @@ const parsePruneObjectsDraft = (valueText: string): PruneObjectsDraft => {
         for (const [path, value] of Object.entries(
           parsed.where as Record<string, unknown>
         )) {
-          rules.push(normalizeCondition({ path, mode: 'full', value }))
+          rules.push(
+            normalizeCondition({
+              path,
+              mode: 'full',
+              value,
+            })
+          )
         }
       }
       if (Array.isArray(parsed.conditions)) {
@@ -828,7 +1002,13 @@ const parsePruneObjectsDraft = (valueText: string): PruneObjectsDraft => {
         for (const [path, value] of Object.entries(
           parsed.conditions as Record<string, unknown>
         )) {
-          rules.push(normalizeCondition({ path, mode: 'full', value }))
+          rules.push(
+            normalizeCondition({
+              path,
+              mode: 'full',
+              value,
+            })
+          )
         }
       }
       const typeText =
@@ -850,19 +1030,32 @@ const parsePruneObjectsDraft = (valueText: string): PruneObjectsDraft => {
         rules,
       }
     }
-    return { ...defaults, typeText: String(parsed ?? '').trim() }
+    return {
+      ...defaults,
+      typeText: String(parsed ?? '').trim(),
+    }
   } catch {
-    return { ...defaults, typeText: raw }
+    return {
+      ...defaults,
+      typeText: raw,
+    }
   }
 }
-
 const buildPruneObjectsValueText = (draft: PruneObjectsDraft): string => {
   const typeText = String(draft.typeText || '').trim()
-  if (draft.simpleMode) return typeText
+  if (draft.simpleMode) {
+    return typeText
+  }
   const payload: Record<string, unknown> = {}
-  if (typeText) payload.type = typeText
-  if (String(draft.logic || 'AND').toUpperCase() === 'OR') payload.logic = 'OR'
-  if (draft.recursive === false) payload.recursive = false
+  if (typeText) {
+    payload.type = typeText
+  }
+  if (String(draft.logic || 'AND').toUpperCase() === 'OR') {
+    payload.logic = 'OR'
+  }
+  if (draft.recursive === false) {
+    payload.recursive = false
+  }
   const conditions = (draft.rules || [])
     .filter((rule) => String(rule.path || '').trim())
     .map((rule) => {
@@ -873,13 +1066,21 @@ const buildPruneObjectsValueText = (draft: PruneObjectsDraft): string => {
       if (rule.mode === 'regex' || rule.value_text.trim() !== '') {
         conditionPayload.value = parseConditionValue(rule)
       }
-      if (rule.invert) conditionPayload.invert = true
-      if (rule.pass_missing_key) conditionPayload.pass_missing_key = true
+      if (rule.invert) {
+        conditionPayload.invert = true
+      }
+      if (rule.pass_missing_key) {
+        conditionPayload.pass_missing_key = true
+      }
       return conditionPayload
     })
-  if (conditions.length > 0) payload.conditions = conditions
+  if (conditions.length > 0) {
+    payload.conditions = conditions
+  }
   if (!payload.type && !payload.conditions) {
-    return JSON.stringify({ logic: 'AND' })
+    return JSON.stringify({
+      logic: 'AND',
+    })
   }
   return JSON.stringify(payload)
 }
@@ -915,14 +1116,20 @@ const buildConditionPayload = (
   condition: ParamOverrideCondition
 ): Record<string, unknown> | null => {
   const path = condition.path.trim()
-  if (!path) return null
+  if (!path) {
+    return null
+  }
   const payload: Record<string, unknown> = {
     path,
     mode: condition.mode || 'full',
     value: parseConditionValue(condition),
   }
-  if (condition.invert) payload.invert = true
-  if (condition.pass_missing_key) payload.pass_missing_key = true
+  if (condition.invert) {
+    payload.invert = true
+  }
+  if (condition.pass_missing_key) {
+    payload.pass_missing_key = true
+  }
   return payload
 }
 
@@ -940,27 +1147,37 @@ const validateOperations = (
     const pathValue = op.path.trim()
     const fromValue = op.from.trim()
     const toValue = op.to.trim()
-
     if (meta.path && !pathValue) {
-      return t('Rule {{line}} is missing target path', { line })
+      return t('Rule {{line}} is missing target path', {
+        line,
+      })
     }
     if (FROM_REQUIRED_MODES.has(mode) && !fromValue) {
       if (!(meta.pathAlias && pathValue)) {
-        return t('Rule {{line}} is missing source field', { line })
+        return t('Rule {{line}} is missing source field', {
+          line,
+        })
       }
     }
     if (TO_REQUIRED_MODES.has(mode) && !toValue) {
       if (!(meta.pathAlias && pathValue)) {
-        return t('Rule {{line}} is missing target field', { line })
+        return t('Rule {{line}} is missing target field', {
+          line,
+        })
       }
     }
     if (VALUE_REQUIRED_MODES.has(mode) && op.value_text.trim() === '') {
-      return t('Rule {{line}} is missing value', { line })
+      return t('Rule {{line}} is missing value', {
+        line,
+      })
     }
-
     if (mode === 'return_error') {
       const raw = op.value_text.trim()
-      if (!raw) return t('Rule {{line}} is missing value', { line })
+      if (!raw) {
+        return t('Rule {{line}} is missing value', {
+          line,
+        })
+      }
       try {
         const parsed = JSON.parse(raw)
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -976,7 +1193,6 @@ const validateOperations = (
         /* plain string is allowed */
       }
     }
-
     if (mode === 'prune_objects') {
       const raw = op.value_text.trim()
       const draft = op.prune_draft
@@ -991,19 +1207,24 @@ const validateOperations = (
         typeof parsed === 'object' &&
         Object.hasOwn(parsed, 'type')
       if (!raw || (draft && !hasDraftCondition && !hasExplicitType)) {
-        return t('Rule {{line}} prune_objects is missing conditions', { line })
+        return t('Rule {{line}} prune_objects is missing conditions', {
+          line,
+        })
       }
     }
-
     if (mode === 'pass_headers') {
       const raw = op.value_text.trim()
       if (!raw) {
-        return t('Rule {{line}} pass_headers is missing header names', { line })
+        return t('Rule {{line}} pass_headers is missing header names', {
+          line,
+        })
       }
       const parsed = parseLooseValue(raw)
       const headers = parsePassHeaderNames(parsed)
       if (headers.length === 0) {
-        return t('Rule {{line}} pass_headers format is invalid', { line })
+        return t('Rule {{line}} pass_headers format is invalid', {
+          line,
+        })
       }
     }
   }
@@ -1020,7 +1241,6 @@ type EditorState = {
   jsonText: string
   jsonError: string
 }
-
 const parseInitialState = (rawValue: string): EditorState => {
   const text = typeof rawValue === 'string' ? rawValue : ''
   const trimmed = text.trim()
@@ -1034,7 +1254,6 @@ const parseInitialState = (rawValue: string): EditorState => {
       jsonError: '',
     }
   }
-
   if (!verifyJSON(trimmed)) {
     return {
       editMode: 'json',
@@ -1045,10 +1264,8 @@ const parseInitialState = (rawValue: string): EditorState => {
       jsonError: 'Invalid JSON format',
     }
   }
-
   const parsed = JSON.parse(trimmed) as Record<string, unknown>
   const pretty = JSON.stringify(parsed, null, 2)
-
   if (
     parsed &&
     typeof parsed === 'object' &&
@@ -1069,7 +1286,6 @@ const parseInitialState = (rawValue: string): EditorState => {
       jsonError: '',
     }
   }
-
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     return {
       editMode: 'visual',
@@ -1080,7 +1296,6 @@ const parseInitialState = (rawValue: string): EditorState => {
       jsonError: '',
     }
   }
-
   return {
     editMode: 'json',
     visualMode: 'operations',
@@ -1095,17 +1310,21 @@ const parseInitialState = (rawValue: string): EditorState => {
 
 const buildOperationsJson = (
   sourceOperations: ParamOverrideOperation[],
-  options: { validate: boolean },
+  options: {
+    validate: boolean
+  },
   t: (key: string, options?: Record<string, unknown>) => string
 ): string => {
   const filteredOps = sourceOperations.filter((o) => !isOperationBlank(o))
-  if (filteredOps.length === 0) return ''
-
+  if (filteredOps.length === 0) {
+    return ''
+  }
   if (options.validate) {
     const message = validateOperations(filteredOps, t)
-    if (message) throw new Error(message)
+    if (message) {
+      throw new Error(message)
+    }
   }
-
   const payloadOps = filteredOps.map((operation) => {
     const mode = operation.mode || 'set'
     const meta = MODE_META[mode] || MODE_META.set
@@ -1113,18 +1332,40 @@ const buildOperationsJson = (
     const pathValue = operation.path.trim()
     const fromValue = operation.from.trim()
     const toValue = operation.to.trim()
-    const payload: Record<string, unknown> = { mode }
-    if (descriptionValue) payload.description = descriptionValue
-    if (meta.path) payload.path = pathValue
-    if (meta.pathOptional && pathValue) payload.path = pathValue
-    if (meta.value) payload.value = parseLooseValue(operation.value_text)
-    if (meta.keepOrigin && operation.keep_origin) payload.keep_origin = true
-    if (meta.from) payload.from = fromValue
-    if (!meta.to && operation.to.trim()) payload.to = toValue
-    if (meta.to) payload.to = toValue
+    const payload: Record<string, unknown> = {
+      mode,
+    }
+    if (descriptionValue) {
+      payload.description = descriptionValue
+    }
+    if (meta.path) {
+      payload.path = pathValue
+    }
+    if (meta.pathOptional && pathValue) {
+      payload.path = pathValue
+    }
+    if (meta.value) {
+      payload.value = parseLooseValue(operation.value_text)
+    }
+    if (meta.keepOrigin && operation.keep_origin) {
+      payload.keep_origin = true
+    }
+    if (meta.from) {
+      payload.from = fromValue
+    }
+    if (!meta.to && operation.to.trim()) {
+      payload.to = toValue
+    }
+    if (meta.to) {
+      payload.to = toValue
+    }
     if (meta.pathAlias) {
-      if (!payload.from && pathValue) payload.from = pathValue
-      if (!payload.to && pathValue) payload.to = pathValue
+      if (!payload.from && pathValue) {
+        payload.from = pathValue
+      }
+      if (!payload.to && pathValue) {
+        payload.to = pathValue
+      }
     }
     const conditions = operation.conditions
       .map(buildConditionPayload)
@@ -1135,8 +1376,13 @@ const buildOperationsJson = (
     }
     return payload
   })
-
-  return JSON.stringify({ operations: payloadOps }, null, 2)
+  return JSON.stringify(
+    {
+      operations: payloadOps,
+    },
+    null,
+    2
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -1147,7 +1393,6 @@ export function ParamOverrideEditorDialog(
   props: ParamOverrideEditorDialogProps
 ) {
   const { t } = useTranslation()
-
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
   const [visualMode, setVisualMode] = useState<'operations' | 'legacy'>(
     'operations'
@@ -1173,7 +1418,9 @@ export function ParamOverrideEditorDialog(
 
   // Initialize state when dialog opens
   useEffect(() => {
-    if (!props.open) return
+    if (!props.open) {
+      return
+    }
     const state = parseInitialState(props.value)
     setEditMode(state.editMode)
     setVisualMode(state.visualMode)
@@ -1214,15 +1461,15 @@ export function ParamOverrideEditorDialog(
       })),
     []
   )
-
   const operationCount = useMemo(
     () => operations.filter((o) => !isOperationBlank(o)).length,
     [operations]
   )
-
   const filteredOperations = useMemo(() => {
     const keyword = operationSearch.trim().toLowerCase()
-    if (!keyword) return operations
+    if (!keyword) {
+      return operations
+    }
     return operations.filter((op) => {
       const searchableText = [
         op.description,
@@ -1238,26 +1485,21 @@ export function ParamOverrideEditorDialog(
       return searchableText.includes(keyword)
     })
   }, [operationSearch, operations])
-
   const selectedOperation = useMemo(
     () => operations.find((o) => o.id === selectedOperationId),
     [operations, selectedOperationId]
   )
-
   const selectedOperationIndex = useMemo(
     () => operations.findIndex((o) => o.id === selectedOperationId),
     [operations, selectedOperationId]
   )
-
   const returnErrorDraft = useMemo(() => {
     if (!selectedOperation || selectedOperation.mode !== 'return_error') {
       return null
     }
     return parseReturnErrorDraft(selectedOperation.value_text)
   }, [selectedOperation])
-
   const pruneObjectsDraft = selectedOperation?.prune_draft ?? null
-
   const topOperationModes = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const op of operations) {
@@ -1277,8 +1519,13 @@ export function ParamOverrideEditorDialog(
     (operationId: string, patch: Partial<ParamOverrideOperation>) => {
       setOperations((prev) =>
         prev.map((op) => {
-          if (op.id !== operationId) return op
-          const next = { ...op, ...patch }
+          if (op.id !== operationId) {
+            return op
+          }
+          const next = {
+            ...op,
+            ...patch,
+          }
           if (next.mode !== op.mode || patch.value_text !== undefined) {
             next.prune_draft =
               next.mode === 'prune_objects'
@@ -1291,18 +1538,18 @@ export function ParamOverrideEditorDialog(
     },
     []
   )
-
   const addOperation = useCallback(() => {
     const created = createDefaultOperation()
     setOperations((prev) => [...prev, created])
     setSelectedOperationId(created.id)
   }, [])
-
   const duplicateOperation = useCallback((operationId: string) => {
     let insertedId = ''
     setOperations((prev) => {
       const idx = prev.findIndex((o) => o.id === operationId)
-      if (idx < 0) return prev
+      if (idx < 0) {
+        return prev
+      }
       const source = prev[idx]
       const cloned = normalizeOperation({
         description: source.description,
@@ -1335,12 +1582,15 @@ export function ParamOverrideEditorDialog(
       next.splice(idx + 1, 0, cloned)
       return next
     })
-    if (insertedId) setSelectedOperationId(insertedId)
+    if (insertedId) {
+      setSelectedOperationId(insertedId)
+    }
   }, [])
-
   const removeOperation = useCallback((operationId: string) => {
     setOperations((prev) => {
-      if (prev.length <= 1) return [createDefaultOperation()]
+      if (prev.length <= 1) {
+        return [createDefaultOperation()]
+      }
       return prev.filter((o) => o.id !== operationId)
     })
   }, [])
@@ -1351,13 +1601,18 @@ export function ParamOverrideEditorDialog(
     setOperations((prev) =>
       prev.map((op) =>
         op.id === operationId
-          ? { ...op, conditions: [...op.conditions, created] }
+          ? {
+              ...op,
+              conditions: [...op.conditions, created],
+            }
           : op
       )
     )
-    setExpandedConditions((prev) => ({ ...prev, [created.id]: true }))
+    setExpandedConditions((prev) => ({
+      ...prev,
+      [created.id]: true,
+    }))
   }, [])
-
   const updateCondition = useCallback(
     (
       operationId: string,
@@ -1370,7 +1625,12 @@ export function ParamOverrideEditorDialog(
             ? {
                 ...op,
                 conditions: op.conditions.map((c) =>
-                  c.id === conditionId ? { ...c, ...patch } : c
+                  c.id === conditionId
+                    ? {
+                        ...c,
+                        ...patch,
+                      }
+                    : c
                 ),
               }
             : op
@@ -1379,7 +1639,6 @@ export function ParamOverrideEditorDialog(
     },
     []
   )
-
   const removeCondition = useCallback(
     (operationId: string, conditionId: string) => {
       setOperations((prev) =>
@@ -1401,9 +1660,14 @@ export function ParamOverrideEditorDialog(
     (operationId: string, draftPatch: Partial<ReturnErrorDraft>) => {
       setOperations((prev) =>
         prev.map((op) => {
-          if (op.id !== operationId) return op
+          if (op.id !== operationId) {
+            return op
+          }
           const draft = parseReturnErrorDraft(op.value_text)
-          const nextDraft = { ...draft, ...draftPatch }
+          const nextDraft = {
+            ...draft,
+            ...draftPatch,
+          }
           return {
             ...op,
             value_text: buildReturnErrorValueText(nextDraft),
@@ -1424,13 +1688,20 @@ export function ParamOverrideEditorDialog(
     ) => {
       setOperations((prev) =>
         prev.map((op) => {
-          if (op.id !== operationId) return op
+          if (op.id !== operationId) {
+            return op
+          }
           const draft = op.prune_draft
-          if (!draft) return op
+          if (!draft) {
+            return op
+          }
           const nextDraft =
             typeof updater === 'function'
               ? updater(draft)
-              : { ...draft, ...updater }
+              : {
+                  ...draft,
+                  ...updater,
+                }
           return {
             ...op,
             // Keep unfinished rows and their IDs in local state. The serialized
@@ -1443,7 +1714,6 @@ export function ParamOverrideEditorDialog(
     },
     []
   )
-
   const addPruneRule = useCallback(
     (operationId: string) => {
       updatePruneObjectsDraft(operationId, (draft) => ({
@@ -1454,19 +1724,22 @@ export function ParamOverrideEditorDialog(
     },
     [updatePruneObjectsDraft]
   )
-
   const updatePruneRule = useCallback(
     (operationId: string, ruleId: string, patch: Partial<PruneRule>) => {
       updatePruneObjectsDraft(operationId, (draft) => ({
         ...draft,
         rules: draft.rules.map((r) =>
-          r.id === ruleId ? { ...r, ...patch } : r
+          r.id === ruleId
+            ? {
+                ...r,
+                ...patch,
+              }
+            : r
         ),
       }))
     },
     [updatePruneObjectsDraft]
   )
-
   const removePruneRule = useCallback(
     (operationId: string, ruleId: string) => {
       updatePruneObjectsDraft(operationId, (draft) => ({
@@ -1483,7 +1756,6 @@ export function ParamOverrideEditorDialog(
     setDragOverOperationId('')
     setDragOverPosition('before')
   }, [])
-
   const handleDragStart = useCallback(
     (event: DragEvent, operationId: string) => {
       setDraggedOperationId(operationId)
@@ -1493,11 +1765,12 @@ export function ParamOverrideEditorDialog(
     },
     []
   )
-
   const handleDragOver = useCallback(
     (event: DragEvent, operationId: string) => {
       event.preventDefault()
-      if (!draggedOperationId || draggedOperationId === operationId) return
+      if (!draggedOperationId || draggedOperationId === operationId) {
+        return
+      }
       const rect = event.currentTarget.getBoundingClientRect()
       const position: 'before' | 'after' =
         event.clientY - rect.top > rect.height / 2 ? 'after' : 'before'
@@ -1507,7 +1780,6 @@ export function ParamOverrideEditorDialog(
     },
     [draggedOperationId]
   )
-
   const handleDrop = useCallback(
     (event: DragEvent, operationId: string) => {
       event.preventDefault()
@@ -1533,7 +1805,9 @@ export function ParamOverrideEditorDialog(
   const buildVisualJson = useCallback((): string => {
     if (visualMode === 'legacy') {
       const trimmed = legacyValue.trim()
-      if (!trimmed) return ''
+      if (!trimmed) {
+        return ''
+      }
       if (!verifyJSON(trimmed)) {
         throw new Error(t('Parameter override must be valid JSON format'))
       }
@@ -1543,11 +1817,18 @@ export function ParamOverrideEditorDialog(
       }
       return JSON.stringify(parsed, null, 2)
     }
-    return buildOperationsJson(operations, { validate: true }, t)
+    return buildOperationsJson(
+      operations,
+      {
+        validate: true,
+      },
+      t
+    )
   }, [legacyValue, operations, t, visualMode])
-
   const switchToJsonMode = useCallback(() => {
-    if (editMode === 'json') return
+    if (editMode === 'json') {
+      return
+    }
     try {
       setJsonText(buildVisualJson())
       setJsonError('')
@@ -1556,7 +1837,15 @@ export function ParamOverrideEditorDialog(
       if (visualMode === 'legacy') {
         setJsonText(legacyValue)
       } else {
-        setJsonText(buildOperationsJson(operations, { validate: false }, t))
+        setJsonText(
+          buildOperationsJson(
+            operations,
+            {
+              validate: false,
+            },
+            t
+          )
+        )
       }
       setJsonError(
         (error as Error).message || t('Parameter configuration error')
@@ -1564,9 +1853,10 @@ export function ParamOverrideEditorDialog(
     }
     setEditMode('json')
   }, [buildVisualJson, editMode, legacyValue, operations, t, visualMode])
-
   const switchToVisualMode = useCallback(() => {
-    if (editMode === 'visual') return
+    if (editMode === 'visual') {
+      return
+    }
     const trimmed = jsonText.trim()
     if (!trimmed) {
       const fallback = createDefaultOperation()
@@ -1617,14 +1907,12 @@ export function ParamOverrideEditorDialog(
     }
     toast.error(t('Parameter override must be a valid JSON object'))
   }, [editMode, jsonText, t])
-
   const fillTemplate = useCallback(
     (mode: 'fill' | 'append') => {
       const preset =
         TEMPLATE_PRESET_CONFIG[templatePresetKey] ||
         TEMPLATE_PRESET_CONFIG.operations_default
       const payload = preset.payload as Record<string, unknown>
-
       if (preset.kind === 'legacy') {
         if (mode === 'append' && visualMode === 'legacy') {
           const trimmed = legacyValue.trim()
@@ -1636,7 +1924,10 @@ export function ParamOverrideEditorDialog(
             }
             parsedCurrent = JSON.parse(trimmed) as Record<string, unknown>
           }
-          const merged = { ...payload, ...parsedCurrent }
+          const merged = {
+            ...payload,
+            ...parsedCurrent,
+          }
           const text = JSON.stringify(merged, null, 2)
           setVisualMode('legacy')
           setLegacyValue(text)
@@ -1655,10 +1946,8 @@ export function ParamOverrideEditorDialog(
         }
         return
       }
-
       const operationsPayload = ((payload as Record<string, unknown>)
         .operations || []) as Record<string, unknown>[]
-
       if (mode === 'append') {
         const appended = operationsPayload.map(normalizeOperation)
         const existing =
@@ -1680,14 +1969,21 @@ export function ParamOverrideEditorDialog(
         setVisualMode('operations')
         setOperations(finalOps)
         setSelectedOperationId(finalOps[0]?.id || '')
-        setJsonText(JSON.stringify({ operations: operationsPayload }, null, 2))
+        setJsonText(
+          JSON.stringify(
+            {
+              operations: operationsPayload,
+            },
+            null,
+            2
+          )
+        )
         setJsonError('')
         setEditMode('visual')
       }
     },
     [legacyValue, operations, templatePresetKey, visualMode, t]
   )
-
   const resetEditorState = useCallback(() => {
     const fallback = createDefaultOperation()
     setVisualMode('operations')
@@ -1713,9 +2009,10 @@ export function ParamOverrideEditorDialog(
     },
     [t]
   )
-
   const visualValidationError = useMemo(() => {
-    if (editMode !== 'visual') return ''
+    if (editMode !== 'visual') {
+      return ''
+    }
     try {
       buildVisualJson()
       return ''
@@ -1748,17 +2045,26 @@ export function ParamOverrideEditorDialog(
 
   // Expand/collapse all conditions
   const expandAllConditions = useCallback(() => {
-    if (!selectedOperation) return
+    if (!selectedOperation) {
+      return
+    }
     const map: Record<string, boolean> = {}
     for (const c of selectedOperation.conditions) map[c.id] = true
-    setExpandedConditions((prev) => ({ ...prev, ...map }))
+    setExpandedConditions((prev) => ({
+      ...prev,
+      ...map,
+    }))
   }, [selectedOperation])
-
   const collapseAllConditions = useCallback(() => {
-    if (!selectedOperation) return
+    if (!selectedOperation) {
+      return
+    }
     const map: Record<string, boolean> = {}
     for (const c of selectedOperation.conditions) map[c.id] = false
-    setExpandedConditions((prev) => ({ ...prev, ...map }))
+    setExpandedConditions((prev) => ({
+      ...prev,
+      ...map,
+    }))
   }, [selectedOperation])
 
   // ---------------------------------------------------------------------------
@@ -2151,7 +2457,6 @@ type RuleEditorProps = {
   expandAllConditions: () => void
   collapseAllConditions: () => void
 }
-
 function RuleEditor(ruleEditorProps: RuleEditorProps) {
   const { t } = useTranslation()
   const operation = ruleEditorProps.operation
@@ -2166,7 +2471,6 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
     mode === 'sync_fields' ? parseSyncTargetSpec(operation.from) : null
   const syncToTarget =
     mode === 'sync_fields' ? parseSyncTargetSpec(operation.to) : null
-
   return (
     <ScrollArea className='flex-1'>
       <div className='space-y-4 p-4'>
@@ -2408,8 +2712,14 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
               <span className='text-sm font-medium'>{t('Conditions')}</span>
               <Select
                 items={[
-                  { value: 'OR', label: t('Match Any (OR)') },
-                  { value: 'AND', label: t('Match All (AND)') },
+                  {
+                    value: 'OR',
+                    label: t('Match Any (OR)'),
+                  },
+                  {
+                    value: 'AND',
+                    label: t('Match All (AND)'),
+                  },
                 ]}
                 value={operation.logic || 'OR'}
                 onValueChange={(v) =>
@@ -2518,11 +2828,9 @@ type ConditionEditorProps = {
   ) => void
   removeCondition: (operationId: string, conditionId: string) => void
 }
-
 function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
   const { t } = useTranslation()
   const condition = conditionEditorProps.condition
-
   return (
     <Collapsible
       open={conditionEditorProps.expanded}
@@ -2577,7 +2885,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                     conditionEditorProps.updateCondition(
                       conditionEditorProps.operationId,
                       condition.id,
-                      { path: e.target.value }
+                      {
+                        path: e.target.value,
+                      }
                     )
                   }
                   placeholder='model'
@@ -2600,7 +2910,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                     conditionEditorProps.updateCondition(
                       conditionEditorProps.operationId,
                       condition.id,
-                      { mode: v }
+                      {
+                        mode: v,
+                      }
                     )
                   }
                   className='h-8 text-xs'
@@ -2617,7 +2929,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                     conditionEditorProps.updateCondition(
                       conditionEditorProps.operationId,
                       condition.id,
-                      { value_text: e.target.value }
+                      {
+                        value_text: e.target.value,
+                      }
                     )
                   }
                   placeholder={condition.mode === 'regex' ? '^gpt-' : 'gpt'}
@@ -2633,7 +2947,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                     conditionEditorProps.updateCondition(
                       conditionEditorProps.operationId,
                       condition.id,
-                      { invert: checked }
+                      {
+                        invert: checked,
+                      }
                     )
                   }
                 />
@@ -2646,7 +2962,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                     conditionEditorProps.updateCondition(
                       conditionEditorProps.operationId,
                       condition.id,
-                      { pass_missing_key: checked }
+                      {
+                        pass_missing_key: checked,
+                      }
                     )
                   }
                 />
@@ -2672,11 +2990,9 @@ type ReturnErrorEditorProps = {
     draftPatch: Partial<ReturnErrorDraft>
   ) => void
 }
-
 function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
   const { t } = useTranslation()
   const draft = returnErrorEditorProps.draft
-
   return (
     <div className='rounded-lg border p-3'>
       <div className='mb-2 flex items-center justify-between'>
@@ -2693,7 +3009,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
             onClick={() =>
               returnErrorEditorProps.updateDraft(
                 returnErrorEditorProps.operationId,
-                { simpleMode: true }
+                {
+                  simpleMode: true,
+                }
               )
             }
           >
@@ -2707,7 +3025,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
             onClick={() =>
               returnErrorEditorProps.updateDraft(
                 returnErrorEditorProps.operationId,
-                { simpleMode: false }
+                {
+                  simpleMode: false,
+                }
               )
             }
           >
@@ -2725,7 +3045,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
           onChange={(e) =>
             returnErrorEditorProps.updateDraft(
               returnErrorEditorProps.operationId,
-              { message: e.target.value }
+              {
+                message: e.target.value,
+              }
             )
           }
           placeholder={t('e.g. This request does not meet access policy')}
@@ -2750,7 +3072,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
                 onChange={(e) =>
                   returnErrorEditorProps.updateDraft(
                     returnErrorEditorProps.operationId,
-                    { statusCode: Number.parseInt(e.target.value, 10) || 400 }
+                    {
+                      statusCode: Number.parseInt(e.target.value, 10) || 400,
+                    }
                   )
                 }
                 placeholder='400'
@@ -2766,7 +3090,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
                 onChange={(e) =>
                   returnErrorEditorProps.updateDraft(
                     returnErrorEditorProps.operationId,
-                    { code: e.target.value }
+                    {
+                      code: e.target.value,
+                    }
                   )
                 }
                 placeholder='forced_bad_request'
@@ -2782,7 +3108,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
                 onChange={(e) =>
                   returnErrorEditorProps.updateDraft(
                     returnErrorEditorProps.operationId,
-                    { type: e.target.value }
+                    {
+                      type: e.target.value,
+                    }
                   )
                 }
                 placeholder='invalid_request_error'
@@ -2802,7 +3130,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
               onClick={() =>
                 returnErrorEditorProps.updateDraft(
                   returnErrorEditorProps.operationId,
-                  { skipRetry: true }
+                  {
+                    skipRetry: true,
+                  }
                 )
               }
             >
@@ -2816,7 +3146,9 @@ function ReturnErrorEditor(returnErrorEditorProps: ReturnErrorEditorProps) {
               onClick={() =>
                 returnErrorEditorProps.updateDraft(
                   returnErrorEditorProps.operationId,
-                  { skipRetry: false }
+                  {
+                    skipRetry: false,
+                  }
                 )
               }
             >
@@ -2892,11 +3224,9 @@ type PruneObjectsEditorProps = {
   ) => void
   removeRule: (operationId: string, ruleId: string) => void
 }
-
 function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
   const { t } = useTranslation()
   const draft = pruneObjectsEditorProps.draft
-
   return (
     <div className='rounded-lg border p-3'>
       <div className='mb-2 flex items-center justify-between'>
@@ -2911,7 +3241,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
             onClick={() =>
               pruneObjectsEditorProps.updateDraft(
                 pruneObjectsEditorProps.operationId,
-                { simpleMode: true }
+                {
+                  simpleMode: true,
+                }
               )
             }
           >
@@ -2925,7 +3257,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
             onClick={() =>
               pruneObjectsEditorProps.updateDraft(
                 pruneObjectsEditorProps.operationId,
-                { simpleMode: false }
+                {
+                  simpleMode: false,
+                }
               )
             }
           >
@@ -2941,7 +3275,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
           onChange={(e) =>
             pruneObjectsEditorProps.updateDraft(
               pruneObjectsEditorProps.operationId,
-              { typeText: e.target.value }
+              {
+                typeText: e.target.value,
+              }
             )
           }
           placeholder='redacted_thinking'
@@ -2960,14 +3296,22 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
               <label className='text-xs font-medium'>{t('Logic')}</label>
               <Select
                 items={[
-                  { value: 'AND', label: t('All Must Match (AND)') },
-                  { value: 'OR', label: t('Any Match (OR)') },
+                  {
+                    value: 'AND',
+                    label: t('All Must Match (AND)'),
+                  },
+                  {
+                    value: 'OR',
+                    label: t('Any Match (OR)'),
+                  },
                 ]}
                 value={draft.logic}
                 onValueChange={(v) =>
                   pruneObjectsEditorProps.updateDraft(
                     pruneObjectsEditorProps.operationId,
-                    { logic: v || 'AND' }
+                    {
+                      logic: v || 'AND',
+                    }
                   )
                 }
               >
@@ -2997,7 +3341,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                   onClick={() =>
                     pruneObjectsEditorProps.updateDraft(
                       pruneObjectsEditorProps.operationId,
-                      { recursive: true }
+                      {
+                        recursive: true,
+                      }
                     )
                   }
                 >
@@ -3011,7 +3357,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                   onClick={() =>
                     pruneObjectsEditorProps.updateDraft(
                       pruneObjectsEditorProps.operationId,
-                      { recursive: false }
+                      {
+                        recursive: false,
+                      }
                     )
                   }
                 >
@@ -3085,7 +3433,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                             pruneObjectsEditorProps.updateRule(
                               pruneObjectsEditorProps.operationId,
                               rule.id,
-                              { path: e.target.value }
+                              {
+                                path: e.target.value,
+                              }
                             )
                           }
                           placeholder='type'
@@ -3108,7 +3458,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                             pruneObjectsEditorProps.updateRule(
                               pruneObjectsEditorProps.operationId,
                               rule.id,
-                              { mode: v }
+                              {
+                                mode: v,
+                              }
                             )
                           }
                           className='h-7 text-xs'
@@ -3125,7 +3477,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                             pruneObjectsEditorProps.updateRule(
                               pruneObjectsEditorProps.operationId,
                               rule.id,
-                              { value_text: e.target.value }
+                              {
+                                value_text: e.target.value,
+                              }
                             )
                           }
                           placeholder='redacted_thinking'
@@ -3141,7 +3495,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                             pruneObjectsEditorProps.updateRule(
                               pruneObjectsEditorProps.operationId,
                               rule.id,
-                              { invert: checked }
+                              {
+                                invert: checked,
+                              }
                             )
                           }
                         />
@@ -3154,7 +3510,9 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                             pruneObjectsEditorProps.updateRule(
                               pruneObjectsEditorProps.operationId,
                               rule.id,
-                              { pass_missing_key: checked }
+                              {
+                                pass_missing_key: checked,
+                              }
                             )
                           }
                         />
@@ -3178,14 +3536,19 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
 
 type SyncFieldsEditorProps = {
   operationId: string
-  syncFromTarget: { type: string; key: string }
-  syncToTarget: { type: string; key: string }
+  syncFromTarget: {
+    type: string
+    key: string
+  }
+  syncToTarget: {
+    type: string
+    key: string
+  }
   updateOperation: (
     operationId: string,
     patch: Partial<ParamOverrideOperation>
   ) => void
 }
-
 function SyncFieldsEditor(syncFieldsEditorProps: SyncFieldsEditorProps) {
   const { t } = useTranslation()
   return (
@@ -3325,7 +3688,10 @@ function SyncFieldsEditor(syncFieldsEditorProps: SyncFieldsEditorProps) {
             onClick={() =>
               syncFieldsEditorProps.updateOperation(
                 syncFieldsEditorProps.operationId,
-                { from: preset.from, to: preset.to }
+                {
+                  from: preset.from,
+                  to: preset.to,
+                }
               )
             }
           >

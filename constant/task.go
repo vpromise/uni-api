@@ -3,11 +3,6 @@ package constant
 type TaskPlatform string
 
 const (
-	TaskPlatformSuno       TaskPlatform = "suno"
-	TaskPlatformMidjourney              = "mj"
-)
-
-const (
 	TaskActionImageToVideo     = "image_to_video"
 	TaskActionTextToVideo      = "text_to_video"
 	TaskActionFirstTailToVideo = "first_tail_to_video"

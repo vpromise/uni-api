@@ -25,7 +25,6 @@ import {
   type AuditDetailField,
 } from '../lib/audit-details'
 import { AuditDetailValue } from './audit-detail-value'
-
 export function AuditDetailFields(props: { fields: AuditDetailField[] }) {
   const { t } = useTranslation()
   return props.fields.map((field) => {

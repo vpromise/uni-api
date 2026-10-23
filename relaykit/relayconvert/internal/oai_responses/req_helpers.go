@@ -61,12 +61,6 @@ func InputItems(raw []byte) ([]map[string]any, error) {
 	return responsesInputItems(raw)
 }
 
-// omitTrailingAssistantText drops the assistant turns without tool calls that
-// end the converted conversation after a user turn or tool result. In
-// Responses they are history and the model answers with a new item; Claude and
-// Gemini would continue them as a prefill, which newer models reject with a
-// 400. Codex leaves them at the end of input when it retries a stream that
-// failed after an assistant message completed.
 func omitTrailingAssistantText[T any](c context.Context, turns []T, isUser, isAssistantText func(T) bool) []T {
 	end := len(turns)
 	for end > 0 && isAssistantText(turns[end-1]) {
@@ -194,33 +188,6 @@ func responsesObjectValue(value any, fallbackKey string) map[string]any {
 
 func ObjectValue(value any, fallbackKey string) map[string]any {
 	return responsesObjectValue(value, fallbackKey)
-}
-
-func responsesGeminiResponseMap(value any) map[string]any {
-	switch typed := value.(type) {
-	case nil:
-		return map[string]any{}
-	case map[string]any:
-		return typed
-	case string:
-		var object map[string]any
-		if err := kitutil.Unmarshal([]byte(typed), &object); err == nil {
-			return object
-		}
-		var array []any
-		if err := kitutil.Unmarshal([]byte(typed), &array); err == nil {
-			return map[string]any{"result": array}
-		}
-		return map[string]any{"content": typed}
-	case []any:
-		return map[string]any{"result": typed}
-	default:
-		return map[string]any{"content": typed}
-	}
-}
-
-func GeminiResponseMap(value any) map[string]any {
-	return responsesGeminiResponseMap(value)
 }
 
 func responsesParallelToolCalls(raw []byte) *bool {

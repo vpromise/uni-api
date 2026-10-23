@@ -27,13 +27,11 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import { getUserInfo } from '../../api'
 import type { UserInfo } from '../../types'
-
 interface UserInfoDialogProps {
   userId: number | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
 function InfoItem({ label, value }: { label: string; value: string | number }) {
   return (
     <div className='space-y-1.5'>
@@ -42,7 +40,6 @@ function InfoItem({ label, value }: { label: string; value: string | number }) {
     </div>
   )
 }
-
 export function UserInfoDialog({
   userId,
   open,
@@ -51,7 +48,6 @@ export function UserInfoDialog({
   const { t } = useTranslation()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-
   const fetchUserInfo = useCallback(
     async (id: number) => {
       setIsLoading(true)
@@ -70,13 +66,11 @@ export function UserInfoDialog({
     },
     [t]
   )
-
   useEffect(() => {
     if (open && userId) {
       fetchUserInfo(userId)
     }
   }, [open, userId, fetchUserInfo])
-
   return (
     <Dialog
       open={open}

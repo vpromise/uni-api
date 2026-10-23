@@ -30,7 +30,7 @@ import type { UsageLog } from './data/schema'
 /**
  * Log category for different log types
  */
-export type LogCategory = 'common' | 'drawing' | 'task'
+export type LogCategory = 'common' | 'task'
 
 // ============================================================================
 // Filter Types
@@ -60,9 +60,6 @@ export interface CommonLogFilters extends CommonFilters {
 /**
  * Drawing logs specific filters
  */
-export interface DrawingLogFilters extends CommonFilters {
-  mjId?: string
-}
 
 /**
  * Task logs specific filters
@@ -74,7 +71,7 @@ export interface TaskLogFilters extends CommonFilters {
 /**
  * Union type for all log filters
  */
-export type LogFilters = CommonLogFilters | DrawingLogFilters | TaskLogFilters
+export type LogFilters = CommonLogFilters | TaskLogFilters
 
 // ============================================================================
 // Common Logs Additional Types
@@ -93,7 +90,6 @@ export interface ChannelAffinityInfo {
   key_fp?: string
   using_group?: string
 }
-
 export const USAGE_BILLING_PATH = {
   LOCAL: 'local',
   UPSTREAM: 'upstream',
@@ -101,19 +97,14 @@ export const USAGE_BILLING_PATH = {
   OPENAI_ESTIMATED: 'billing-usage-openai-estimated',
   ANTHROPIC: 'billing-usage-anthropic',
   ANTHROPIC_ESTIMATED: 'billing-usage-anthropic-estimated',
-  GEMINI: 'billing-usage-gemini',
-  GEMINI_ESTIMATED: 'billing-usage-gemini-estimated',
 } as const
-
 export type UsageBillingPath =
   (typeof USAGE_BILLING_PATH)[keyof typeof USAGE_BILLING_PATH]
-
 export interface ToolSurchargeItem {
   name: string
   count: number
   price: number
 }
-
 export interface LogOtherData {
   admin_info?: {
     request_policy?: PolicyEvent[]
@@ -293,30 +284,6 @@ export interface LogStatistics {
 // Drawing Logs (MjProxy) Types
 // ============================================================================
 
-export interface MidjourneyLog {
-  id: number
-  user_id: number
-  channel_id: number
-  code: number
-  mj_id: string
-  action: string // IMAGINE, UPSCALE, VARIATION, etc. (backend field name)
-  submit_time: number // milliseconds
-  finish_time?: number // milliseconds
-  start_time?: number // milliseconds
-  fail_reason?: string
-  progress: string
-  prompt: string
-  prompt_en?: string
-  description?: string
-  buttons?: string
-  properties?: string
-  image_url?: string
-  status: string // NOT_START, SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE, MODAL
-  other?: string
-  created_at?: number
-  updated_at?: number
-}
-
 // ============================================================================
 // Task Logs Types
 // ============================================================================
@@ -361,35 +328,29 @@ export interface TaskLog {
   created_at?: number
   updated_at?: number
 }
-
 export interface TaskPluginInfo {
   key: string
   name: string
   version?: string
   author?: TaskPluginAuthor
 }
-
 export interface TaskPluginAuthor {
   name: string
   url?: string
 }
-
 export interface TaskPluginRuntimeInfo {
   key: string
   version: string
   api_version: number
   generation: number
 }
-
 export type TaskArtifactType = 'image' | 'video' | 'audio' | 'file'
-
 export interface TaskArtifact {
   key: string
   type: TaskArtifactType
   mime_type?: string
   content_url: string
 }
-
 export interface AudioClip {
   clip_id?: string
   id?: string
@@ -404,13 +365,10 @@ export interface AudioClip {
     duration?: number
   }
 }
-
 export interface TaskArtifactProjection {
   artifacts: TaskArtifact[]
   legacyContentUrl?: string
-  legacyAudioClips?: AudioClip[]
 }
-
 export interface TaskArtifactsResponse {
   success: boolean
   message?: string
@@ -418,7 +376,6 @@ export interface TaskArtifactsResponse {
   data?: {
     artifacts?: unknown
     legacy_content_url?: unknown
-    legacy_audio_clips?: unknown
   }
 }
 
@@ -440,18 +397,16 @@ export interface GetLogsParams {
   request_id?: string
   upstream_request_id?: string
 }
-
 export interface GetLogsResponse {
   success: boolean
   message?: string
   data?: {
-    items: UsageLog[] | MidjourneyLog[] | TaskLog[]
+    items: UsageLog[] | TaskLog[]
     total: number
     page: number
     page_size: number
   }
 }
-
 export interface GetLogStatsParams {
   type?: number
   username?: string
@@ -464,7 +419,6 @@ export interface GetLogStatsParams {
   request_id?: string
   upstream_request_id?: string
 }
-
 export interface GetLogStatsResponse {
   success: boolean
   message?: string
@@ -474,15 +428,6 @@ export interface GetLogStatsResponse {
 // ============================================================================
 // Drawing Log Types
 // ============================================================================
-
-export interface GetMidjourneyLogsParams {
-  p?: number
-  page_size?: number
-  channel_id?: string
-  mj_id?: string
-  start_timestamp?: number
-  end_timestamp?: number
-}
 
 // ============================================================================
 // Task Log Types
@@ -510,7 +455,10 @@ export interface FetchLogsConfig {
   page: number
   pageSize: number
   searchParams: Record<string, unknown>
-  columnFilters: Array<{ id: string; value: unknown }>
+  columnFilters: Array<{
+    id: string
+    value: unknown
+  }>
 }
 
 // ============================================================================

@@ -231,7 +231,7 @@ const PROFILE_BY_NAME = (name: string) => {
   if (/embed|rerank/.test(n)) return 'embedding'
   if (/image|sora|veo|kling|pika|jimeng|dalle|imagen/.test(n)) return 'image'
   if (/whisper|tts|voice|audio/.test(n)) return 'audio'
-  if (/o1|o3|o4|reasoning|thinking|deepseek-r/.test(n)) return 'reasoning'
+  if (/o1|o3|o4|reasoning|thinking/.test(n)) return 'reasoning'
   if (/flash|haiku|mini|small|nano|fast/.test(n)) return 'fast'
   if (/gpt-5|opus|ultra|405|70b/.test(n)) return 'large'
   return 'standard'

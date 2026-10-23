@@ -70,8 +70,6 @@ import {
   shouldLoadTaskArtifacts,
 } from '../lib/task-artifacts'
 import type { TaskArtifact, TaskArtifactType, TaskLog } from '../types'
-import { AudioPreviewDialog } from './dialogs/audio-preview-dialog'
-
 function artifactIcon(type: TaskArtifactType) {
   switch (type) {
     case 'image':
@@ -84,7 +82,6 @@ function artifactIcon(type: TaskArtifactType) {
       return File01Icon
   }
 }
-
 function artifactTypeLabel(type: TaskArtifactType): string {
   switch (type) {
     case 'image':
@@ -97,48 +94,6 @@ function artifactTypeLabel(type: TaskArtifactType): string {
       return 'File'
   }
 }
-
-// Task lists no longer carry the persisted snapshot, so the legacy Suno clip
-// list is fetched through the artifacts endpoint when the preview opens.
-function LegacyAudioPreview(props: { taskId: string }) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const artifactsQuery = useQuery({
-    queryKey: ['usage-logs', 'task-artifacts', props.taskId],
-    queryFn: async () =>
-      requireServerSuccess(await getTaskArtifacts(props.taskId)),
-    enabled: open,
-    retry: false,
-    staleTime: 30_000,
-  })
-
-  return (
-    <>
-      <button
-        type='button'
-        className='group flex items-center gap-1 text-left text-xs'
-        onClick={() => setOpen(true)}
-      >
-        <HugeiconsIcon
-          icon={MusicNote01Icon}
-          className='text-muted-foreground size-3'
-          strokeWidth={2}
-          aria-hidden='true'
-        />
-        <span className='text-foreground leading-snug group-hover:underline'>
-          {t('Click to preview audio')}
-        </span>
-      </button>
-      <AudioPreviewDialog
-        open={open}
-        onOpenChange={setOpen}
-        clips={artifactsQuery.data?.legacyAudioClips ?? []}
-        loading={open && artifactsQuery.isPending}
-      />
-    </>
-  )
-}
-
 function ArtifactMedia(props: {
   artifact: TaskArtifact
   mediaUrl: string
@@ -179,7 +134,6 @@ function ArtifactMedia(props: {
   }
   return null
 }
-
 function MediaFailure(props: { onRetry: () => void }) {
   const { t } = useTranslation()
   return (
@@ -205,7 +159,6 @@ function MediaFailure(props: { onRetry: () => void }) {
     </Alert>
   )
 }
-
 function TaskArtifactCard(props: { artifact: TaskArtifact }) {
   const { t } = useTranslation()
   const [mediaFailed, setMediaFailed] = useState(false)
@@ -213,7 +166,6 @@ function TaskArtifactCard(props: { artifact: TaskArtifact }) {
   const icon = artifactIcon(props.artifact.type)
   const isVisualArtifact =
     props.artifact.type === 'image' || props.artifact.type === 'video'
-
   let cardContent = (
     <div
       className={cn(
@@ -243,7 +195,6 @@ function TaskArtifactCard(props: { artifact: TaskArtifact }) {
       />
     )
   }
-
   return (
     <Card size='sm'>
       <CardHeader>
@@ -295,13 +246,11 @@ function TaskArtifactCard(props: { artifact: TaskArtifact }) {
     </Card>
   )
 }
-
 interface TaskArtifactsProps {
   taskId: string
   enabled: boolean
   emptyContent?: (legacyContentUrl?: string) => React.ReactNode
 }
-
 function TaskArtifacts(props: TaskArtifactsProps) {
   const { t } = useTranslation()
   const artifactsQuery = useQuery({
@@ -312,9 +261,7 @@ function TaskArtifacts(props: TaskArtifactsProps) {
     retry: false,
     staleTime: 30_000,
   })
-
   if (!props.enabled) return null
-
   if (artifactsQuery.isPending) {
     return (
       <div aria-label={t('Loading...')}>
@@ -322,7 +269,6 @@ function TaskArtifacts(props: TaskArtifactsProps) {
       </div>
     )
   }
-
   if (artifactsQuery.isError) {
     return (
       <Alert variant='destructive'>
@@ -352,7 +298,6 @@ function TaskArtifacts(props: TaskArtifactsProps) {
       </Alert>
     )
   }
-
   if (artifactsQuery.data.artifacts.length === 0) {
     return (
       props.emptyContent?.(artifactsQuery.data.legacyContentUrl) ?? (
@@ -360,7 +305,6 @@ function TaskArtifacts(props: TaskArtifactsProps) {
       )
     )
   }
-
   return (
     <div
       className={cn(
@@ -374,7 +318,6 @@ function TaskArtifacts(props: TaskArtifactsProps) {
     </div>
   )
 }
-
 function EmptyTaskArtifacts() {
   const { t } = useTranslation()
   return (
@@ -389,19 +332,16 @@ function EmptyTaskArtifacts() {
     </Empty>
   )
 }
-
 function LegacyTaskArtifacts(props: { legacyContentUrl?: string }) {
   if (props.legacyContentUrl) {
     return <LegacyVideoMedia contentUrl={props.legacyContentUrl} />
   }
   return <EmptyTaskArtifacts />
 }
-
 export function TaskArtifactsCell(props: { log: TaskLog }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const previewMode = resolveTaskPreviewMode(props.log)
-
   if (previewMode === 'discarded') {
     return (
       <TooltipProvider>
@@ -425,10 +365,6 @@ export function TaskArtifactsCell(props: { log: TaskLog }) {
   if (!shouldLoadTaskArtifacts(props.log, true)) {
     return <span className='text-muted-foreground/60 text-xs'>-</span>
   }
-  if (previewMode === 'legacy-suno') {
-    return <LegacyAudioPreview taskId={props.log.task_id} />
-  }
-
   return (
     <>
       {previewMode === 'legacy-video' ? (
@@ -489,15 +425,12 @@ export function TaskArtifactsCell(props: { log: TaskLog }) {
     </>
   )
 }
-
 interface LegacyVideoMediaProps {
   contentUrl: string
 }
-
 function LegacyVideoMedia(props: LegacyVideoMediaProps) {
   const [mediaFailed, setMediaFailed] = useState(false)
   const [mediaRevision, setMediaRevision] = useState(0)
-
   return mediaFailed ? (
     <MediaFailure
       onRetry={() => {

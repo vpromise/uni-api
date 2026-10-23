@@ -19,33 +19,36 @@ For commercial licensing, please contact support@quantumnous.com
 import type { FieldErrors, FieldPath } from 'react-hook-form'
 
 import {
-  CHANNEL_TYPE_OLLAMA,
   CLAUDE_FIELD_PASSTHROUGH_TYPES,
   MODEL_FETCHABLE_TYPES,
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../constants'
-import { CHANNEL_TYPE_ADVANCED_CUSTOM } from './advanced-custom'
 import { channelFormSchema, type ChannelFormValues } from './channel-form'
 import { supportsResponsesWebSocket } from './responses-websocket'
-
 export type ChannelProviderTarget =
-  | { kind: 'builtin'; type: number }
-  | { kind: 'plugin'; key: string }
-
+  | {
+      kind: 'builtin'
+      type: number
+    }
+  | {
+      kind: 'plugin'
+      key: string
+    }
 export type ChannelConfigurationSection =
   | 'connection'
   | 'routing'
   | 'request'
   | 'other'
-
 export type ChannelConfigurationStatus =
   | 'idle'
   | 'configured'
   | 'ready'
   | 'error'
-
 const CONFIGURATION_BLOCKS = {
-  modelMapping: { section: 'routing', fields: ['model_mapping'] },
+  modelMapping: {
+    section: 'routing',
+    fields: ['model_mapping'],
+  },
   routingStrategy: {
     section: 'routing',
     fields: ['priority', 'weight', 'test_model', 'auto_ban'],
@@ -61,7 +64,6 @@ const CONFIGURATION_BLOCKS = {
       'thinking_to_content',
       'pass_through_body_enabled',
       'responses_websocket_enabled',
-      'ollama_openai_chat',
       'system_prompt',
       'system_prompt_override',
     ],
@@ -96,7 +98,10 @@ const CONFIGURATION_BLOCKS = {
       'upstream_model_update_ignored_models',
     ],
   },
-  internalNotes: { section: 'other', fields: ['tag', 'remark'] },
+  internalNotes: {
+    section: 'other',
+    fields: ['tag', 'remark'],
+  },
 } as const satisfies Record<
   string,
   {
@@ -104,9 +109,7 @@ const CONFIGURATION_BLOCKS = {
     fields: readonly FieldPath<ChannelFormValues>[]
   }
 >
-
 export type ChannelConfigurationBlock = keyof typeof CONFIGURATION_BLOCKS
-
 export function getChannelConfigurationSection(
   field: string
 ): ChannelConfigurationSection {
@@ -117,7 +120,6 @@ export function getChannelConfigurationSection(
   }
   return 'connection'
 }
-
 function hasConfiguredJson(value: string | undefined): boolean {
   const trimmed = value?.trim()
   if (!trimmed || trimmed === 'null') return false
@@ -130,7 +132,6 @@ function hasConfiguredJson(value: string | undefined): boolean {
   }
   return true
 }
-
 export function getChannelConfigurationState(
   values: ChannelFormValues,
   errors: FieldErrors<ChannelFormValues>,
@@ -153,11 +154,10 @@ export function getChannelConfigurationState(
     requestProcessing: Boolean(
       (values.type === 1 && values.force_format) ||
       values.thinking_to_content ||
-      (values.type !== CHANNEL_TYPE_ADVANCED_CUSTOM &&
-        values.pass_through_body_enabled) ||
+      values.pass_through_body_enabled ||
       (supportsResponsesWebSocket(values.type) &&
         values.responses_websocket_enabled) ||
-      (values.type === CHANNEL_TYPE_OLLAMA && values.ollama_openai_chat) ||
+      false ||
       values.system_prompt?.trim() ||
       values.system_prompt_override
     ),
@@ -237,5 +237,8 @@ export function getChannelConfigurationState(
   ) {
     sections.connection = 'error'
   }
-  return { blocks, sections }
+  return {
+    blocks,
+    sections,
+  }
 }

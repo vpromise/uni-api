@@ -8,18 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewGeminiChatBillingUsageRequiresTokenContent(t *testing.T) {
-	require.Nil(t, NewGeminiChatBillingUsage(nil))
-	require.Nil(t, NewGeminiChatBillingUsage(&GeminiUsageMetadata{}))
-
-	billingUsage := NewGeminiChatBillingUsage(&GeminiUsageMetadata{PromptTokenCount: 1})
-	require.NotNil(t, billingUsage)
-	require.NotNil(t, billingUsage.GeminiUsageMetadata)
-	assert.Equal(t, BillingUsageSourceGeminiChat, billingUsage.Source)
-	assert.Equal(t, BillingUsageSemanticGemini, billingUsage.Semantic)
-	assert.False(t, billingUsage.Estimated)
-}
-
 func TestNewClaudeMessagesBillingUsageRequiresTokenContent(t *testing.T) {
 	require.Nil(t, NewClaudeMessagesBillingUsage(nil))
 	require.Nil(t, NewClaudeMessagesBillingUsage(&ClaudeUsage{}))
@@ -107,29 +95,6 @@ func TestCacheWriteTTLDetailsSurviveUsageSnapshots(t *testing.T) {
 	assert.Zero(t, InputTokenDetails{CacheWriteTokens: 7000, CacheWriteTokensDetails: &CacheWriteTokenDetails{TTL12hTokens: -1}}.CacheWrite12hTokens())
 }
 
-func TestNewEstimatedGeminiChatBillingUsage(t *testing.T) {
-	billingUsage := NewEstimatedGeminiChatBillingUsage(&Usage{
-		PromptTokens:     11,
-		CompletionTokens: 7,
-	})
-
-	require.NotNil(t, billingUsage)
-	require.NotNil(t, billingUsage.GeminiUsageMetadata)
-	assert.True(t, billingUsage.Estimated)
-	assert.Equal(t, 11, billingUsage.GeminiUsageMetadata.PromptTokenCount)
-	assert.Equal(t, 7, billingUsage.GeminiUsageMetadata.CandidatesTokenCount)
-	assert.Equal(t, 18, billingUsage.GeminiUsageMetadata.TotalTokenCount)
-}
-
-func TestCanonicalGeminiUsageClampsNegativeCompletionFromTotalMinusPrompt(t *testing.T) {
-	usage, ok := NewGeminiChatBillingUsage(&GeminiUsageMetadata{
-		PromptTokenCount: 50,
-		TotalTokenCount:  30,
-	}).CanonicalUsage()
-	require.True(t, ok)
-	assert.Equal(t, 0, usage.CompletionTokens)
-}
-
 func TestCanonicalOpenAIUsageMergesInputTokenDetailsFieldwise(t *testing.T) {
 	usage, ok := NewOpenAIResponsesBillingUsage(&Usage{
 		PromptTokens: 10,
@@ -155,9 +120,8 @@ func TestCanonicalOpenAIUsageMergesInputTokenDetailsFieldwise(t *testing.T) {
 
 func TestBillingUsageJSONUsesProtocolNamedFields(t *testing.T) {
 	billingUsage := &BillingUsage{
-		OpenAIUsage:         &Usage{PromptTokens: 1, BillingUsage: NewClaudeMessagesBillingUsage(&ClaudeUsage{InputTokens: 9})},
-		ClaudeUsage:         &ClaudeUsage{InputTokens: 2, BillingUsage: NewOpenAIChatBillingUsage(&Usage{PromptTokens: 8})},
-		GeminiUsageMetadata: &GeminiUsageMetadata{PromptTokenCount: 3, BillingUsage: NewOpenAIChatBillingUsage(&Usage{PromptTokens: 7})},
+		OpenAIUsage: &Usage{PromptTokens: 1, BillingUsage: NewClaudeMessagesBillingUsage(&ClaudeUsage{InputTokens: 9})},
+		ClaudeUsage: &ClaudeUsage{InputTokens: 2, BillingUsage: NewOpenAIChatBillingUsage(&Usage{PromptTokens: 8})},
 	}
 
 	data, err := kitutil.Marshal(billingUsage)
@@ -165,15 +129,12 @@ func TestBillingUsageJSONUsesProtocolNamedFields(t *testing.T) {
 
 	assert.Contains(t, string(data), `"openai_usage"`)
 	assert.Contains(t, string(data), `"claude_usage"`)
-	assert.Contains(t, string(data), `"gemini_usage_metadata"`)
 	assert.NotContains(t, string(data), `"usage":`)
 	assert.NotContains(t, string(data), `"usage_metadata"`)
 
 	clone := CloneBillingUsage(billingUsage)
 	require.NotNil(t, clone.OpenAIUsage)
 	require.NotNil(t, clone.ClaudeUsage)
-	require.NotNil(t, clone.GeminiUsageMetadata)
 	assert.Nil(t, clone.OpenAIUsage.BillingUsage)
 	assert.Nil(t, clone.ClaudeUsage.BillingUsage)
-	assert.Nil(t, clone.GeminiUsageMetadata.BillingUsage)
 }

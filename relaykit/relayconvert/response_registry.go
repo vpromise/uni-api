@@ -11,7 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
+
 	oaichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_chat"
 	oairesponses "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_responses"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/toolconv"
@@ -117,16 +117,12 @@ const (
 	ResponseConverterOAIChatToOAIResponses   = "oai_chat_to_oai_responses_resp"
 	ResponseConverterOAIResponsesToOAIChat   = "oai_responses_to_oai_chat_resp"
 	ResponseConverterOAIChatToClaudeMessages = "oai_chat_to_claude_messages_resp"
-	ResponseConverterOAIChatToGeminiChat     = "oai_chat_to_gemini_chat_resp"
-	ResponseConverterClaudeMessagesToOAIChat = "claude_messages_to_oai_chat_resp"
-	ResponseConverterGeminiChatToOAIChat     = "gemini_chat_to_oai_chat_resp"
 
-	responseConverterClaudeToGemini    = "claude_messages_to_gemini_chat_resp"
+	ResponseConverterClaudeMessagesToOAIChat = "claude_messages_to_oai_chat_resp"
+
 	responseConverterClaudeToResponses = "claude_messages_to_oai_responses_resp"
-	responseConverterGeminiToClaude    = "gemini_chat_to_claude_messages_resp"
-	responseConverterGeminiToResponses = "gemini_chat_to_oai_responses_resp"
+
 	responseConverterResponsesToClaude = "oai_responses_to_claude_messages_resp"
-	responseConverterResponsesToGemini = "oai_responses_to_gemini_chat_resp"
 )
 
 var (
@@ -637,7 +633,7 @@ func prepareResponseStreamInfo(info convmeta.Meta, spec ResponseConverterSpec) {
 	if spec.From != types.RelayFormatOpenAI {
 		return
 	}
-	if spec.To != types.RelayFormatClaude && spec.To != types.RelayFormatGemini {
+	if spec.To != types.RelayFormatClaude {
 		return
 	}
 	info.IncrSendResponseCount()
@@ -821,8 +817,7 @@ func inferResponseRelayFormat(response any) (types.RelayFormat, error) {
 		return types.RelayFormatOpenAIResponses, nil
 	case *dto.ClaudeResponse, dto.ClaudeResponse:
 		return types.RelayFormatClaude, nil
-	case *dto.GeminiChatResponse, dto.GeminiChatResponse:
-		return types.RelayFormatGemini, nil
+
 	default:
 		return "", fmt.Errorf("unsupported response type %T", response)
 	}
@@ -853,8 +848,7 @@ func canonicalUsageFromResponse(response any) *dto.Usage {
 		response = &resp
 	case dto.ClaudeResponse:
 		response = &resp
-	case dto.GeminiChatResponse:
-		response = &resp
+
 	}
 	switch resp := response.(type) {
 	case *dto.OpenAITextResponse:
@@ -873,8 +867,7 @@ func canonicalUsageFromResponse(response any) *dto.Usage {
 		return UsageFromResponsesUsage(resp.Response.Usage)
 	case *dto.ClaudeResponse:
 		return usageFromClaudeResponse(resp)
-	case *dto.GeminiChatResponse:
-		return UsageFromGeminiMetadata(resp.GetUsageMetadata(), 0)
+
 	default:
 		return nil
 	}
@@ -1075,54 +1068,6 @@ func finalizeOAIChatStreamResponseToClaudeMessages(_ context.Context, info convm
 	return streamValuesFromAny(responses), usage, nil
 }
 
-func convertOAIChatResponseToGeminiChat(_ context.Context, info convmeta.Meta, response any) (any, *dto.Usage, error) {
-	chatResponse, err := asOAIChatResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ResponseOpenAI2Gemini(chatResponse, info), UsageFromChatUsage(&chatResponse.Usage), nil
-}
-
-func convertOAIChatStreamResponseToGeminiChat(_ context.Context, info convmeta.Meta, response any) (any, *dto.Usage, error) {
-	chatResponse, err := asOAIChatStreamResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	return StreamResponseOpenAI2Gemini(chatResponse, info), canonicalUsageFromResponse(chatResponse), nil
-}
-
-func newOAIChatToGeminiStreamState(_ ResponseStreamOptions) any {
-	return oaichat.NewChatToGeminiStreamState()
-}
-
-func convertOAIChatStreamResponseChunkToGeminiChat(_ context.Context, info convmeta.Meta, response any, state any) ([]any, *dto.Usage, error) {
-	chatResponse, err := asOAIChatStreamResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	streamState, ok := state.(*oaichat.ChatToGeminiStreamState)
-	if !ok || streamState == nil {
-		return nil, nil, errors.New("OAI chat to Gemini stream state is required")
-	}
-	responses, err := streamState.ConvertChunk(chatResponse, info)
-	if err != nil {
-		return nil, nil, err
-	}
-	return streamValuesFromAny(responses), canonicalUsageFromResponse(chatResponse), nil
-}
-
-func finalizeOAIChatStreamResponseToGeminiChat(_ context.Context, info convmeta.Meta, state any) ([]any, *dto.Usage, error) {
-	streamState, ok := state.(*oaichat.ChatToGeminiStreamState)
-	if !ok || streamState == nil {
-		return nil, nil, errors.New("OAI chat to Gemini stream state is required")
-	}
-	responses, err := streamState.Finalize(info)
-	if err != nil {
-		return nil, nil, err
-	}
-	return streamValuesFromAny(responses), streamState.Usage(), nil
-}
-
 func convertClaudeMessagesResponseToOAIChat(_ context.Context, _ convmeta.Meta, response any) (any, *dto.Usage, error) {
 	claudeResponse, err := asClaudeResponse(response)
 	if err != nil {
@@ -1171,81 +1116,6 @@ func convertClaudeMessagesStreamResponseChunkToOAIChat(_ context.Context, _ conv
 		openAIResponse.Usage = usage
 	}
 	return streamValuesFromAny(openAIResponse), usage, nil
-}
-
-func convertGeminiChatResponseToOAIChat(_ context.Context, info convmeta.Meta, response any) (any, *dto.Usage, error) {
-	geminiResponse, err := asGeminiChatResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	usage := UsageFromGeminiMetadata(geminiResponse.GetUsageMetadata(), fallbackPromptTokens(info))
-	openAIResponse := ResponseGeminiChat2OpenAI(fmt.Sprintf("chatcmpl-%s", kitutil.GetUUID()), kitutil.GetTimestamp(), geminiResponse)
-	if info != nil && info.HasChannelMeta() {
-		openAIResponse.Model = info.GetUpstreamModelName()
-	}
-	if usage != nil {
-		openAIResponse.Usage = *usage
-	}
-	return openAIResponse, usage, nil
-}
-
-func newGeminiChatToOAIChatStreamState(options ResponseStreamOptions) any {
-	return geminichat.NewGeminiToChatStreamState(options.ID, options.Created)
-}
-
-func convertGeminiChatStreamResponseChunkToOAIChat(_ context.Context, info convmeta.Meta, response any, state any) ([]any, *dto.Usage, error) {
-	geminiResponse, err := asGeminiChatResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	streamState, ok := state.(*geminichat.GeminiToChatStreamState)
-	if !ok || streamState == nil {
-		return nil, nil, errors.New("Gemini chat to OAI chat stream state is required")
-	}
-	usage := UsageFromGeminiMetadata(geminiResponse.GetUsageMetadata(), fallbackPromptTokens(info))
-	model := ""
-	if info != nil && info.HasChannelMeta() {
-		model = info.GetUpstreamModelName()
-	}
-	responses, err := streamState.ConvertChunk(geminiResponse, model, usage)
-	if err != nil {
-		return nil, nil, err
-	}
-	return streamValuesFromAny(responses), usage, nil
-}
-
-func finalizeGeminiChatStreamResponseToOAIChat(_ context.Context, info convmeta.Meta, state any) ([]any, *dto.Usage, error) {
-	streamState, ok := state.(*geminichat.GeminiToChatStreamState)
-	if !ok || streamState == nil {
-		return nil, nil, errors.New("Gemini chat to OAI chat stream state is required")
-	}
-	model := ""
-	if info != nil && info.HasChannelMeta() {
-		model = info.GetUpstreamModelName()
-	}
-	responses, err := streamState.Finalize(model)
-	if err != nil {
-		return nil, nil, err
-	}
-	return streamValuesFromAny(responses), streamState.Usage(), nil
-}
-
-func convertGeminiChatStreamResponseToOAIChat(_ context.Context, info convmeta.Meta, response any) (any, *dto.Usage, error) {
-	geminiResponse, err := asGeminiChatResponse(response)
-	if err != nil {
-		return nil, nil, err
-	}
-	openAIResponse, _ := StreamResponseGeminiChat2OpenAI(geminiResponse)
-	usage := UsageFromGeminiMetadata(geminiResponse.GetUsageMetadata(), fallbackPromptTokens(info))
-	if openAIResponse != nil {
-		openAIResponse.Id = fmt.Sprintf("chatcmpl-%s", kitutil.GetUUID())
-		openAIResponse.Created = kitutil.GetTimestamp()
-		if info != nil && info.HasChannelMeta() {
-			openAIResponse.Model = info.GetUpstreamModelName()
-		}
-		openAIResponse.Usage = usage
-	}
-	return openAIResponse, usage, nil
 }
 
 func fallbackPromptTokens(info convmeta.Meta) int {
@@ -1307,16 +1177,5 @@ func asClaudeResponse(response any) (*dto.ClaudeResponse, error) {
 		return &resp, nil
 	default:
 		return nil, fmt.Errorf("expected Claude messages response, got %T", response)
-	}
-}
-
-func asGeminiChatResponse(response any) (*dto.GeminiChatResponse, error) {
-	switch resp := response.(type) {
-	case *dto.GeminiChatResponse:
-		return resp, nil
-	case dto.GeminiChatResponse:
-		return &resp, nil
-	default:
-		return nil, fmt.Errorf("expected Gemini chat response, got %T", response)
 	}
 }

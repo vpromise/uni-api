@@ -39,7 +39,6 @@ import { useUsageLogsContext } from './usage-logs-provider'
 export function CommonLogsHeaderActions() {
   const { t } = useTranslation()
   const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
-
   return (
     <div className='flex flex-wrap items-center gap-2'>
       <CommonLogsStats />

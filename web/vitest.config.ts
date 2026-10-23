@@ -31,6 +31,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Bound concurrent jsdom environments to limit memory and swap usage.
+    maxWorkers: 2,
     server: {
       deps: { inline: [/@lobehub\//, /antd-style/] },
     },

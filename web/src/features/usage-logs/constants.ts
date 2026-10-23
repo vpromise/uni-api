@@ -76,10 +76,22 @@ export const LOG_TYPE_ALL_VALUE = '0' as const
  * Quick time range presets for filter dialog
  */
 export const TIME_RANGE_PRESETS = [
-  { days: 1, label: '24 Hours' },
-  { days: 7, label: '7 Days' },
-  { days: 14, label: '14 Days' },
-  { days: 30, label: '30 Days' },
+  {
+    days: 1,
+    label: '24 Hours',
+  },
+  {
+    days: 7,
+    label: '7 Days',
+  },
+  {
+    days: 14,
+    label: '14 Days',
+  },
+  {
+    days: 30,
+    label: '30 Days',
+  },
 ] as const
 
 // ============================================================================
@@ -90,14 +102,46 @@ export const TIME_RANGE_PRESETS = [
  * Log types configuration for filtering and display
  */
 export const LOG_TYPES = [
-  { value: 0, label: 'Unknown', color: 'default' },
-  { value: 1, label: 'Top-up', color: 'cyan' },
-  { value: 2, label: 'Consume', color: 'green' },
-  { value: 3, label: 'Manage', color: 'orange' },
-  { value: 4, label: 'System', color: 'purple' },
-  { value: 5, label: 'Error', color: 'red' },
-  { value: 6, label: 'Refund', color: 'blue' },
-  { value: 7, label: 'Login', color: 'teal' },
+  {
+    value: 0,
+    label: 'Unknown',
+    color: 'default',
+  },
+  {
+    value: 1,
+    label: 'Top-up',
+    color: 'cyan',
+  },
+  {
+    value: 2,
+    label: 'Consume',
+    color: 'green',
+  },
+  {
+    value: 3,
+    label: 'Manage',
+    color: 'orange',
+  },
+  {
+    value: 4,
+    label: 'System',
+    color: 'purple',
+  },
+  {
+    value: 5,
+    label: 'Error',
+    color: 'red',
+  },
+  {
+    value: 6,
+    label: 'Refund',
+    color: 'blue',
+  },
+  {
+    value: 7,
+    label: 'Login',
+    color: 'teal',
+  },
 ] as const
 
 /**
@@ -106,7 +150,11 @@ export const LOG_TYPES = [
  * must not expose the display-only "Unknown" label for that value.
  */
 export const LOG_TYPE_FILTERS = [
-  { label: 'All Types', value: LOG_TYPE_ALL_VALUE, deprecated: false },
+  {
+    label: 'All Types',
+    value: LOG_TYPE_ALL_VALUE,
+    deprecated: false,
+  },
   ...LOG_TYPES.filter((type) => type.value !== LOG_TYPE_ENUM.UNKNOWN).map(
     (type) => ({
       label: type.label,
@@ -126,48 +174,14 @@ export const LOG_TYPE_FILTERS = [
  * MjProxy task types
  * Must match backend constants in constant/midjourney.go
  */
-export const MJ_TASK_TYPES = {
-  IMAGINE: 'IMAGINE', // 绘图
-  UPSCALE: 'UPSCALE', // 放大
-  VIDEO: 'VIDEO', // 视频
-  EDITS: 'EDITS', // 编辑
-  VARIATION: 'VARIATION', // 变换
-  HIGH_VARIATION: 'HIGH_VARIATION', // 强变换
-  LOW_VARIATION: 'LOW_VARIATION', // 弱变换
-  PAN: 'PAN', // 平移
-  DESCRIBE: 'DESCRIBE', // 图生文
-  BLEND: 'BLEND', // 图混合
-  UPLOAD: 'UPLOAD', // 上传文件
-  SHORTEN: 'SHORTEN', // 缩词
-  REROLL: 'REROLL', // 重绘
-  INPAINT: 'INPAINT', // 局部重绘
-  SWAP_FACE: 'SWAP_FACE', // 换脸
-  ZOOM: 'ZOOM', // 缩放
-  CUSTOM_ZOOM: 'CUSTOM_ZOOM', // 自定义缩放
-  MODAL: 'MODAL', // 窗口
-} as const
 
 /**
  * MjProxy task status
  */
-export const MJ_TASK_STATUS = {
-  NOT_START: 'NOT_START', // 未启动
-  SUBMITTED: 'SUBMITTED', // 队列中
-  IN_PROGRESS: 'IN_PROGRESS', // 执行中
-  SUCCESS: 'SUCCESS', // 成功
-  FAILURE: 'FAILURE', // 失败
-  MODAL: 'MODAL', // 窗口等待
-} as const
 
 /**
  * MjProxy submit result codes
  */
-export const MJ_SUBMIT_RESULT_CODES = {
-  NOT_SUBMITTED: 0, // 未提交
-  SUBMITTED: 1, // 已提交
-  WAITING: 21, // 等待中
-  DUPLICATE: 22, // 重复任务
-} as const
 
 // ============================================================================
 // Task Logs Constants
@@ -178,15 +192,20 @@ export const MJ_SUBMIT_RESULT_CODES = {
  * Must match backend constants in constant/task.go
  */
 export const TASK_ACTIONS = {
-  // Suno (uppercase)
-  MUSIC: 'MUSIC', // 生成音乐
-  LYRICS: 'LYRICS', // 生成歌词
+  MUSIC: 'MUSIC',
+  // 生成音乐
+  LYRICS: 'LYRICS',
+  // 生成歌词
 
   // Video generation (camelCase)
-  GENERATE: 'generate', // 图生视频
-  TEXT_GENERATE: 'textGenerate', // 文生视频
-  FIRST_TAIL_GENERATE: 'firstTailGenerate', // 首尾生视频
-  REFERENCE_GENERATE: 'referenceGenerate', // 参照生视频
+  GENERATE: 'generate',
+  // 图生视频
+  TEXT_GENERATE: 'textGenerate',
+  // 文生视频
+  FIRST_TAIL_GENERATE: 'firstTailGenerate',
+  // 首尾生视频
+  REFERENCE_GENERATE: 'referenceGenerate',
+  // 参照生视频
   REMIX_GENERATE: 'remixGenerate', // 视频 Remix
 } as const
 
@@ -194,12 +213,18 @@ export const TASK_ACTIONS = {
  * Task status
  */
 export const TASK_STATUS = {
-  NOT_START: 'NOT_START', // 未启动
-  SUBMITTED: 'SUBMITTED', // 队列中
-  IN_PROGRESS: 'IN_PROGRESS', // 执行中
-  SUCCESS: 'SUCCESS', // 成功
-  FAILURE: 'FAILURE', // 失败
-  QUEUED: 'QUEUED', // 排队中
+  NOT_START: 'NOT_START',
+  // 未启动
+  SUBMITTED: 'SUBMITTED',
+  // 队列中
+  IN_PROGRESS: 'IN_PROGRESS',
+  // 执行中
+  SUCCESS: 'SUCCESS',
+  // 成功
+  FAILURE: 'FAILURE',
+  // 失败
+  QUEUED: 'QUEUED',
+  // 排队中
   UNKNOWN: 'UNKNOWN', // 未知
 } as const
 
@@ -207,12 +232,7 @@ export const TASK_STATUS = {
  * Task platforms
  */
 export const TASK_PLATFORMS = {
-  SUNO: 'suno',
-  SUNOAPI: 'sunoapi',
-  KLING: 'kling',
-  RUNWAY: 'runway',
-  LUMA: 'luma',
-  VIGGLE: 'viggle',
+  SORA: 'sora',
 } as const
 
 // ============================================================================
@@ -230,68 +250,35 @@ export interface StatusMapping {
 /**
  * MjProxy task type mappings
  */
-export const MJ_TASK_TYPE_MAPPINGS: Record<string, StatusMapping> = {
-  [MJ_TASK_TYPES.IMAGINE]: { label: 'Draw', variant: 'blue' },
-  [MJ_TASK_TYPES.UPSCALE]: { label: 'Upscale', variant: 'orange' },
-  [MJ_TASK_TYPES.VIDEO]: { label: 'Video', variant: 'orange' },
-  [MJ_TASK_TYPES.EDITS]: { label: 'Edit', variant: 'orange' },
-  [MJ_TASK_TYPES.VARIATION]: { label: 'Vary', variant: 'violet' },
-  [MJ_TASK_TYPES.HIGH_VARIATION]: { label: 'Vary (Strong)', variant: 'violet' },
-  [MJ_TASK_TYPES.LOW_VARIATION]: { label: 'Vary (Subtle)', variant: 'violet' },
-  [MJ_TASK_TYPES.PAN]: { label: 'Pan', variant: 'cyan' },
-  [MJ_TASK_TYPES.DESCRIBE]: { label: 'Describe', variant: 'yellow' },
-  [MJ_TASK_TYPES.BLEND]: { label: 'Blend', variant: 'lime' },
-  [MJ_TASK_TYPES.UPLOAD]: { label: 'Upload', variant: 'blue' },
-  [MJ_TASK_TYPES.SHORTEN]: { label: 'Shorten', variant: 'pink' },
-  [MJ_TASK_TYPES.REROLL]: { label: 'Reroll', variant: 'indigo' },
-  [MJ_TASK_TYPES.INPAINT]: { label: 'Inpaint', variant: 'teal' },
-  [MJ_TASK_TYPES.SWAP_FACE]: { label: 'Swap Face', variant: 'purple' },
-  [MJ_TASK_TYPES.ZOOM]: { label: 'Zoom', variant: 'green' },
-  [MJ_TASK_TYPES.CUSTOM_ZOOM]: { label: 'Custom Zoom', variant: 'green' },
-}
 
 /**
  * MjProxy task status mappings
  */
-export const MJ_STATUS_MAPPINGS: Record<string, StatusMapping> = {
-  [MJ_TASK_STATUS.SUCCESS]: { label: 'Success', variant: 'green' },
-  [MJ_TASK_STATUS.NOT_START]: { label: 'Not Started', variant: 'neutral' },
-  [MJ_TASK_STATUS.SUBMITTED]: { label: 'Queued', variant: 'yellow' },
-  [MJ_TASK_STATUS.IN_PROGRESS]: { label: 'In Progress', variant: 'blue' },
-  [MJ_TASK_STATUS.FAILURE]: { label: 'Failed', variant: 'red' },
-  [MJ_TASK_STATUS.MODAL]: { label: 'Waiting', variant: 'amber' },
-}
 
 /**
  * MjProxy submit result mappings
  */
-export const MJ_SUBMIT_RESULT_MAPPINGS: Record<string, StatusMapping> = {
-  [String(MJ_SUBMIT_RESULT_CODES.SUBMITTED)]: {
-    label: 'Submitted',
-    variant: 'green',
-  },
-  [String(MJ_SUBMIT_RESULT_CODES.WAITING)]: {
-    label: 'Waiting',
-    variant: 'lime',
-  },
-  [String(MJ_SUBMIT_RESULT_CODES.DUPLICATE)]: {
-    label: 'Duplicate',
-    variant: 'orange',
-  },
-  [String(MJ_SUBMIT_RESULT_CODES.NOT_SUBMITTED)]: {
-    label: 'Not Submitted',
-    variant: 'yellow',
-  },
-}
 
 /**
  * Task action type mappings
  */
 export const TASK_ACTION_MAPPINGS: Record<string, StatusMapping> = {
-  [TASK_ACTIONS.MUSIC]: { label: 'Generate Music', variant: 'neutral' },
-  [TASK_ACTIONS.LYRICS]: { label: 'Generate Lyrics', variant: 'pink' },
-  [TASK_ACTIONS.GENERATE]: { label: 'Image to Video', variant: 'blue' },
-  [TASK_ACTIONS.TEXT_GENERATE]: { label: 'Text to Video', variant: 'blue' },
+  [TASK_ACTIONS.MUSIC]: {
+    label: 'Generate Music',
+    variant: 'neutral',
+  },
+  [TASK_ACTIONS.LYRICS]: {
+    label: 'Generate Lyrics',
+    variant: 'pink',
+  },
+  [TASK_ACTIONS.GENERATE]: {
+    label: 'Image to Video',
+    variant: 'blue',
+  },
+  [TASK_ACTIONS.TEXT_GENERATE]: {
+    label: 'Text to Video',
+    variant: 'blue',
+  },
   [TASK_ACTIONS.FIRST_TAIL_GENERATE]: {
     label: 'First/Last Frame to Video',
     variant: 'blue',
@@ -310,25 +297,44 @@ export const TASK_ACTION_MAPPINGS: Record<string, StatusMapping> = {
  * Task status mappings
  */
 export const TASK_STATUS_MAPPINGS: Record<string, StatusMapping> = {
-  [TASK_STATUS.SUCCESS]: { label: 'Success', variant: 'green' },
-  [TASK_STATUS.NOT_START]: { label: 'Not Started', variant: 'neutral' },
-  [TASK_STATUS.SUBMITTED]: { label: 'Queued', variant: 'yellow' },
-  [TASK_STATUS.IN_PROGRESS]: { label: 'In Progress', variant: 'blue' },
-  [TASK_STATUS.FAILURE]: { label: 'Failed', variant: 'red' },
-  [TASK_STATUS.QUEUED]: { label: 'Queued', variant: 'orange' },
-  [TASK_STATUS.UNKNOWN]: { label: 'Unknown', variant: 'neutral' },
+  [TASK_STATUS.SUCCESS]: {
+    label: 'Success',
+    variant: 'green',
+  },
+  [TASK_STATUS.NOT_START]: {
+    label: 'Not Started',
+    variant: 'neutral',
+  },
+  [TASK_STATUS.SUBMITTED]: {
+    label: 'Queued',
+    variant: 'yellow',
+  },
+  [TASK_STATUS.IN_PROGRESS]: {
+    label: 'In Progress',
+    variant: 'blue',
+  },
+  [TASK_STATUS.FAILURE]: {
+    label: 'Failed',
+    variant: 'red',
+  },
+  [TASK_STATUS.QUEUED]: {
+    label: 'Queued',
+    variant: 'orange',
+  },
+  [TASK_STATUS.UNKNOWN]: {
+    label: 'Unknown',
+    variant: 'neutral',
+  },
 }
 
 /**
  * Task platform mappings
  */
 export const TASK_PLATFORM_MAPPINGS: Record<string, StatusMapping> = {
-  [TASK_PLATFORMS.SUNO]: { label: 'suno', variant: 'green' },
-  [TASK_PLATFORMS.SUNOAPI]: { label: 'sunoapi', variant: 'green' },
-  [TASK_PLATFORMS.KLING]: { label: 'kling', variant: 'blue' },
-  [TASK_PLATFORMS.RUNWAY]: { label: 'runway', variant: 'violet' },
-  [TASK_PLATFORMS.LUMA]: { label: 'luma', variant: 'orange' },
-  [TASK_PLATFORMS.VIGGLE]: { label: 'viggle', variant: 'pink' },
+  [TASK_PLATFORMS.SORA]: {
+    label: 'Sora',
+    variant: 'green',
+  },
 }
 
 // ============================================================================
@@ -340,7 +346,6 @@ export const TASK_PLATFORM_MAPPINGS: Record<string, StatusMapping> = {
  */
 export const LOG_CATEGORY_LABELS: Record<LogCategory, string> = {
   common: 'Common',
-  drawing: 'Drawing',
   task: 'Task',
 }
 

@@ -30,9 +30,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getAuditLogs, type AuditFilters, type AuditLog } from '../api'
 import { useAuditLogColumns } from './audit-log-columns'
 import { AuditLogFilterBar } from './audit-log-filter-bar'
-
 const EMPTY_LOGS: AuditLog[] = []
-
 export function AuditLogViewer(props: {
   scope: 'all' | 'self'
   accessOnly?: boolean
@@ -43,10 +41,15 @@ export function AuditLogViewer(props: {
 }) {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
-  const [filters, setFilters] = useState<AuditFilters>({ p: 1, page_size: 20 })
+  const [filters, setFilters] = useState<AuditFilters>({
+    p: 1,
+    page_size: 20,
+  })
   const defaultTokenScope = props.defaultTokenScope ?? 'all'
   const [tokenScope, setTokenScope] = useState<string>(defaultTokenScope)
-  const params = { ...filters }
+  const params = {
+    ...filters,
+  }
   if (props.accessOnly) params.category = 'access_token'
   if (tokenScope === 'current') params.token_ref = props.currentTokenRef
   if (tokenScope === 'historical') {
@@ -84,7 +87,10 @@ export function AuditLogViewer(props: {
         : EMPTY_LOGS,
     getRowId: (entry) => entry.event_id,
     totalCount: query.isError ? 0 : (query.data?.total ?? 0),
-    pagination: { pageIndex: filters.p - 1, pageSize: filters.page_size },
+    pagination: {
+      pageIndex: filters.p - 1,
+      pageSize: filters.page_size,
+    },
     onPaginationChange: (updater) => {
       if (query.isFetching || query.isError || invalidRange || !canQuery) return
       setFilters((previous) => {
@@ -106,8 +112,11 @@ export function AuditLogViewer(props: {
     manualPagination: true,
   })
   const update = (patch: Partial<AuditFilters>) =>
-    setFilters((previous) => ({ ...previous, ...patch, p: 1 }))
-
+    setFilters((previous) => ({
+      ...previous,
+      ...patch,
+      p: 1,
+    }))
   return (
     <div className='flex h-full min-h-0 flex-col'>
       <DataTablePage
@@ -145,7 +154,10 @@ export function AuditLogViewer(props: {
               }}
               onReset={() => {
                 setTokenScope(defaultTokenScope)
-                setFilters({ p: 1, page_size: filters.page_size })
+                setFilters({
+                  p: 1,
+                  page_size: filters.page_size,
+                })
               }}
             />
             {invalidRange && (

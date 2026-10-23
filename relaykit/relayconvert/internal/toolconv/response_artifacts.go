@@ -7,7 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
+
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
 	"github.com/QuantumNous/new-api/relaykit/types"
 )
@@ -66,8 +66,7 @@ func ExtractHostedResponse(format types.RelayFormat, response any) (any, HostedR
 		return extractClaudeHostedResponse(response)
 	case types.RelayFormatOpenAIResponses:
 		return extractOpenAIHostedResponse(response)
-	case types.RelayFormatGemini:
-		return extractGeminiHostedResponse(response)
+
 	default:
 		return response, HostedResponseSet{Source: format}, nil
 	}
@@ -232,46 +231,6 @@ func extractOpenAIHostedResponse(response any) (any, HostedResponseSet, error) {
 		})
 	}
 	return &clone, set, nil
-}
-
-func extractGeminiHostedResponse(response any) (any, HostedResponseSet, error) {
-	var source *dto.GeminiChatResponse
-	switch value := response.(type) {
-	case *dto.GeminiChatResponse:
-		source = value
-	case dto.GeminiChatResponse:
-		source = &value
-	default:
-		return nil, HostedResponseSet{}, fmt.Errorf("expected Gemini response, got %T", response)
-	}
-	queries := geminichat.GroundingWebSearchQueries(source)
-	if len(queries) == 0 {
-		return source, HostedResponseSet{Source: types.RelayFormatGemini}, nil
-	}
-	action, err := kitutil.Marshal(map[string]any{
-		"type":    "search",
-		"queries": queries,
-	})
-	if err != nil {
-		return nil, HostedResponseSet{}, fmt.Errorf("marshal Gemini web-search action: %w", err)
-	}
-	// The Chat pivot emits the answer as the regular Responses output. Place
-	// the hosted call after that output, matching the stream bridge which only
-	// learns Gemini's queries once grounding metadata arrives near stream end.
-	set := HostedResponseSet{
-		Source:           types.RelayFormatGemini,
-		SourceLength:     2,
-		RegularPositions: []int{0},
-		Items: []HostedResponseItem{{
-			Kind:       KindWebSearch,
-			NativeType: "googleSearch",
-			ID:         fmt.Sprintf("ws_%s", kitutil.GetUUID()),
-			Status:     "completed",
-			Position:   1,
-			Action:     action,
-		}},
-	}
-	return source, set, nil
 }
 
 func attachOpenAIHostedResponse(response any, set HostedResponseSet) (any, []types.ConversionDiagnostic, error) {

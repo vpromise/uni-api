@@ -23,7 +23,10 @@ import type { StatusBadgeProps } from '@/components/status-badge'
  * Creates a function to map status values to labels and variants
  */
 export function createStatusMapper<T extends string>(mapping: {
-  [key in T]?: { label: string; variant: StatusBadgeProps['variant'] }
+  [key in T]?: {
+    label: string
+    variant: StatusBadgeProps['variant']
+  }
 }) {
   return {
     getLabel: (status: string, defaultLabel = 'Unknown'): string => {

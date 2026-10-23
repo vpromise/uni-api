@@ -17,11 +17,3 @@ func StreamResponseOpenAI2Claude(openAIResponse *dto.ChatCompletionsStreamRespon
 func ResponseOpenAI2Claude(openAIResponse *dto.OpenAITextResponse, info *relaycommon.RelayInfo) *dto.ClaudeResponse {
 	return relayconvert.ResponseOpenAI2Claude(openAIResponse, info)
 }
-
-func ResponseOpenAI2Gemini(openAIResponse *dto.OpenAITextResponse, info *relaycommon.RelayInfo) *dto.GeminiChatResponse {
-	return relayconvert.ResponseOpenAI2Gemini(openAIResponse, info)
-}
-
-func StreamResponseOpenAI2Gemini(openAIResponse *dto.ChatCompletionsStreamResponse, info *relaycommon.RelayInfo) *dto.GeminiChatResponse {
-	return relayconvert.StreamResponseOpenAI2Gemini(openAIResponse, info)
-}

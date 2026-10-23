@@ -33,9 +33,6 @@ func TestResponseConverterFacades(t *testing.T) {
 	require.NotNil(t, claudeResp)
 	assert.Equal(t, "message", claudeResp.Type)
 
-	geminiResp := ResponseOpenAI2Gemini(chatResp, &relaycommon.RelayInfo{})
-	require.NotNil(t, geminiResp)
-	require.Len(t, geminiResp.Candidates, 1)
 }
 
 func TestStreamResponseConverterFacades(t *testing.T) {
@@ -60,13 +57,10 @@ func TestStreamResponseConverterFacades(t *testing.T) {
 	claudeResponses := StreamResponseOpenAI2Claude(streamResp, info)
 	require.NotEmpty(t, claudeResponses)
 
-	geminiResp := StreamResponseOpenAI2Gemini(streamResp, &relaycommon.RelayInfo{})
-	require.NotNil(t, geminiResp)
-	require.Len(t, geminiResp.Candidates, 1)
 }
 
 func TestRequestConverterFacadeAcceptsTypedNilRelayInfo(t *testing.T) {
-	for _, target := range []types.RelayFormat{types.RelayFormatClaude, types.RelayFormatGemini} {
+	for _, target := range []types.RelayFormat{types.RelayFormatClaude} {
 		t.Run(string(target), func(t *testing.T) {
 			var info *relaycommon.RelayInfo
 			request := &dto.GeneralOpenAIRequest{
@@ -103,10 +97,6 @@ func TestStreamResponseConverterFacadesAcceptTypedNilRelayInfo(t *testing.T) {
 	require.NotEmpty(t, claudeResponses)
 	assert.Equal(t, "content_block_start", claudeResponses[0].Type)
 
-	geminiResp := StreamResponseOpenAI2Gemini(streamResp, info)
-	require.NotNil(t, geminiResp)
-	require.Len(t, geminiResp.Candidates, 1)
-	assert.Zero(t, geminiResp.UsageMetadata.PromptTokenCount)
 }
 
 func ptrValue[T any](value T) *T {

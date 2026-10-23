@@ -22,14 +22,12 @@ import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-
 interface ImageDialogProps {
   imageUrl: string
   taskId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
 export function ImageDialog({
   imageUrl,
   taskId,
@@ -48,17 +46,14 @@ export function ImageDialog({
     }
     onOpenChange(newOpen)
   }
-
   const handleImageLoad = () => {
     setIsLoading(false)
     setHasError(false)
   }
-
   const handleImageError = () => {
     setIsLoading(false)
     setHasError(true)
   }
-
   return (
     <Dialog
       open={open}
@@ -83,9 +78,7 @@ export function ImageDialog({
             <img
               src={imageUrl}
               alt={t('Generated image')}
-              className={`max-h-[550px] w-full rounded-lg object-contain ${
-                isLoading || hasError ? 'opacity-0' : 'opacity-100'
-              }`}
+              className={`max-h-[550px] w-full rounded-lg object-contain ${isLoading || hasError ? 'opacity-0' : 'opacity-100'}`}
               onLoad={handleImageLoad}
               onError={handleImageError}
               loading='lazy'

@@ -212,7 +212,6 @@ func parseHostModelSuffix(name string, opts *convmeta.Options) (string, reasonin
 	return hostreasoning.ParseLegacyModelSuffix(
 		name,
 		opts.Claude.ThinkingAdapterEnabled,
-		opts.Gemini.ThinkingAdapterEnabled,
 	)
 }
 
@@ -220,8 +219,7 @@ func explicitIntentFromRequest(req dto.Request) (reasoning.Intent, []types.Conve
 	switch r := req.(type) {
 	case *dto.ClaudeRequest:
 		return reasoning.FromClaude(r)
-	case *dto.GeminiChatRequest:
-		return reasoning.FromGemini(r)
+
 	case *dto.GeneralOpenAIRequest:
 		return reasoning.FromOpenAIChat(r)
 	case *dto.OpenAIResponsesRequest:

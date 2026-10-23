@@ -21,7 +21,6 @@ import { t } from 'i18next'
 import type { ApiResponse } from '@/features/profile/types'
 import { api } from '@/lib/api'
 import { createServerError } from '@/lib/server-error-message'
-
 export interface AuditLog {
   event_id: string
   user_id: number
@@ -57,10 +56,18 @@ export interface AuditFilters {
 export async function getAuditLogs(
   scope: 'all' | 'self',
   params: AuditFilters
-): Promise<{ items: AuditLog[]; total: number }> {
+): Promise<{
+  items: AuditLog[]
+  total: number
+}> {
   const response = await api.get<
-    ApiResponse<{ items: AuditLog[]; total: number }>
-  >(scope === 'all' ? '/api/audit' : '/api/audit/self', { params })
+    ApiResponse<{
+      items: AuditLog[]
+      total: number
+    }>
+  >(scope === 'all' ? '/api/audit' : '/api/audit/self', {
+    params,
+  })
   if (!response.data.success || !response.data.data) {
     throw createServerError(response.data, t('Failed to load audit records'))
   }

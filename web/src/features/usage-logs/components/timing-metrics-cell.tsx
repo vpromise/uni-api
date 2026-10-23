@@ -49,7 +49,6 @@ const barColorMap: Record<StatusVariant, string> = {
   danger: 'bg-destructive/80',
   neutral: 'bg-neutral/80',
 }
-
 interface TimingMetricsCellProps {
   useTimeSec: number
   completionTokens: number
@@ -65,7 +64,6 @@ interface TimingMetricsCellProps {
   indicator?: 'bar' | 'dot'
   compact?: boolean
 }
-
 export function TimingMetricsCell(props: TimingMetricsCellProps) {
   const { t } = useTranslation()
   const indicator = props.indicator ?? 'bar'
@@ -83,7 +81,6 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
   const firstTokenLabel =
     firstTokenSeconds == null ? t('N/A') : formatUseTime(firstTokenSeconds)
   const totalTimeLabel = formatUseTime(props.useTimeSec)
-
   const labels = (
     <div
       className={cn(
@@ -128,13 +125,11 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
       </div>
     </div>
   )
-
   if (indicator === 'dot') {
     return (
       <div className={cn('flex items-stretch', props.className)}>{labels}</div>
     )
   }
-
   return (
     <div className={cn('flex items-stretch gap-2', props.className)}>
       <span
@@ -155,7 +150,6 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
     </div>
   )
 }
-
 interface StreamTpsCellProps {
   isStream: boolean
   compact?: boolean
@@ -167,7 +161,6 @@ interface StreamTpsCellProps {
   streamStatus?: LogOtherData['stream_status']
   className?: string
 }
-
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
   const showStreamError =
@@ -180,7 +173,6 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
   if (props.isTask) {
     streamLabel = props.isSyncTask ? t('Sync') : t('Async')
   }
-
   return (
     <div
       className={cn(

@@ -1100,7 +1100,7 @@ func decodeMeta(value any) (Meta, error) {
 		}
 		seen := make(map[string]bool)
 		for _, kind := range meta.SubmitResponseTypes {
-			if (kind != "json" && kind != "sse") || seen[kind] {
+			if kind != "json" && kind != "sse" || seen[kind] {
 				return Meta{}, fmt.Errorf("invalid or duplicate submitResponseTypes value %q", kind)
 			}
 			seen[kind] = true
@@ -1174,10 +1174,8 @@ func decodeMeta(value any) (Meta, error) {
 		return Meta{}, fmt.Errorf("plugin meta auth must be a string or object")
 	}
 	meta.Auth.Type = strings.TrimSpace(meta.Auth.Type)
-	if meta.Auth.Type == "vertex_oauth" {
-		meta.Auth.Type = "oauth2_jwt"
-	}
-	if meta.Auth.Type != "" && meta.Auth.Type != "none" && meta.Auth.Type != "api_key" && meta.Auth.Type != "oauth2_jwt" {
+
+	if meta.Auth.Type != "" && meta.Auth.Type != "none" && meta.Auth.Type != "api_key" {
 		return Meta{}, fmt.Errorf("unsupported plugin auth type %q", meta.Auth.Type)
 	}
 	if meta.APIVersion != APIVersion1 {
@@ -1212,7 +1210,7 @@ func normalizeV1Meta(meta *Meta) error {
 	}
 	seenUpstreams := make(map[string]bool, len(meta.Upstreams))
 	for _, kind := range meta.Upstreams {
-		if (kind != UpstreamKindVendor && kind != UpstreamKindNewAPI) || seenUpstreams[kind] {
+		if kind != UpstreamKindVendor && kind != UpstreamKindNewAPI || seenUpstreams[kind] {
 			return fmt.Errorf("unsupported or duplicate upstream kind %q", kind)
 		}
 		seenUpstreams[kind] = true
@@ -1279,7 +1277,7 @@ func normalizeV1Meta(meta *Meta) error {
 	meta.Author.URL = strings.TrimSpace(meta.Author.URL)
 	if meta.Author.URL != "" {
 		parsedURL, err := url.Parse(meta.Author.URL)
-		if err != nil || parsedURL.Host == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		if err != nil || parsedURL.Host == "" || parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 			return fmt.Errorf("plugin meta author url must be an absolute HTTP(S) URL")
 		}
 	}
@@ -1314,9 +1312,7 @@ func normalizeV1Meta(meta *Meta) error {
 		if channelType == constant.ChannelTypeTaskPlugin {
 			return fmt.Errorf("plugin meta channelTypes must not contain the task plugin channel type")
 		}
-		if channelType == constant.ChannelTypeNewAPI {
-			return fmt.Errorf("plugin meta channelTypes must not contain the New API channel type; bind the plugin through task_extend_plugin_keys instead")
-		}
+
 		if _, duplicate := seenChannelTypes[channelType]; duplicate {
 			return fmt.Errorf("plugin meta channelTypes must be unique")
 		}

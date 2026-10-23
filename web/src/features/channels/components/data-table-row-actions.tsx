@@ -20,7 +20,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Row } from '@tanstack/react-table'
 import {
   MoreHorizontal,
-  Boxes,
   Pencil,
   PlugZap,
   Gauge,
@@ -71,11 +70,9 @@ import {
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
 import { useChannels } from './channels-provider'
-
 interface DataTableRowActionsProps {
   row: Row<Channel>
 }
-
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { t } = useTranslation()
   const layout = useContext(ChannelRowActionsLayoutContext)
@@ -86,7 +83,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
-
   const isEnabled = isChannelEnabled(channel)
   const isMultiKey = isMultiKeyChannel(channel)
   const canEditSensitive = hasPermission(
@@ -94,54 +90,49 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
     ADMIN_PERMISSION_ACTIONS.SENSITIVE_WRITE
   )
-
   const handleEdit = () => {
     setCurrentRow(channel)
     setOpen('update-channel')
   }
-
   const handleTest = () => {
     setCurrentRow(channel)
     setOpen('test-channel')
   }
-
   const handleDirectTest = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setIsTesting(true)
     try {
-      await handleTestChannel(channel.id, { channelName: channel.name }, () => {
-        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
-      })
+      await handleTestChannel(
+        channel.id,
+        {
+          channelName: channel.name,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: channelsQueryKeys.lists(),
+          })
+        }
+      )
     } finally {
       setIsTesting(false)
     }
   }
-
   const handleQueryBalance = () => {
     setCurrentRow(channel)
     setOpen('balance-query')
   }
-
   const handleFetchModels = () => {
     setCurrentRow(channel)
     setOpen('fetch-models')
   }
-
-  const handleManageOllamaModels = () => {
-    setCurrentRow(channel)
-    setOpen('ollama-models')
-  }
-
   const handleCopy = () => {
     setCurrentRow(channel)
     setOpen('copy-channel')
   }
-
   const handleManageKeys = () => {
     setCurrentRow(channel)
     setOpen('multi-key-manage')
   }
-
   const handleToggleStatus = async (
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
@@ -153,14 +144,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       setIsTogglingStatus(false)
     }
   }
-
   let statusIcon = <Power className='size-4' />
   if (isTogglingStatus) {
     statusIcon = <Loader2 className='size-4 animate-spin' />
   } else if (isEnabled) {
     statusIcon = <PowerOff className='size-4' />
   }
-
   return (
     <div className='-ml-1.5 flex items-center gap-1'>
       {layout !== 'card' && (
@@ -308,16 +297,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuItem>
           )}
 
-          {/* Ollama Models (only for Ollama channels) */}
-          {channel.type === 4 && (
-            <DropdownMenuItem onClick={handleManageOllamaModels}>
-              {t('Manage Ollama Models')}
-              <DropdownMenuShortcut>
-                <Boxes size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-
           <DropdownMenuSeparator />
 
           {/* Copy Channel */}
@@ -372,7 +351,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         title={t('Delete Channel')}
         desc={t(
           'Are you sure you want to delete channel "{{name}}"? This action cannot be undone.',
-          { name: channel.name }
+          {
+            name: channel.name,
+          }
         )}
         confirmText={t('Delete')}
         destructive

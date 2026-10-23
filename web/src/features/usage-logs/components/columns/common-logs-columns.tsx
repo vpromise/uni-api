@@ -78,20 +78,17 @@ import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
-
 interface DetailSegment {
   text: string
   muted?: boolean
   danger?: boolean
 }
-
 function formatRatioCompact(ratio: number | undefined): string {
   if (ratio == null || !Number.isFinite(ratio)) return '-'
   return ratio % 1 === 0
     ? String(ratio)
     : ratio.toFixed(4).replace(/\.?0+$/, '')
 }
-
 function getGroupRatio(other: LogOtherData | null): number | null {
   const userGroupRatio = other?.user_group_ratio
   if (
@@ -101,15 +98,12 @@ function getGroupRatio(other: LogOtherData | null): number | null {
   ) {
     return userGroupRatio
   }
-
   const groupRatio = other?.group_ratio
   if (groupRatio != null && groupRatio !== 1 && Number.isFinite(groupRatio)) {
     return groupRatio
   }
-
   return null
 }
-
 function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
@@ -125,11 +119,13 @@ function buildDetailSegments(
   // backend already strips admin_info for non-admins; gate on isAdmin too as
   // defense in depth so the marker never leaks if that changes.
   if (isAdmin && other?.admin_info?.quota_saturation) {
-    adminSegments.push({ text: t('Quota clamped'), danger: true })
+    adminSegments.push({
+      text: t('Quota clamped'),
+      danger: true,
+    })
   }
   return [...adminSegments, ...segments]
 }
-
 function buildTypeDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
@@ -140,19 +136,29 @@ function buildTypeDetailSegments(
   // Top-up, audit, and login logs can carry a localized operation descriptor.
   if (log.type === 1 || log.type === 3 || log.type === 7) {
     const text = renderAuditContent(other, t) ?? renderLogContent(other, t)
-    return text ? [{ text }] : []
+    return text
+      ? [
+          {
+            text,
+          },
+        ]
+      : []
   }
-
   if (log.type === 6) {
-    return [{ text: t('Async task refund') }]
+    return [
+      {
+        text: t('Async task refund'),
+      },
+    ]
   }
-
   if (log.type !== 2) return []
-
   const isViolation = isViolationFeeLog(other)
   if (isViolation) {
     const segments: DetailSegment[] = []
-    segments.push({ text: t('Violation Fee'), danger: true })
+    segments.push({
+      text: t('Violation Fee'),
+      danger: true,
+    })
     if (other?.violation_fee_code) {
       segments.push({
         text: other.violation_fee_code,
@@ -165,12 +171,13 @@ function buildTypeDetailSegments(
     })
     return segments
   }
-
   if (!other) return []
-
   const segments: DetailSegment[] = []
-
-  const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
+  const priceOpts = {
+    digitsLarge: 4,
+    digitsSmall: 6,
+    abbreviate: false,
+  }
   const formatPrice = (price: number) =>
     `${formatBillingCurrencyFromUSD(price, priceOpts)}/M`
   const formatPriceCompact = (price: number) =>
@@ -198,11 +205,15 @@ function buildTypeDetailSegments(
         const definition = usageSchema?.[field]
         const unitKey = getTaskUsagePriceUnitLabelKey(definition?.unit)
         const unitLabel = taskUsageUnitLabel(definition, language, t(unitKey))
-        return `${field} ${formatTaskUsageUnitPrice(price, { tokenUnit: 'M' })}/${unitLabel}`
+        return `${field} ${formatTaskUsageUnitPrice(price, {
+          tokenUnit: 'M',
+        })}/${unitLabel}`
       })
       if (tier.constant > 0) {
         prices.push(
-          `${t('Additional charge')} ${formatTaskUsageUnitPrice(tier.constant, { tokenUnit: 'M' })}/${t('request')}`
+          `${t('Additional charge')} ${formatTaskUsageUnitPrice(tier.constant, {
+            tokenUnit: 'M',
+          })}/${t('request')}`
         )
       }
       segments.push({
@@ -225,7 +236,6 @@ function buildTypeDetailSegments(
           text: `${tierLabel} · ${formatPriceList(baseEntries, true)}`,
         })
       }
-
       const cacheEntries = tieredSummary.priceEntries
         .filter((entry) =>
           [
@@ -244,7 +254,6 @@ function buildTypeDetailSegments(
           muted: true,
         })
       }
-
       const otherEntries = tieredSummary.priceEntries
         .filter(
           (entry) =>
@@ -292,7 +301,6 @@ function buildTypeDetailSegments(
       segments.push({
         text: `${t('Standard')} · ${formatPriceList(baseEntries, true)}`,
       })
-
       if (hasAnyCacheTokens(other)) {
         const cacheEntries = [
           other.cache_ratio != null && other.cache_ratio !== 1
@@ -310,7 +318,6 @@ function buildTypeDetailSegments(
             ? formatPriceCompact(inputPriceUSD * other.cache_creation_ratio_12h)
             : null,
         ].filter(Boolean) as string[]
-
         if (cacheEntries.length > 0) {
           segments.push({
             text: `${t('Cache')} ${formatPriceList(cacheEntries, false)}`,
@@ -329,7 +336,6 @@ function buildTypeDetailSegments(
       const ratioLabel = isUserGroup
         ? t('User Exclusive Ratio')
         : t('Group Ratio')
-
       if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
         segments.push({
           text: `${ratioLabel} ${formatRatioCompact(effectiveRatio)}x`,
@@ -337,17 +343,14 @@ function buildTypeDetailSegments(
       }
     }
   }
-
   if (other.is_system_prompt_overwritten) {
     segments.push({
       text: t('System Prompt Override'),
       danger: true,
     })
   }
-
   return segments
 }
-
 export function useCommonLogsColumns(
   isAdmin: boolean,
   isRoot: boolean,
@@ -364,7 +367,6 @@ export function useCommonLogsColumns(
           const log = row.original
           const timestamp = row.getValue('created_at') as number
           const config = getLogTypeConfig(log.type)
-
           return (
             <div className='flex min-w-0 flex-col gap-0.5'>
               <span className='truncate font-mono text-xs tabular-nums'>
@@ -389,7 +391,6 @@ export function useCommonLogsColumns(
         size: 180,
       },
     ]
-
     if (isAdmin) {
       columns.push(
         {
@@ -403,9 +404,7 @@ export function useCommonLogsColumns(
               setAffinityDialogOpen,
             } = useUsageLogsContext()
             const log = row.original
-
             if (!isDisplayableLogType(log.type)) return null
-
             const other = parseLogOther(log.other)
             const affinity = other?.admin_info?.channel_affinity
             const rawUseChannel = other?.admin_info?.use_channel ?? []
@@ -426,7 +425,6 @@ export function useCommonLogsColumns(
               other?.admin_info?.is_multi_key === true &&
               typeof multiKeyIndex === 'number' &&
               Number.isFinite(multiKeyIndex)
-
             return (
               <TooltipProvider>
                 <Tooltip>
@@ -563,9 +561,7 @@ export function useCommonLogsColumns(
               setUserInfoDialogOpen,
             } = useUsageLogsContext()
             const log = row.original
-
             if (!log.username) return null
-
             return (
               <button
                 type='button'
@@ -613,7 +609,6 @@ export function useCommonLogsColumns(
         }
       )
     }
-
     columns.push({
       accessorKey: 'token_name',
       header: t('Token'),
@@ -621,16 +616,13 @@ export function useCommonLogsColumns(
         const { sensitiveVisible } = useUsageLogsContext()
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
-
         const tokenName = logTokenName(log, t)
         if (!tokenName) return null
-
         const other = parseLogOther(log.other)
         const displayName = sensitiveVisible ? tokenName : '••••'
         let group = log.group
         if (!group) group = other?.group || ''
         const groupRatio = getGroupRatio(other)
-
         return (
           <div className='flex max-w-[200px] flex-col gap-0.5'>
             <TooltipProvider delay={300}>
@@ -683,9 +675,7 @@ export function useCommonLogsColumns(
         cell: function ModelCell({ row }) {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
-
           const modelInfo = formatModelName(log)
-
           return (
             <div className='flex w-fit flex-col gap-0.5'>
               <ModelBadge
@@ -696,7 +686,9 @@ export function useCommonLogsColumns(
             </div>
           )
         },
-        meta: { mobileTitle: true },
+        meta: {
+          mobileTitle: true,
+        },
       },
       {
         accessorKey: 'is_stream',
@@ -704,14 +696,12 @@ export function useCommonLogsColumns(
         cell: ({ row }) => {
           const log = row.original
           if (!isTimingLogType(log.type)) return null
-
           const useTime = row.getValue('use_time') as number
           const other = parseLogOther(log.other)
           const tokensPerSecond =
             useTime > 0 && log.completion_tokens > 0
               ? log.completion_tokens / useTime
               : null
-
           return (
             <StreamTpsCell
               isStream={log.is_stream}
@@ -722,23 +712,24 @@ export function useCommonLogsColumns(
             />
           )
         },
-        meta: { label: t('Stream') },
+        meta: {
+          label: t('Stream'),
+        },
       },
       {
         accessorKey: 'prompt_tokens',
-        header: t('Tokens', { context: 'usage' }),
+        header: t('Tokens', {
+          context: 'usage',
+        }),
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
-
           const other = parseLogOther(log.other)
-
           const promptTokens = log.prompt_tokens || 0
           const completionTokens = log.completion_tokens || 0
           if (promptTokens === 0 && completionTokens === 0) {
             return <span className='text-muted-foreground text-xs'>-</span>
           }
-
           const cacheReadTokens = other?.cache_tokens || 0
           const cacheWrite5m = other?.cache_creation_tokens_5m || 0
           const cacheWrite1h = other?.cache_creation_tokens_1h || 0
@@ -746,7 +737,6 @@ export function useCommonLogsColumns(
           const cacheWriteTokens = hasSplitCache
             ? cacheWrite5m + cacheWrite1h
             : other?.cache_creation_tokens || 0
-
           return (
             <div className='flex flex-col gap-0.5'>
               <span className='font-mono text-xs font-medium tabular-nums'>
@@ -777,7 +767,6 @@ export function useCommonLogsColumns(
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
-
           const quota = row.getValue('quota') as number
           const other = parseLogOther(log.other)
           return (
@@ -789,17 +778,14 @@ export function useCommonLogsColumns(
           )
         },
       },
-
       {
         accessorKey: 'use_time',
         header: t('Timing'),
         cell: ({ row }) => {
           const log = row.original
           if (!isTimingLogType(log.type)) return null
-
           const useTime = row.getValue('use_time') as number
           const other = parseLogOther(log.other)
-
           return (
             <TimingMetricsCell
               useTimeSec={useTime}
@@ -810,7 +796,6 @@ export function useCommonLogsColumns(
           )
         },
       },
-
       {
         accessorKey: 'content',
         header: t('Details'),
@@ -819,7 +804,6 @@ export function useCommonLogsColumns(
           const [dialogOpen, setDialogOpen] = useState(false)
           const log = row.original
           const other = parseLogOther(log.other)
-
           const pricingData = usePricingData(
             log.type === 2 &&
               other?.is_task === true &&
@@ -873,7 +857,6 @@ export function useCommonLogsColumns(
               </span>
             )
           }
-
           return (
             <>
               <button
@@ -898,7 +881,6 @@ export function useCommonLogsColumns(
         maxSize: 200,
       }
     )
-
     return columns
     // Log formatters read currency settings from the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps

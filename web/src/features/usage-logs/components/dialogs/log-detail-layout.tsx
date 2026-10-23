@@ -21,7 +21,6 @@ import type { ReactNode } from 'react'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-
 export function DetailRow(props: {
   label: ReactNode
   value: ReactNode
@@ -45,7 +44,6 @@ export function DetailRow(props: {
     </div>
   )
 }
-
 export function DetailSection(props: {
   icon?: ReactNode
   iconTone?: IconBadgeTone

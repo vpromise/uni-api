@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"github.com/openai/openai-go"
+
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -12,10 +14,10 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
-	builtinplugins "github.com/QuantumNous/new-api/plugins"
+
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
-	"github.com/openai/openai-go"
+
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/responses"
 	"github.com/openai/openai-go/shared"
@@ -144,125 +146,6 @@ func TestTaskPluginResponsesStreamDecodesWithOfficialGoSDK(t *testing.T) {
 	}, eventTypes)
 	assert.Equal(t, []int64{0, 1, 2, 3, 4, 5, 6, 7}, sequenceNumbers)
 	assert.Equal(t, "official-sdk-stream", completedText)
-}
-
-func TestBuiltInKlingResponsesNonStreamDecodesWithOfficialGoSDK(t *testing.T) {
-	pinned, deps := builtInKlingProtocolSDKFixture(t, "task_kling_sdk_final")
-	server := newPluginProtocolSDKTestServer(t, pinned, deps)
-	defer server.Close()
-	client := openai.NewClient(
-		option.WithAPIKey("test-key"),
-		option.WithBaseURL(server.URL+"/v1/"),
-		option.WithMaxRetries(0),
-	)
-	requestContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	response, err := client.Responses.New(requestContext, responses.ResponseNewParams{
-		Model: shared.ResponsesModel("kling-v2-master"),
-		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String("camera orbit"),
-		},
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, responses.ResponseStatusCompleted, response.Status)
-	assert.Equal(t, "kling-v2-master", response.Model)
-	assert.Contains(t, response.OutputText(), "https://gateway.example/v1/tasks/task_kling_sdk_final/artifacts/video/content")
-	assert.NotContains(t, response.OutputText(), "upstream.example")
-	assert.Equal(t, "kling", response.Metadata["vendor"])
-	assert.Equal(t, "task_kling_sdk_final", response.Metadata["task_id"])
-}
-
-func TestBuiltInKlingResponsesStreamDecodesWithOfficialGoSDK(t *testing.T) {
-	pinned, deps := builtInKlingProtocolSDKFixture(t, "task_kling_sdk_stream")
-	server := newPluginProtocolSDKTestServer(t, pinned, deps)
-	defer server.Close()
-	client := openai.NewClient(
-		option.WithAPIKey("test-key"),
-		option.WithBaseURL(server.URL+"/v1/"),
-		option.WithMaxRetries(0),
-	)
-	requestContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	stream := client.Responses.NewStreaming(requestContext, responses.ResponseNewParams{
-		Model: shared.ResponsesModel("kling-v2-master"),
-		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String("camera orbit"),
-		},
-	})
-	defer stream.Close()
-	eventTypes := make([]string, 0, 8)
-	sequenceNumbers := make([]int64, 0, 8)
-	var completedText string
-	for stream.Next() {
-		event := stream.Current()
-		eventTypes = append(eventTypes, event.Type)
-		sequenceNumbers = append(sequenceNumbers, event.SequenceNumber)
-		if event.Type == "response.completed" {
-			completedText = event.Response.OutputText()
-		}
-	}
-
-	require.NoError(t, stream.Err())
-	assert.Equal(t, []string{
-		"response.created",
-		"response.output_item.added",
-		"response.content_part.added",
-		"response.output_text.delta",
-		"response.output_text.done",
-		"response.content_part.done",
-		"response.output_item.done",
-		"response.completed",
-	}, eventTypes)
-	assert.Equal(t, []int64{0, 1, 2, 3, 4, 5, 6, 7}, sequenceNumbers)
-	assert.Contains(t, completedText, "https://gateway.example/v1/tasks/task_kling_sdk_stream/artifacts/video/content")
-	assert.NotContains(t, completedText, "upstream.example")
-}
-
-func builtInKlingProtocolSDKFixture(t *testing.T, taskID string) (pluginruntime.PinnedEndpoint, pluginProtocolBridgeDeps) {
-	t.Helper()
-	source, err := builtinplugins.Source("kling")
-	require.NoError(t, err)
-	registry := pluginruntime.NewRegistry()
-	plugin, err := registry.RegisterFactory(source, pluginruntime.Options{Key: "kling"})
-	require.NoError(t, err)
-	binding, found := registry.Generation().LookupEndpoint(http.MethodPost, "/v1/responses", "kling-v2-master")
-	require.True(t, found)
-	pinned := pluginruntime.PinnedEndpoint{
-		Generation: registry.Generation(),
-		Plugin:     plugin,
-		Protocol:   binding.Protocol,
-		Operation:  binding.Operation,
-		Model:      binding.Model,
-		Candidates: []pluginruntime.ProtocolBinding{binding},
-	}
-	deps := pluginProtocolTestDeps()
-	deps.submit = func(_ *gin.Context, info *relaycommon.RelayInfo) (*taskSubmissionOutcome, *dto.TaskError) {
-		return pluginProtocolTestOutcome(info, plugin.Meta.Key, taskID, nil), nil
-	}
-	deps.loadTask = func(context.Context, int, constant.TaskPlatform, string) (*model.Task, bool, error) {
-		task := &model.Task{
-			TaskID: taskID, Platform: constant.TaskPlatform(plugin.Meta.Key), UserId: 71,
-			Status: model.TaskStatusSuccess, Progress: "100%", CreatedAt: 1_710_000_000,
-		}
-		task.SetData(map[string]any{
-			"code": 0,
-			"data": map[string]any{
-				"task_id":     "upstream-private",
-				"task_status": "succeed",
-				"task_result": map[string]any{
-					"videos": []any{map[string]any{"url": "https://upstream.example/private-video.mp4"}},
-				},
-			},
-		})
-		return task, true, nil
-	}
-	deps.artifactContentURL = func(publicTaskID, artifactKey string) (string, error) {
-		return "https://gateway.example/v1/tasks/" + publicTaskID + "/artifacts/" + artifactKey + "/content", nil
-	}
-	return pinned, deps
 }
 
 func newPluginProtocolSDKTestServer(

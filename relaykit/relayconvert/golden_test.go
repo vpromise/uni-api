@@ -102,13 +102,6 @@ func goldenInfo() convmeta.Meta {
 		ClaudeConvertInfo: &convmeta.ClaudeConvertInfo{
 			LastMessagesType: convmeta.LastMessageTypeNone,
 		},
-		Options: &convmeta.Options{
-			Gemini: convmeta.GeminiOptions{
-				ThinkingAdapterBudgetTokensPercentage: 0.6,
-				FunctionCallThoughtSignatureEnabled:   true,
-				SafetySetting:                         func(string) string { return "OFF" },
-			},
-		},
 	}
 }
 
@@ -206,21 +199,6 @@ func fixtureResponses() map[types.RelayFormat]any {
 		"usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 3, "cache_creation_input_tokens": 2}
 	}`, claude)
 
-	gemini := &dto.GeminiChatResponse{}
-	mustUnmarshalFixture(`{
-		"candidates": [{
-			"finishReason": "STOP",
-			"content": {
-				"role": "model",
-				"parts": [
-					{"text": "The answer is 42."},
-					{"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
-				]
-			}
-		}],
-		"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 2, "totalTokenCount": 15}
-	}`, gemini)
-
 	responses := &dto.OpenAIResponsesResponse{}
 	mustUnmarshalFixture(`{
 		"id": "resp_fixed",
@@ -236,9 +214,9 @@ func fixtureResponses() map[types.RelayFormat]any {
 	}`, responses)
 
 	return map[types.RelayFormat]any{
-		types.RelayFormatOpenAI:          openai,
-		types.RelayFormatClaude:          claude,
-		types.RelayFormatGemini:          gemini,
+		types.RelayFormatOpenAI: openai,
+		types.RelayFormatClaude: claude,
+
 		types.RelayFormatOpenAIResponses: responses,
 	}
 }
@@ -262,10 +240,7 @@ func fixtureStreamChunks() map[types.RelayFormat][]any {
 			claudeStreamChunk(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}`),
 			claudeStreamChunk(`{"type":"message_stop"}`),
 		},
-		types.RelayFormatGemini: {
-			geminiStreamChunk(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]}}]}`),
-			geminiStreamChunk(`{"candidates":[{"finishReason":"STOP","content":{"role":"model","parts":[{"text":" world"}]}}],"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":2,"totalTokenCount":6}}`),
-		},
+
 		types.RelayFormatOpenAIResponses: {
 			responsesStreamChunk(`{"type":"response.output_text.delta","delta":"Hello"}`),
 			responsesStreamChunk(`{"type":"response.output_text.delta","delta":" world"}`),
@@ -282,7 +257,7 @@ func allFormats() []types.RelayFormat {
 	return []types.RelayFormat{
 		types.RelayFormatOpenAI,
 		types.RelayFormatClaude,
-		types.RelayFormatGemini,
+
 		types.RelayFormatOpenAIResponses,
 	}
 }
@@ -320,8 +295,8 @@ func TestGoldenResponseConversionMatrix(t *testing.T) {
 	responses := fixtureResponses()
 	for _, from := range allFormats() {
 		for _, to := range allFormats() {
-			if from == to || to == types.RelayFormatGemini ||
-				(from == types.RelayFormatOpenAI && to == types.RelayFormatClaude) {
+			if from == to ||
+				from == types.RelayFormatOpenAI && to == types.RelayFormatClaude {
 				continue
 			}
 			name := fmt.Sprintf("response/%s_to_%s", from, to)
@@ -395,10 +370,7 @@ func deepCopyFixture(t *testing.T, v any) any {
 		out := &dto.ClaudeRequest{}
 		require.NoError(t, json.Unmarshal(data, out))
 		return out
-	case *dto.GeminiChatRequest:
-		out := &dto.GeminiChatRequest{}
-		require.NoError(t, json.Unmarshal(data, out))
-		return out
+
 	case *dto.OpenAIResponsesRequest:
 		out := &dto.OpenAIResponsesRequest{}
 		require.NoError(t, json.Unmarshal(data, out))
@@ -411,10 +383,7 @@ func deepCopyFixture(t *testing.T, v any) any {
 		out := &dto.ClaudeResponse{}
 		require.NoError(t, json.Unmarshal(data, out))
 		return out
-	case *dto.GeminiChatResponse:
-		out := &dto.GeminiChatResponse{}
-		require.NoError(t, json.Unmarshal(data, out))
-		return out
+
 	case *dto.OpenAIResponsesResponse:
 		out := &dto.OpenAIResponsesResponse{}
 		require.NoError(t, json.Unmarshal(data, out))
@@ -441,12 +410,6 @@ func chatStreamChunk(raw string) *dto.ChatCompletionsStreamResponse {
 
 func claudeStreamChunk(raw string) *dto.ClaudeResponse {
 	var r dto.ClaudeResponse
-	mustUnmarshalFixture(raw, &r)
-	return &r
-}
-
-func geminiStreamChunk(raw string) *dto.GeminiChatResponse {
-	var r dto.GeminiChatResponse
 	mustUnmarshalFixture(raw, &r)
 	return &r
 }

@@ -14,7 +14,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	kitreasoning "github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
+
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	hosttypes "github.com/QuantumNous/new-api/types"
@@ -40,11 +40,6 @@ const (
 // ClaudeConvertInfo now lives with the converters (convmeta); the alias keeps
 // host code and adaptors compiling unchanged.
 type ClaudeConvertInfo = convmeta.ClaudeConvertInfo
-
-type RerankerInfo struct {
-	Documents       []any
-	ReturnDocuments bool
-}
 
 type BuildInToolInfo struct {
 	ToolName  string
@@ -92,13 +87,13 @@ type RelayInfo struct {
 	FirstResponseTime time.Time
 	isFirstResponse   bool
 	//SendLastReasoningResponse bool
-	IsStream               bool
-	IsGeminiBatchEmbedding bool
-	IsPlayground           bool
-	UsePrice               bool
-	RelayMode              int
-	OriginModelName        string
-	ResponseModel          *ResponseModel
+	IsStream bool
+
+	IsPlayground    bool
+	UsePrice        bool
+	RelayMode       int
+	OriginModelName string
+	ResponseModel   *ResponseModel
 
 	// BillingModelName is the pricing identity for this request. It is kept
 	// separate from OriginModelName and UpstreamModelName so virtual pricing
@@ -125,13 +120,10 @@ type RelayInfo struct {
 	UserQuota           int
 	RelayFormat         types.RelayFormat
 	SendResponseCount   int
-	// ClaudeToChatStreamState / ChatToGeminiStreamState hold per-attempt
-	// stream converters. InitChannelMeta nils them so a retry cannot resume a
-	// dirty converter (advanced tool index / finalized).
 	ClaudeToChatStreamState any
-	ChatToGeminiStreamState any
-	ReceivedResponseCount   int
-	FinalPreConsumedQuota   int // 最终预消耗的配额
+
+	ReceivedResponseCount int
+	FinalPreConsumedQuota int // 最终预消耗的配额
 	// ForcePreConsume 为 true 时禁用 BillingSession 的信任额度旁路，
 	// 强制预扣全额。用于异步任务（视频/音乐生成等），因为请求返回后任务仍在运行，
 	// 必须在提交前锁定全额。
@@ -231,7 +223,6 @@ type RelayInfo struct {
 	ThinkingContentInfo
 	TokenCountMeta
 	*ClaudeConvertInfo
-	*RerankerInfo
 	*ResponsesUsageInfo
 	*ChannelMeta
 	*TaskRelayInfo
@@ -274,7 +265,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// LastError, or billing accumulators — those are request-scoped.
 	info.SendResponseCount = 0
 	info.ClaudeToChatStreamState = nil
-	info.ChatToGeminiStreamState = nil
+
 	channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
 	paramOverride := common.GetContextKeyStringMap(c, constant.ContextKeyChannelParamOverride)
 	headerOverride := common.GetContextKeyStringMap(c, constant.ContextKeyChannelHeaderOverride)
@@ -297,13 +288,6 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 		SupportStreamOptions: false,
 	}
 
-	if channelType == constant.ChannelTypeAzure {
-		channelMeta.ApiVersion = GetAPIVersion(c)
-	}
-	if channelType == constant.ChannelTypeVertexAi {
-		channelMeta.ApiVersion = c.GetString("region")
-	}
-
 	channelSetting, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting)
 	if ok {
 		channelMeta.ChannelSetting = channelSetting
@@ -314,23 +298,12 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 		channelMeta.ChannelOtherSettings = channelOtherSettings
 	}
 
-	if channelType == constant.ChannelTypeAdvancedCustom &&
-		!channelMeta.ChannelSetting.PassThroughBodyEnabled &&
-		c.Request != nil && c.Request.URL != nil {
-		route, matched := channelMeta.ChannelOtherSettings.AdvancedCustom.MatchPathForModel(c.Request.URL.Path, info.OriginModelName)
-		if matched && route.PassThroughBodyEnabled {
-			channelMeta.ChannelSetting.PassThroughBodyEnabled = true
-		}
-	}
-
 	if streamSupportedChannels[channelMeta.ChannelType] {
 		channelMeta.SupportStreamOptions = true
 	}
 
 	info.ChannelMeta = channelMeta
 
-	// Channel identity feeds the converter options snapshot (e.g.
-	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
 	// The adaptor Init of this attempt sets the vendor billing hooks again.
 	info.VendorToolUsage = nil
@@ -435,30 +408,10 @@ func (info *RelayInfo) ToString() string {
 
 // 定义支持流式选项的通道类型
 var streamSupportedChannels = map[int]bool{
-	constant.ChannelTypeOpenAI:         true,
-	constant.ChannelTypeAnthropic:      true,
-	constant.ChannelTypeAws:            true,
-	constant.ChannelTypeGemini:         true,
-	constant.ChannelCloudflare:         true,
-	constant.ChannelTypeAzure:          true,
-	constant.ChannelTypeVolcEngine:     true,
-	constant.ChannelTypeOllama:         true,
-	constant.ChannelTypeXai:            true,
-	constant.ChannelTypeDeepSeek:       true,
-	constant.ChannelTypeBaiduV2:        true,
-	constant.ChannelTypeZhipu_v4:       true,
-	constant.ChannelTypeAli:            true,
-	constant.ChannelTypeSubmodel:       true,
-	constant.ChannelTypeCodex:          true,
-	constant.ChannelTypeMoonshot:       true,
-	constant.ChannelTypeMiniMax:        true,
-	constant.ChannelTypeSiliconFlow:    true,
-	constant.ChannelTypeAdvancedCustom: true,
-	constant.ChannelTypeSub2API:        true,
-	constant.ChannelTypeNewAPI:         true,
-	constant.ChannelTypeVLLM:           true,
-	constant.ChannelTypeSGLang:         true,
-	constant.ChannelTypeTencent:        true,
+	constant.ChannelTypeOpenAI:    true,
+	constant.ChannelTypeAnthropic: true,
+
+	constant.ChannelTypeCodex: true,
 }
 
 func GenRelayInfoWs(c *gin.Context, ws *websocket.Conn) *RelayInfo {
@@ -479,17 +432,6 @@ func GenRelayInfoClaude(c *gin.Context, request dto.Request) *RelayInfo {
 		LastMessagesType: LastMessageTypeNone,
 	}
 	info.IsClaudeBetaQuery = c.Query("beta") == "true"
-	return info
-}
-
-func GenRelayInfoRerank(c *gin.Context, request *dto.RerankRequest) *RelayInfo {
-	info := genBaseRelayInfo(c, request)
-	info.RelayMode = relayconstant.RelayModeRerank
-	info.RelayFormat = types.RelayFormatRerank
-	info.RerankerInfo = &RerankerInfo{
-		Documents:       request.Documents,
-		ReturnDocuments: request.GetReturnDocuments(),
-	}
 	return info
 }
 
@@ -522,14 +464,6 @@ func GenRelayInfoResponses(c *gin.Context, request *dto.OpenAIResponsesRequest) 
 			}
 		}
 	}
-	return info
-}
-
-func GenRelayInfoGemini(c *gin.Context, request dto.Request) *RelayInfo {
-	info := genBaseRelayInfo(c, request)
-	info.RelayFormat = types.RelayFormatGemini
-	info.ShouldIncludeUsage = false
-
 	return info
 }
 
@@ -567,17 +501,7 @@ func reasoningEffortFromRequest(request dto.Request) string {
 		if req != nil {
 			effort = req.GetEfforts()
 		}
-	case *dto.GeminiChatRequest:
-		if req != nil && req.GenerationConfig.ThinkingConfig != nil {
-			config := req.GenerationConfig.ThinkingConfig
-			effort = config.ThinkingLevel
-			if canonical, err := kitreasoning.ParseEffort(effort); err == nil {
-				effort = string(canonical)
-			}
-			if effort == "" && config.ThinkingBudget != nil {
-				effort = string(kitreasoning.EffortFromBudget(*config.ThinkingBudget))
-			}
-		}
+
 	}
 	return strings.TrimSpace(effort)
 }
@@ -703,14 +627,7 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 		info = GenRelayInfoWs(c, ws)
 	case types.RelayFormatClaude:
 		info = GenRelayInfoClaude(c, request)
-	case types.RelayFormatRerank:
-		if request, ok := request.(*dto.RerankRequest); ok {
-			info = GenRelayInfoRerank(c, request)
-			break
-		}
-		err = errors.New("request is not a RerankRequest")
-	case types.RelayFormatGemini:
-		info = GenRelayInfoGemini(c, request)
+
 	case types.RelayFormatEmbedding:
 		info = GenRelayInfoEmbedding(c, request)
 	case types.RelayFormatOpenAIResponses:
@@ -729,15 +646,11 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 			return GenRelayInfoAlphaSearch(c, request), nil
 		}
 		return nil, errors.New("request is not a AlphaSearchRequest")
-	case types.RelayFormatDeepSeekTools:
-		info = genBaseRelayInfo(c, request)
-		info.RelayFormat = types.RelayFormatDeepSeekTools
+
 	case types.RelayFormatTask:
 		info = genBaseRelayInfo(c, nil)
 		info.TaskRelayInfo = &TaskRelayInfo{}
-	case types.RelayFormatMjProxy:
-		info = genBaseRelayInfo(c, nil)
-		info.TaskRelayInfo = &TaskRelayInfo{}
+
 	default:
 		err = errors.New("invalid relay format")
 	}
@@ -964,27 +877,14 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 	}
 
 	claudeSettings := model_setting.GetClaudeSettings()
-	geminiSettings := model_setting.GetGeminiSettings()
-	channelType := info.GetChannelType()
+
 	options := &convmeta.Options{
 		Claude: convmeta.ClaudeOptions{
 			ThinkingAdapterEnabled:                claudeSettings.ThinkingAdapterEnabled,
 			ThinkingAdapterBudgetTokensPercentage: claudeSettings.ThinkingAdapterBudgetTokensPercentage,
 			DefaultMaxTokens:                      claudeSettings.GetDefaultMaxTokens,
 		},
-		Gemini: convmeta.GeminiOptions{
-			ThinkingAdapterEnabled:                geminiSettings.ThinkingAdapterEnabled,
-			ThinkingAdapterBudgetTokensPercentage: geminiSettings.ThinkingAdapterBudgetTokensPercentage,
-			FunctionCallThoughtSignatureEnabled:   geminiSettings.FunctionCallThoughtSignatureEnabled,
-			SupportsImagine:                       model_setting.IsGeminiModelSupportImagine,
-			SafetySetting:                         model_setting.GetGeminiSafetySetting,
-			// Gemini API v1 has no parametersJsonSchema; v1beta and Vertex AI
-			// accept it.
-			SupportsJSONSchema: func(modelName string) bool {
-				return channelType == constant.ChannelTypeVertexAi || model_setting.GetGeminiVersionSetting(modelName) != "v1"
-			},
-		},
-		OpenRouterDialect:      info != nil && info.GetChannelType() == constant.ChannelTypeOpenRouter,
+
 		PreserveThinkingSuffix: model_setting.ShouldPreserveThinkingSuffix,
 		PreserveEffortTail:     model_setting.ShouldPreserveEffortTail,
 	}
@@ -1233,54 +1133,10 @@ func hasRemovableDisabledField(jsonData []byte, channelOtherSettings dto.Channel
 		"stream_options.include_obfuscation",
 	)
 
-	return (!channelOtherSettings.AllowServiceTier && values[0].Exists()) ||
-		(!channelOtherSettings.AllowInferenceGeo && values[1].Exists()) ||
-		(!channelOtherSettings.AllowSpeed && values[2].Exists()) ||
-		(channelOtherSettings.DisableStore && values[3].Exists()) ||
-		(!channelOtherSettings.AllowSafetyIdentifier && values[4].Exists()) ||
-		(!channelOtherSettings.AllowIncludeObfuscation && values[5].Exists())
-}
-
-// RemoveGeminiDisabledFields removes disabled fields from Gemini request JSON data
-// Currently supports removing functionResponse.id field which Vertex AI does not support
-func RemoveGeminiDisabledFields(jsonData []byte) ([]byte, error) {
-	if !model_setting.GetGeminiSettings().RemoveFunctionResponseIdEnabled {
-		return jsonData, nil
-	}
-
-	var data map[string]any
-	if err := common.Unmarshal(jsonData, &data); err != nil {
-		common.SysError(common.LogText("RemoveGeminiDisabledFields Unmarshal error: %s", err.Error()))
-		return jsonData, nil
-	}
-
-	// Process contents array
-	// Handle both camelCase (functionResponse) and snake_case (function_response)
-	if contents, ok := data["contents"].([]any); ok {
-		for _, content := range contents {
-			if contentMap, ok := content.(map[string]any); ok {
-				if parts, ok := contentMap["parts"].([]any); ok {
-					for _, part := range parts {
-						if partMap, ok := part.(map[string]any); ok {
-							// Check functionResponse (camelCase)
-							if funcResp, ok := partMap["functionResponse"].(map[string]any); ok {
-								delete(funcResp, "id")
-							}
-							// Check function_response (snake_case)
-							if funcResp, ok := partMap["function_response"].(map[string]any); ok {
-								delete(funcResp, "id")
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	jsonDataAfter, err := common.Marshal(data)
-	if err != nil {
-		common.SysError(common.LogText("RemoveGeminiDisabledFields Marshal error: %s", err.Error()))
-		return jsonData, nil
-	}
-	return jsonDataAfter, nil
+	return !channelOtherSettings.AllowServiceTier && values[0].Exists() ||
+		!channelOtherSettings.AllowInferenceGeo && values[1].Exists() ||
+		!channelOtherSettings.AllowSpeed && values[2].Exists() ||
+		channelOtherSettings.DisableStore && values[3].Exists() ||
+		!channelOtherSettings.AllowSafetyIdentifier && values[4].Exists() ||
+		!channelOtherSettings.AllowIncludeObfuscation && values[5].Exists()
 }

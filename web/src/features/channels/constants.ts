@@ -26,195 +26,80 @@ export const CHANNEL_PRIORITY_GUIDE_KEYS = {
 // All label/name values are i18n keys; use t(value) when displaying.
 // ============================================================================
 
-export const CHANNEL_TYPE_OLLAMA = 4
-
-export const CHANNEL_TYPE_SUB2API = 59
-
-export const CHANNEL_TYPE_NEW_API = 60
-
 export const CHANNEL_TYPE_TASK_PLUGIN = 61
-
-export const CHANNEL_TYPE_VLLM = 62
-
-export const CHANNEL_TYPE_SGLANG = 63
-
 export const CHANNEL_TYPES = {
-  0: 'Unknown',
   1: 'OpenAI',
-  2: 'MjProxy',
-  3: 'Azure',
-  4: 'Ollama',
-  5: 'MjProxyPlus',
-  // 6: 'OpenAIMax',
-  7: 'OhMyGPT',
-  8: 'Custom',
   // 9: 'AILS',
   // 10: 'AI Proxy',
   // 11: 'PaLM',
   // 12: 'API2GPT',
   // 13: 'AIGC2D',
   14: 'Anthropic',
-  15: 'Baidu',
-  16: 'Zhipu',
-  17: 'Ali',
-  18: 'Xunfei',
-  19: '360',
-  20: 'OpenRouter',
-  // 21: 'AI Proxy Library',
-  22: 'FastGPT',
-  23: 'Tencent',
-  24: 'Gemini',
-  25: 'Moonshot',
-  26: 'Zhipu GLM',
-  27: 'Perplexity',
-  31: 'LingYiWanWu',
-  33: 'AWS',
-  34: 'Cohere',
-  35: 'MiniMax',
-  36: 'SunoAPI',
-  37: 'Dify',
-  38: 'Jina',
-  39: 'Cloudflare',
-  40: 'SiliconFlow',
-  41: 'Vertex AI',
-  42: 'Mistral',
-  43: 'DeepSeek',
-  44: 'MokaAI',
-  45: 'VolcEngine',
-  46: 'Baidu V2',
-  47: 'Xinference',
-  48: 'xAI',
-  49: 'Coze',
-  50: 'Kling',
-  51: 'Jimeng',
-  52: 'Vidu',
-  53: 'Submodel',
-  54: 'Doubao',
-  55: 'Sora',
-  56: 'Replicate',
   57: 'ChatGPT Subscription (Codex)',
-  58: 'Advanced Custom',
-  59: 'Sub2API',
-  60: 'New API',
-  61: 'Task Plugin',
-  62: 'vLLM',
-  63: 'SGLang',
 } as const
-
 export type ChannelProviderPresentation = {
   descriptionKey: string
   detailKey?: string
-  badge?: { labelKey: string; tone: 'warning' | 'primary' }
+  badge?: {
+    labelKey: string
+    tone: 'warning' | 'primary'
+  }
 }
 
 // Display copy only; channel routing, availability and ordering remain independent.
 export const CHANNEL_PROVIDER_PRESENTATION: Partial<
   Record<number, ChannelProviderPresentation>
 > = {
-  1: { descriptionKey: 'Connect to the OpenAI API or compatible services' },
-  2: { descriptionKey: 'Generate Midjourney images through MjProxy' },
-  3: { descriptionKey: 'Connect to OpenAI models deployed on Azure' },
-  4: { descriptionKey: 'Connect to local or self-hosted Ollama models' },
-  5: { descriptionKey: 'Generate Midjourney images through MjProxyPlus' },
-  7: { descriptionKey: 'Access model services through the OhMyGPT gateway' },
-  8: {
-    descriptionKey:
-      'Legacy full-URL integration; use Advanced Custom for new channels',
-    badge: { labelKey: 'Deprecated', tone: 'warning' },
+  1: {
+    descriptionKey: 'Connect to the OpenAI API or compatible services',
   },
-  14: { descriptionKey: 'Connect to the Anthropic API or compatible services' },
-  15: { descriptionKey: 'Access Baidu Qianfan models through the legacy API' },
-  16: { descriptionKey: 'Access Zhipu models through the legacy API' },
-  17: { descriptionKey: 'Connect to Alibaba Cloud Bailian model services' },
-  18: { descriptionKey: 'Connect to iFlytek Spark model services' },
-  19: { descriptionKey: 'Connect to 360 model services' },
-  20: {
-    descriptionKey: 'Access models from multiple providers through OpenRouter',
+  14: {
+    descriptionKey: 'Connect to the Anthropic API or compatible services',
   },
-  22: { descriptionKey: 'Connect to FastGPT applications' },
-  23: { descriptionKey: 'Connect to Tencent Hunyuan model services' },
-  24: { descriptionKey: 'Connect to models through the Google Gemini API' },
-  25: { descriptionKey: 'Connect to Moonshot AI model services' },
-  26: { descriptionKey: 'Access Zhipu models through the V4 API' },
-  27: { descriptionKey: 'Connect to Perplexity model services' },
-  31: { descriptionKey: 'Connect to LingYiWanWu model services' },
-  33: { descriptionKey: 'Access models through Amazon Bedrock' },
-  34: { descriptionKey: 'Connect to Cohere model services' },
-  35: { descriptionKey: 'Connect to MiniMax model services' },
-  36: { descriptionKey: 'Generate music and lyrics through SunoAPI' },
-  37: { descriptionKey: 'Connect to Dify applications and workflows' },
-  38: { descriptionKey: 'Connect to Jina embedding and reranking services' },
-  39: { descriptionKey: 'Access models through Cloudflare Workers AI' },
-  40: { descriptionKey: 'Connect to SiliconFlow model inference services' },
-  41: { descriptionKey: 'Access models through Google Cloud Vertex AI' },
-  42: { descriptionKey: 'Connect to Mistral AI model services' },
-  43: { descriptionKey: 'Connect to DeepSeek model services' },
-  44: { descriptionKey: 'Access model services through MokaAI' },
-  45: { descriptionKey: 'Connect to Volcengine Ark model services' },
-  46: { descriptionKey: 'Access Baidu Qianfan models through the V2 API' },
-  47: { descriptionKey: 'Connect to self-hosted models served by Xinference' },
-  48: { descriptionKey: 'Connect to xAI Grok model services' },
-  49: { descriptionKey: 'Connect to Coze bots' },
-  50: { descriptionKey: 'Connect to Kling video generation services' },
-  51: {
-    descriptionKey: 'Connect to Jimeng image and video generation services',
+  57: {
+    descriptionKey: 'Access Codex using ChatGPT subscription credentials',
   },
-  52: { descriptionKey: 'Connect to Vidu video generation services' },
-  53: { descriptionKey: 'Connect to Submodel model services' },
-  54: {
-    descriptionKey:
-      'Connect to Doubao Seedance video and Seedream image generation through Volcengine Ark',
-  },
-  55: { descriptionKey: 'Connect to OpenAI Sora video generation services' },
-  56: { descriptionKey: 'Access hosted model predictions through Replicate' },
-  57: { descriptionKey: 'Access Codex using ChatGPT subscription credentials' },
-  58: {
-    descriptionKey:
-      'Configure endpoint routing, authentication and protocol conversion for different upstream services',
-    detailKey:
-      "New API's flexible channel lets you configure upstream addresses and authentication per endpoint, choose native forwarding or supported protocol conversions, and configure model listing and balance queries independently",
-    badge: { labelKey: 'Flexible integration', tone: 'primary' },
-  },
-  59: { descriptionKey: 'Connect to model services through a Sub2API gateway' },
-  60: {
-    descriptionKey:
-      'Connect to New API model services with support for multiple task plugins',
-  },
-  62: { descriptionKey: 'Connect to self-hosted models served by vLLM' },
-  63: { descriptionKey: 'Connect to self-hosted models served by SGLang' },
 } satisfies Record<
   Exclude<keyof typeof CHANNEL_TYPES, 0 | typeof CHANNEL_TYPE_TASK_PLUGIN>,
   ChannelProviderPresentation
 >
-
-const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [
-  1, 14, 24, 33, 43, 3, 41, 17, 45, 25, 26, 23, 48, 60, 58, 59, 61, 42, 34, 20,
-  4, 62, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21,
-  44, 2, 5, 36, 50, 51, 52, 53, 54, 55, 56,
-]
-
-export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
-  const ordered: { value: number; label: string }[] = []
+const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [1, 14, 57]
+export const CHANNEL_TYPE_OPTIONS: {
+  value: number
+  label: string
+}[] = (() => {
+  const ordered: {
+    value: number
+    label: string
+  }[] = []
   const seen = new Set<number>()
   for (const id of CHANNEL_TYPE_DISPLAY_ORDER) {
     const label = CHANNEL_TYPES[id as keyof typeof CHANNEL_TYPES]
     if (label) {
-      ordered.push({ value: id, label })
+      ordered.push({
+        value: id,
+        label,
+      })
       seen.add(id)
     }
   }
   for (const [key, label] of Object.entries(CHANNEL_TYPES)) {
     const id = Number(key)
     if (id !== 0 && !seen.has(id)) {
-      ordered.push({ value: id, label })
+      ordered.push({
+        value: id,
+        label,
+      })
     }
   }
   return ordered
 })()
-
 export function channelTypeOptionsForTaskPluginBind(
   canBindTaskPlugin: boolean
-): { value: number; label: string }[] {
+): {
+  value: number
+  label: string
+}[] {
   if (canBindTaskPlugin) {
     return CHANNEL_TYPE_OPTIONS
   }
@@ -233,20 +118,26 @@ export const CHANNEL_STATUS = {
   MANUAL_DISABLED: 2,
   AUTO_DISABLED: 3,
 } as const
-
 export const CHANNEL_STATUS_LABELS = {
   [CHANNEL_STATUS.UNKNOWN]: 'Unknown',
   [CHANNEL_STATUS.ENABLED]: 'Enabled',
   [CHANNEL_STATUS.MANUAL_DISABLED]: 'Disabled',
   [CHANNEL_STATUS.AUTO_DISABLED]: 'Auto Disabled',
 } as const
-
 export const CHANNEL_STATUS_OPTIONS = [
-  { value: 'all', label: 'All Status' },
-  { value: 'enabled', label: 'Enabled' },
-  { value: 'disabled', label: 'Disabled' },
+  {
+    value: 'all',
+    label: 'All Status',
+  },
+  {
+    value: 'enabled',
+    label: 'Enabled',
+  },
+  {
+    value: 'disabled',
+    label: 'Disabled',
+  },
 ] as const
-
 export const CHANNEL_STATUS_CONFIG = {
   [CHANNEL_STATUS.UNKNOWN]: {
     variant: 'neutral' as const,
@@ -275,13 +166,11 @@ export const MULTI_KEY_STATUS = {
   MANUAL_DISABLED: 2,
   AUTO_DISABLED: 3,
 } as const
-
 export const MULTI_KEY_STATUS_LABELS = {
   [MULTI_KEY_STATUS.ENABLED]: 'Enabled',
   [MULTI_KEY_STATUS.MANUAL_DISABLED]: 'Manual Disabled',
   [MULTI_KEY_STATUS.AUTO_DISABLED]: 'Auto Disabled',
 } as const
-
 export const MULTI_KEY_STATUS_CONFIG = {
   [MULTI_KEY_STATUS.ENABLED]: {
     variant: 'success' as const,
@@ -302,13 +191,24 @@ export const MULTI_KEY_STATUS_CONFIG = {
 // ============================================================================
 
 export const MULTI_KEY_MODES = [
-  { value: 'random', label: 'Random' },
-  { value: 'polling', label: 'Polling' },
+  {
+    value: 'random',
+    label: 'Random',
+  },
+  {
+    value: 'polling',
+    label: 'Polling',
+  },
 ] as const
-
 export const ADD_MODE_OPTIONS = [
-  { value: 'single', label: 'Single Key' },
-  { value: 'batch', label: 'Batch Add (one key per line)' },
+  {
+    value: 'single',
+    label: 'Single Key',
+  },
+  {
+    value: 'batch',
+    label: 'Batch Add (one key per line)',
+  },
   {
     value: 'multi_to_single',
     label: 'Multi-Key Mode (multiple keys, one channel)',
@@ -320,12 +220,23 @@ export const ADD_MODE_OPTIONS = [
 // ============================================================================
 
 export const MULTI_KEY_FILTER_OPTIONS = [
-  { value: 'all', label: 'All Status' },
-  { value: '1', label: 'Enabled' },
-  { value: '2', label: 'Manual Disabled' },
-  { value: '3', label: 'Auto Disabled' },
+  {
+    value: 'all',
+    label: 'All Status',
+  },
+  {
+    value: '1',
+    label: 'Enabled',
+  },
+  {
+    value: '2',
+    label: 'Manual Disabled',
+  },
+  {
+    value: '3',
+    label: 'Auto Disabled',
+  },
 ] as const
-
 export const MULTI_KEY_CONFIRM_MESSAGES = {
   DELETE:
     'Are you sure you want to delete this key? This action cannot be undone.',
@@ -342,8 +253,14 @@ export const MULTI_KEY_CONFIRM_MESSAGES = {
 // ============================================================================
 
 export const AUTO_BAN_OPTIONS = [
-  { value: 1, label: 'Enabled' },
-  { value: 0, label: 'Disabled' },
+  {
+    value: 1,
+    label: 'Enabled',
+  },
+  {
+    value: 0,
+    label: 'Disabled',
+  },
 ] as const
 
 // ============================================================================
@@ -372,7 +289,6 @@ export const ERROR_MESSAGES = {
   BALANCE_QUERY_FAILED: 'Failed to query balance',
   FETCH_MODELS_FAILED: 'Failed to fetch models',
 } as const
-
 export const SUCCESS_MESSAGES = {
   CREATED: 'Channel created successfully',
   UPDATED: 'Channel updated successfully',
@@ -392,7 +308,6 @@ export const SUCCESS_MESSAGES = {
 // ============================================================================
 
 export const DEFAULT_PAGE_SIZE = 20
-
 export const DEFAULT_CHANNEL_VALUES = {
   name: '',
   type: 0,
@@ -418,11 +333,26 @@ export const CHANNELS_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 // ============================================================================
 
 export const SORT_OPTIONS = [
-  { value: 'priority', label: 'Priority (Default)' },
-  { value: 'id', label: 'ID' },
-  { value: 'name', label: 'Name' },
-  { value: 'balance', label: 'Balance' },
-  { value: 'response_time', label: 'Response Time' },
+  {
+    value: 'priority',
+    label: 'Priority (Default)',
+  },
+  {
+    value: 'id',
+    label: 'ID',
+  },
+  {
+    value: 'name',
+    label: 'Name',
+  },
+  {
+    value: 'balance',
+    label: 'Balance',
+  },
+  {
+    value: 'response_time',
+    label: 'Response Time',
+  },
 ] as const
 
 // ============================================================================
@@ -445,13 +375,27 @@ export const RESPONSE_TIME_THRESHOLDS = {
   FAIR: 2000,
   POOR: 5000,
 } as const
-
 export const RESPONSE_TIME_CONFIG = {
-  EXCELLENT: { variant: 'success' as const, label: 'Excellent' },
-  GOOD: { variant: 'success' as const, label: 'Good' },
-  FAIR: { variant: 'warning' as const, label: 'Fair' },
-  POOR: { variant: 'danger' as const, label: 'Poor' },
-  UNKNOWN: { variant: 'neutral' as const, label: 'Not tested' },
+  EXCELLENT: {
+    variant: 'success' as const,
+    label: 'Excellent',
+  },
+  GOOD: {
+    variant: 'success' as const,
+    label: 'Good',
+  },
+  FAIR: {
+    variant: 'warning' as const,
+    label: 'Fair',
+  },
+  POOR: {
+    variant: 'danger' as const,
+    label: 'Poor',
+  },
+  UNKNOWN: {
+    variant: 'neutral' as const,
+    label: 'Not tested',
+  },
 } as const
 
 // ============================================================================
@@ -472,7 +416,6 @@ export const FIELD_PLACEHOLDERS = {
   HEADER_OVERRIDE: '{"X-Custom-Header": "value"}',
   STATUS_CODE_MAPPING: '{"400": "500"}',
 } as const
-
 export const FIELD_DESCRIPTIONS = {
   NAME: 'Friendly name to identify this channel',
   TYPE: 'Provider type (OpenAI, Anthropic, etc.)',
@@ -502,80 +445,11 @@ export const FIELD_DESCRIPTIONS = {
 // Channel Type Specific Configurations
 // ============================================================================
 
-export const MODEL_FETCHABLE_TYPES = new Set([
-  1,
-  4,
-  14,
-  17,
-  20,
-  23,
-  24,
-  25,
-  26,
-  27,
-  31,
-  34,
-  35,
-  40,
-  42,
-  43,
-  47,
-  48,
-  57,
-  58,
-  59,
-  60,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
-])
-
-export const FIELD_PASSTHROUGH_TYPES = new Set([
-  1,
-  14,
-  57,
-  58,
-  59,
-  CHANNEL_TYPE_NEW_API,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
-])
-
-export const OPENAI_FIELD_PASSTHROUGH_TYPES = new Set([
-  1,
-  57,
-  58,
-  59,
-  CHANNEL_TYPE_NEW_API,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
-])
-
-export const CLAUDE_FIELD_PASSTHROUGH_TYPES = new Set([
-  14,
-  58,
-  59,
-  CHANNEL_TYPE_NEW_API,
-  CHANNEL_TYPE_VLLM,
-  CHANNEL_TYPE_SGLANG,
-])
-
+export const MODEL_FETCHABLE_TYPES = new Set([1, 14, 57])
+export const FIELD_PASSTHROUGH_TYPES = new Set([1, 14, 57])
+export const OPENAI_FIELD_PASSTHROUGH_TYPES = new Set([1, 57])
+export const CLAUDE_FIELD_PASSTHROUGH_TYPES = new Set([14])
 export const TYPE_TO_KEY_PROMPT: Record<number, string> = {
-  15: 'Format: APIKey|SecretKey',
-  18: 'Format: APPID|APISecret|APIKey',
-  22: 'Format: APIKey-AppId, e.g., fastgpt-0sp2gtvfdgyi4k30jwlgwf1i-64f335d84283f05518e9e041',
-  23: 'Format: TokenHub API Key, or legacy AppId|SecretId|SecretKey',
-  33: 'Format: Ak|Sk|Region',
-  50: 'Format: AccessKey|SecretKey (or just ApiKey if upstream is New API)',
-  51: 'Format: Access Key ID|Secret Access Key',
   57: 'Paste Codex OAuth JSON credential (access_token / refresh_token / account_id)',
-  59: 'Enter API key for this channel',
-  60: 'Enter API key for this channel',
-  62: 'vLLM API key, or EMPTY if authentication is disabled',
-  63: 'SGLang API key, or EMPTY if authentication is disabled',
 }
-
-export const CHANNEL_TYPE_WARNINGS: Record<number, string> = {
-  3: 'For channels added after May 10, 2025, no need to remove "." from model names during deployment',
-  8: 'If connecting to upstream One API or New API relay projects, use OpenAI type instead unless you know what you are doing',
-  37: 'Dify channels only support chatflow and agent, and agent does not support images',
-}
+export const CHANNEL_TYPE_WARNINGS: Record<number, string> = {}

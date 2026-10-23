@@ -32,7 +32,6 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { AuditLogViewer } from './components/audit-log-viewer'
-
 export function AuditLogs() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
@@ -60,13 +59,19 @@ export function AuditLogs() {
           ...current.permissions,
           admin_permissions: {
             ...current.permissions?.admin_permissions,
-            audit: { read: false },
+            audit: {
+              read: false,
+            },
           },
         },
       })
     }
-    await queryClient.cancelQueries({ queryKey: ['audit', userId, 'all'] })
-    queryClient.removeQueries({ queryKey: ['audit', userId, 'all'] })
+    await queryClient.cancelQueries({
+      queryKey: ['audit', userId, 'all'],
+    })
+    queryClient.removeQueries({
+      queryKey: ['audit', userId, 'all'],
+    })
     try {
       const profile = await getUserProfile()
       const latest = useAuthStore.getState().auth.user

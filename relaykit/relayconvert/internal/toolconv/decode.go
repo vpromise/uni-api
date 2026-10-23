@@ -22,8 +22,7 @@ func ExtractRequest(format types.RelayFormat, request any) (any, Set, error) {
 		return extractOpenAIResponsesRequest(request)
 	case types.RelayFormatClaude:
 		return extractClaudeRequest(request)
-	case types.RelayFormatGemini:
-		return extractGeminiRequest(request)
+
 	default:
 		return request, Set{Source: format}, nil
 	}
@@ -56,10 +55,6 @@ func extractOpenAIChatRequest(request any) (any, Set, error) {
 	}
 	for index, tool := range source.Tools {
 		if tool.Type == "function" || tool.Type == "" {
-			if definition, ok := decodeOpenAIChatPseudoHostedTool(tool.Function.Name); ok {
-				set.Definitions = append(set.Definitions, definition)
-				continue
-			}
 			set.Definitions = append(set.Definitions, Definition{
 				Kind:      KindFunction,
 				Execution: ExecutionClient,
@@ -352,44 +347,6 @@ func extractClaudeRequest(request any) (any, Set, error) {
 	return &clone, set, nil
 }
 
-func extractGeminiRequest(request any) (any, Set, error) {
-	source, ok := request.(*dto.GeminiChatRequest)
-	if !ok {
-		value, valueOK := request.(dto.GeminiChatRequest)
-		if !valueOK {
-			return nil, Set{}, fmt.Errorf("expected Gemini generateContent request, got %T", request)
-		}
-		source = &value
-	}
-
-	set := Set{Source: types.RelayFormatGemini}
-	if source.ToolConfig != nil {
-		set.NativeToolConfig, _ = rawJSON(source.ToolConfig)
-	}
-	if len(source.Tools) > 0 {
-		var tools []json.RawMessage
-		if err := kitutil.Unmarshal(source.Tools, &tools); err != nil {
-			return nil, Set{}, fmt.Errorf("invalid Gemini tools: %w", err)
-		}
-		for index, rawTool := range tools {
-			definitions, err := decodeGeminiDefinitions(rawTool)
-			if err != nil {
-				return nil, Set{}, fmt.Errorf("tools[%d]: %w", index, err)
-			}
-			for definitionIndex := range definitions {
-				definitions[definitionIndex].Group = index
-			}
-			set.Definitions = append(set.Definitions, definitions...)
-		}
-	}
-	set.Choice = decodeGeminiChoice(source.ToolConfig)
-
-	clone := *source
-	clone.Tools = nil
-	clone.ToolConfig = nil
-	return &clone, set, nil
-}
-
 func decodeOpenAIResponsesDefinition(raw json.RawMessage) (Definition, error) {
 	var tool map[string]any
 	if err := kitutil.Unmarshal(raw, &tool); err != nil {
@@ -526,96 +483,6 @@ func decodeClaudeDefinition(raw json.RawMessage) (Definition, error) {
 	}, nil
 }
 
-func decodeGeminiDefinitions(raw json.RawMessage) ([]Definition, error) {
-	var tool map[string]any
-	if err := kitutil.Unmarshal(raw, &tool); err != nil {
-		return nil, err
-	}
-	definitions := make([]Definition, 0)
-	if _, ok := tool["functionDeclarations"].([]any); ok {
-		var declarations struct {
-			FunctionDeclarations []json.RawMessage `json:"functionDeclarations"`
-		}
-		if err := kitutil.Unmarshal(raw, &declarations); err != nil {
-			return nil, err
-		}
-		for _, declaration := range declarations.FunctionDeclarations {
-			var function map[string]any
-			if err := kitutil.Unmarshal(declaration, &function); err != nil || function == nil {
-				continue
-			}
-			parametersKey := "parameters"
-			parametersJSONSchema, hasParametersJSONSchema := function["parametersJsonSchema"]
-			if function["parameters"] != nil && hasParametersJSONSchema && parametersJSONSchema != nil {
-				return nil, fmt.Errorf("function %q declares both parameters and parametersJsonSchema", strings.TrimSpace(kitutil.Interface2String(function["name"])))
-			}
-			if function["parameters"] == nil && hasParametersJSONSchema {
-				parametersKey = "parametersJsonSchema"
-			}
-			functionRaw, err := rawJSON(map[string]any{"functionDeclarations": []json.RawMessage{declaration}})
-			if err != nil {
-				return nil, err
-			}
-			definitions = append(definitions, Definition{
-				Kind:      KindFunction,
-				Execution: ExecutionClient,
-				Name:      strings.TrimSpace(kitutil.Interface2String(function["name"])),
-				Raw:       functionRaw,
-				Function: &Function{
-					Name:          strings.TrimSpace(kitutil.Interface2String(function["name"])),
-					Description:   kitutil.Interface2String(function["description"]),
-					Parameters:    kitutil.ObjectMember(declaration, parametersKey),
-					OpenAPISchema: function["parameters"] != nil,
-				},
-			})
-		}
-	}
-	for key := range tool {
-		var kind Kind
-		var nativeType string
-		switch key {
-		case "functionDeclarations":
-			continue
-		case "googleSearch":
-			kind, nativeType = KindWebSearch, "googleSearch"
-		case "googleSearchRetrieval":
-			kind, nativeType = KindWebSearch, "googleSearchRetrieval"
-		case "enterpriseWebSearch":
-			kind, nativeType = KindWebSearch, "enterpriseWebSearch"
-		case "googleMaps":
-			kind, nativeType = KindNative, "googleMaps"
-		case "codeExecution":
-			kind, nativeType = KindCodeExecution, "codeExecution"
-		case "urlContext":
-			kind, nativeType = KindURLContext, "urlContext"
-		case "fileSearch":
-			kind, nativeType = KindFileSearch, "fileSearch"
-		case "computerUse":
-			kind, nativeType = KindComputerUse, "computerUse"
-		case "retrieval":
-			kind, nativeType = KindFileSearch, "retrieval"
-		default:
-			kind, nativeType = KindNative, key
-		}
-		keyRaw, err := rawJSON(map[string]any{key: tool[key]})
-		if err != nil {
-			return nil, err
-		}
-		definition := Definition{
-			Kind:       kind,
-			Execution:  ExecutionServer,
-			NativeType: nativeType,
-			Name:       strings.TrimSpace(kitutil.Interface2String(tool["name"])),
-			Raw:        keyRaw,
-		}
-		if kind == KindWebSearch {
-			definition.WebSearch = &WebSearch{}
-		}
-		definitions = append(definitions, definition)
-	}
-	return definitions, nil
-}
-
 func decodeLegacyOpenAIFunctionChoice(raw json.RawMessage) (*Choice, error) {
 	if len(raw) == 0 {
 		return nil, nil
@@ -647,40 +514,6 @@ func rawBoolPointer(raw json.RawMessage) *bool {
 		return nil
 	}
 	return &value
-}
-
-// decodeOpenAIChatPseudoHostedTool recognizes the OpenAI Chat dialect that
-// declares Gemini hosted tools as function definitions named googleSearch,
-// codeExecution, or urlContext. The names are the historical public contract;
-// recognition lives here so every target format goes through the same hosted
-// ToolDefinition pipeline.
-func decodeOpenAIChatPseudoHostedTool(name string) (Definition, bool) {
-	switch name {
-	case "googleSearch":
-		return Definition{
-			Kind:       KindWebSearch,
-			Execution:  ExecutionServer,
-			NativeType: "googleSearch",
-			Name:       "googleSearch",
-			WebSearch:  &WebSearch{},
-		}, true
-	case "codeExecution":
-		return Definition{
-			Kind:       KindCodeExecution,
-			Execution:  ExecutionServer,
-			NativeType: "codeExecution",
-			Name:       "codeExecution",
-		}, true
-	case "urlContext":
-		return Definition{
-			Kind:       KindURLContext,
-			Execution:  ExecutionServer,
-			NativeType: "urlContext",
-			Name:       "urlContext",
-		}, true
-	default:
-		return Definition{}, false
-	}
 }
 
 func decodeOpenAIChatLocation(raw json.RawMessage) (*ApproximateLocation, error) {
@@ -802,31 +635,6 @@ func decodeClaudeChoice(value any, definitions []Definition) (*Choice, error) {
 	}
 	decoded.Raw = cloneRaw(raw)
 	return decoded, nil
-}
-
-func decodeGeminiChoice(config *dto.ToolConfig) *Choice {
-	if config == nil || config.FunctionCallingConfig == nil {
-		return nil
-	}
-	functionConfig := config.FunctionCallingConfig
-	switch strings.ToUpper(strings.TrimSpace(string(functionConfig.Mode))) {
-	case "NONE":
-		return &Choice{Mode: ChoiceNone}
-	case "ANY":
-		if len(functionConfig.AllowedFunctionNames) == 1 {
-			return &Choice{Mode: ChoiceNamed, Kind: KindFunction, Name: functionConfig.AllowedFunctionNames[0]}
-		}
-		return &Choice{
-			Mode:         ChoiceRequired,
-			Kind:         KindFunction,
-			AllowedNames: append([]string(nil), functionConfig.AllowedFunctionNames...),
-		}
-	case "", "AUTO":
-		return &Choice{Mode: ChoiceAuto}
-	default:
-		raw, _ := rawJSON(functionConfig)
-		return &Choice{Mode: ChoiceOpaque, Raw: raw}
-	}
 }
 
 func choiceFromString(value string) *Choice {

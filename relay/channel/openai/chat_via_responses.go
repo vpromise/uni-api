@@ -208,20 +208,6 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		return false
 	}
 
-	sendGeminiResponse := func(geminiResponse *dto.GeminiChatResponse) bool {
-		if geminiResponse == nil {
-			return true
-		}
-		geminiResponseStr, err := common.Marshal(geminiResponse)
-		if err != nil {
-			streamErr = types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
-			return false
-		}
-		c.Render(-1, common.CustomEvent{Data: "data: " + string(geminiResponseStr)})
-		_ = helper.FlushWriter(c)
-		return true
-	}
-
 	sendStreamResult := func(result relayconvert.ResponseResult) bool {
 		switch value := result.Value.(type) {
 		case dto.ChatCompletionsStreamResponse:
@@ -233,7 +219,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			}
 			return true
 		case *dto.ChatCompletionsStreamResponse:
-			if value == nil || (len(value.Choices) == 0 && value.Usage == nil) {
+			if value == nil || len(value.Choices) == 0 && value.Usage == nil {
 				return true
 			}
 			if err := helper.ObjectData(c, value); err != nil {
@@ -253,10 +239,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 				return writeFailed(err)
 			}
 			return true
-		case dto.GeminiChatResponse:
-			return sendGeminiResponse(&value)
-		case *dto.GeminiChatResponse:
-			return sendGeminiResponse(value)
+
 		default:
 			streamErr = types.NewOpenAIError(fmt.Errorf("unsupported converted stream response type %T", result.Value), types.ErrorCodeBadResponse, http.StatusInternalServerError)
 			return false

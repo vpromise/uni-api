@@ -38,7 +38,6 @@ import {
 import { buildApiParams, getDefaultTimeRange } from '../../lib/utils'
 import { CompactDateTimeRangePicker } from '../compact-date-time-range-picker'
 import { useLogsViewScope } from '../usage-logs-provider'
-
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 const DAY_MS = 24 * 60 * 60 * 1000
 const DEFAULT_MAX_RANGE_DAYS = 365
@@ -54,12 +53,13 @@ export function ExportLogsDialog() {
   const { canManageScope, isAdminView } = useLogsViewScope()
   const { status } = useStatus()
   const [open, setOpen] = useState(false)
-  const [range, setRange] = useState<{ start?: Date; end?: Date }>({})
+  const [range, setRange] = useState<{
+    start?: Date
+    end?: Date
+  }>({})
   const [exportedCount, setExportedCount] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-
   if (!canManageScope && status?.log_export_enabled === false) return null
-
   const maxDays = status?.log_max_range_days || DEFAULT_MAX_RANGE_DAYS
   const startMs = range.start?.getTime()
   const endMs = range.end?.getTime()
@@ -76,7 +76,6 @@ export function ExportLogsDialog() {
   const exporting = exportedCount !== null
   const canExport =
     startMs !== undefined && endMs !== undefined && !rangeError && !exporting
-
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const defaults = getDefaultTimeRange()
@@ -93,7 +92,6 @@ export function ExportLogsDialog() {
     }
     setOpen(nextOpen)
   }
-
   const handleExport = async () => {
     if (!range.start || !range.end) return
     const controller = new AbortController()
@@ -127,7 +125,11 @@ export function ExportLogsDialog() {
         `usage-logs-${dayjs(range.start).format('YYYYMMDD')}-${dayjs(range.end).format('YYYYMMDD')}.csv`,
         lines
       )
-      toast.success(t('Exported {{count}} logs', { count }))
+      toast.success(
+        t('Exported {{count}} logs', {
+          count,
+        })
+      )
       setOpen(false)
     } catch (error) {
       handleServerError(error, t('Failed to export logs'))
@@ -136,7 +138,6 @@ export function ExportLogsDialog() {
       setExportedCount(null)
     }
   }
-
   return (
     <Dialog
       open={open}
@@ -149,7 +150,9 @@ export function ExportLogsDialog() {
       title={t('Export logs')}
       description={t(
         'Choose a time range of up to {{days}} days. The other filters on this page also apply.',
-        { days: maxDays }
+        {
+          days: maxDays,
+        }
       )}
       contentClassName='sm:max-w-md'
       footer={
@@ -186,7 +189,9 @@ export function ExportLogsDialog() {
         )}
         {exporting && (
           <p aria-live='polite' className='text-muted-foreground text-sm'>
-            {t('Exported {{count}} logs', { count: exportedCount })}
+            {t('Exported {{count}} logs', {
+              count: exportedCount,
+            })}
           </p>
         )}
       </div>

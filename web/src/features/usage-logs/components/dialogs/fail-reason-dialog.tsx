@@ -24,21 +24,20 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-
 interface FailReasonDialogProps {
   failReason: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
 export function FailReasonDialog({
   failReason,
   open,
   onOpenChange,
 }: FailReasonDialogProps) {
   const { t } = useTranslation()
-  const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
-
+  const { copiedText, copyToClipboard } = useCopyToClipboard({
+    notify: false,
+  })
   return (
     <Dialog
       open={open}

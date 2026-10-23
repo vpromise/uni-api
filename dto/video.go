@@ -1,7 +1,7 @@
 package dto
 
 type VideoRequest struct {
-	Model          string         `json:"model,omitempty" example:"kling-v1"`                                                                                                                                    // Model/style ID
+	Model          string         `json:"model,omitempty" example:"sora-2"`                                                                                                                                      // Model/style ID
 	Prompt         string         `json:"prompt,omitempty" example:"宇航员站起身走了"`                                                                                                                                   // Text prompt
 	Image          string         `json:"image,omitempty" example:"https://h2.inkwai.com/bs2/upload-ylab-stunt/se/ai_portal_queue_mmu_image_upscale_aiweb/3214b798-e1b4-4b00-b7af-72b5b0417420_raw_image_0.jpg"` // Image input (URL/Base64)
 	Duration       float64        `json:"duration" example:"5.0"`                                                                                                                                                // Video duration (seconds)

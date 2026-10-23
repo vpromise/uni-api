@@ -20,7 +20,6 @@ import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { cn } from '@/lib/utils'
-
 export function AuditDetailValue(props: {
   label: string
   value: string
@@ -43,7 +42,9 @@ export function AuditDetailValue(props: {
           value={props.value}
           className='size-5'
           iconClassName='size-3'
-          aria-label={t('Copy {{field}}', { field: props.label })}
+          aria-label={t('Copy {{field}}', {
+            field: props.label,
+          })}
         />
       )}
     </div>

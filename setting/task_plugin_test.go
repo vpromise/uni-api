@@ -25,14 +25,14 @@ func TestTaskPluginDisabledFactoryKeysRoundTripAndDedupe(t *testing.T) {
 	setupTaskPluginDisabledFactoryKeysTest(t)
 
 	assert.Empty(t, GetTaskPluginDisabledFactoryKeys())
-	assert.False(t, IsTaskPluginFactoryDisabled("kling"))
+	assert.False(t, IsTaskPluginFactoryDisabled("sora"))
 
-	require.NoError(t, SetTaskPluginDisabledFactoryKeysOption([]string{"kling", "sora", "kling", " hailuo "}))
-	assert.Equal(t, []string{"hailuo", "kling", "sora"}, GetTaskPluginDisabledFactoryKeys())
-	assert.Equal(t, `["hailuo","kling","sora"]`, common.OptionMap[TaskPluginDisabledFactoryKeysKey])
-	assert.True(t, IsTaskPluginFactoryDisabled("kling"))
-	assert.True(t, IsTaskPluginFactoryDisabled("hailuo"))
-	assert.False(t, IsTaskPluginFactoryDisabled("google"))
+	require.NoError(t, SetTaskPluginDisabledFactoryKeysOption([]string{"sora", "sora", "sora", " custom-a "}))
+	assert.Equal(t, []string{"custom-a", "sora"}, GetTaskPluginDisabledFactoryKeys())
+	assert.Equal(t, `["custom-a","sora"]`, common.OptionMap[TaskPluginDisabledFactoryKeysKey])
+	assert.True(t, IsTaskPluginFactoryDisabled("sora"))
+	assert.True(t, IsTaskPluginFactoryDisabled("custom-a"))
+	assert.False(t, IsTaskPluginFactoryDisabled("custom-b"))
 }
 
 func TestTaskPluginDisabledFactoryKeysBadJSONReturnsEmpty(t *testing.T) {
@@ -46,8 +46,8 @@ func TestTaskPluginDisabledFactoryKeysBadJSONReturnsEmpty(t *testing.T) {
 		{name: "null", raw: "null"},
 		{name: "object", raw: "{}"},
 		{name: "number", raw: "1"},
-		{name: "truncated", raw: `["kling"`},
-		{name: "not json", raw: "kling"},
+		{name: "truncated", raw: `["sora"`},
+		{name: "not json", raw: "sora"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			common.OptionMapRWMutex.Lock()
@@ -59,7 +59,7 @@ func TestTaskPluginDisabledFactoryKeysBadJSONReturnsEmpty(t *testing.T) {
 			common.OptionMapRWMutex.Unlock()
 
 			assert.Empty(t, GetTaskPluginDisabledFactoryKeys())
-			assert.False(t, IsTaskPluginFactoryDisabled("kling"))
+			assert.False(t, IsTaskPluginFactoryDisabled("sora"))
 		})
 	}
 }

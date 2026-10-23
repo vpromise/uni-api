@@ -34,7 +34,6 @@ import { cn } from '@/lib/utils'
 import { isResponseModelMismatch } from '../lib/response-model'
 import type { LogOtherData } from '../types'
 import { DetailRow } from './dialogs/log-detail-layout'
-
 interface ModelBadgeProps {
   modelName: string
   actualModel?: string
@@ -43,10 +42,12 @@ interface ModelBadgeProps {
   wrapText?: boolean
   onInspect?: () => void
 }
-
-function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
+function ModelBadgeContent(
+  props: ModelBadgeProps & {
+    copyable: boolean
+  }
+) {
   const provider = resolveModelProvider(props.modelName)
-
   return (
     <StatusBadge
       copyText={props.modelName}
@@ -89,7 +90,6 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
     </StatusBadge>
   )
 }
-
 export function ModelBadge(props: ModelBadgeProps) {
   const { t } = useTranslation()
   const mismatch = isResponseModelMismatch(props.responseModel)
@@ -111,7 +111,6 @@ export function ModelBadge(props: ModelBadgeProps) {
           props.responseModel.upstream_model !==
             props.responseModel.requested_model))
     )
-
   if (!hasDetails) {
     if (props.onInspect) {
       return (
@@ -128,7 +127,6 @@ export function ModelBadge(props: ModelBadgeProps) {
     }
     return <ModelBadgeContent {...props} copyable />
   }
-
   const content = (
     <>
       <ModelBadgeContent {...props} copyable={false} />
@@ -148,7 +146,6 @@ export function ModelBadge(props: ModelBadgeProps) {
       )}
     </>
   )
-
   if (props.onInspect) {
     return (
       <Button
@@ -162,7 +159,6 @@ export function ModelBadge(props: ModelBadgeProps) {
       </Button>
     )
   }
-
   return (
     <Popover>
       <PopoverTrigger
@@ -203,13 +199,11 @@ export function ModelBadge(props: ModelBadgeProps) {
     </Popover>
   )
 }
-
 export function ResponseModelDetails(props: {
   observation: NonNullable<LogOtherData['response_model']>
 }) {
   const { t } = useTranslation()
   const mismatch = isResponseModelMismatch(props.observation)
-
   return (
     <div className='min-w-0 space-y-2'>
       {mismatch && (
@@ -251,7 +245,9 @@ export function ResponseModelDetails(props: {
                 value={model.value}
                 className='size-5'
                 iconClassName='size-3'
-                aria-label={t('Copy {{field}}', { field: model.label })}
+                aria-label={t('Copy {{field}}', {
+                  field: model.label,
+                })}
               />
             </span>
           }

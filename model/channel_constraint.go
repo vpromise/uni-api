@@ -91,29 +91,22 @@ func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind
 func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilter) bool {
 	switch filter.Kind {
 	case dto.FilterRequestPath:
-		if filter.RequestPath == "" {
-			return true
-		}
-		if !constant.IsAdvancedCustomChannel(ch.Type) {
-			return true
-		}
-		config := ch.GetOtherSettings().AdvancedCustom
-		return config != nil && config.SupportsPathForModel(filter.RequestPath, modelName)
+		return constant.IsSupportedChannelType(ch.Type)
 	case dto.FilterTaskPluginIdentity:
 		if filter.TaskPluginKey == "" {
 			return ch.Type != constant.ChannelTypeTaskPlugin
 		}
-		if ch.Type == constant.ChannelTypeTaskPlugin || ch.Type == constant.ChannelTypeNewAPI {
+		if ch.Type == constant.ChannelTypeTaskPlugin || len(ch.GetSetting().TaskPluginBindings()) > 0 {
 			// A New API channel serves every plugin it is extended with; the
 			// pinned plugin or any shared-model candidate may execute there.
 			setting := ch.GetSetting()
-			return setting.BindsTaskPlugin(filter.TaskPluginKey) || slices.ContainsFunc(filter.TaskPluginKeys, setting.BindsTaskPlugin)
+			return setting.BindsTaskPlugin(filter.TaskPluginKey) || slices.ContainsFunc(filter.TaskPluginKeys, setting.BindsTaskPlugin) || slices.Contains(filter.TaskPluginChannelTypes, ch.Type)
 		}
 		return slices.Contains(filter.TaskPluginChannelTypes, ch.Type)
 	case dto.FilterTaskPluginEndpoint:
 		pluginChannel := slices.Contains(filter.TaskPluginChannelTypes, ch.Type)
-		if ch.Type == constant.ChannelTypeTaskPlugin || ch.Type == constant.ChannelTypeNewAPI {
-			pluginChannel = slices.ContainsFunc(filter.TaskPluginKeys, ch.GetSetting().BindsTaskPlugin)
+		if ch.Type == constant.ChannelTypeTaskPlugin || len(ch.GetSetting().TaskPluginBindings()) > 0 {
+			pluginChannel = pluginChannel || slices.ContainsFunc(filter.TaskPluginKeys, ch.GetSetting().BindsTaskPlugin)
 		}
 		if filter.TaskPluginRelayOnly {
 			return ch.Type != constant.ChannelTypeTaskPlugin && !pluginChannel
@@ -127,13 +120,9 @@ func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilte
 			return false
 		}
 		switch ch.Type {
-		case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex, constant.ChannelTypeSub2API, constant.ChannelTypeNewAPI:
+		case constant.ChannelTypeOpenAI, constant.ChannelTypeCodex:
 			return true
-		case constant.ChannelTypeAdvancedCustom:
-			// The session forwards native Responses events without protocol
-			// conversion, so only a converter-free /v1/responses route qualifies.
-			route, ok := ch.GetOtherSettings().AdvancedCustom.MatchPathForModel("/v1/responses", modelName)
-			return ok && route.IsNative()
+
 		default:
 			return false
 		}

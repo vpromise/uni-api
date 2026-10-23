@@ -104,24 +104,25 @@ import {
 import { DraftNumberInput } from './draft-number-input'
 import { RequestSimulation } from './request-simulation'
 import { VisualBillingDocumentEditor } from './visual-billing-document-editor'
-
 type Preset = {
   key: string
   label: string
   expr: string
   requestRules?: RequestRuleGroup[]
 }
-
 type PresetGroup = {
   group: string
   presets: Preset[]
 }
-
 const PRESET_GROUPS: PresetGroup[] = [
   {
     group: 'Fixed price',
     presets: [
-      { key: 'flat', label: 'Flat', expr: 'tier("base", p * 2 + c * 4)' },
+      {
+        key: 'flat',
+        label: 'Flat',
+        expr: 'tier("base", p * 2 + c * 4)',
+      },
       {
         key: 'claude-opus',
         label: 'Claude Opus 4.6',
@@ -152,11 +153,6 @@ const PRESET_GROUPS: PresetGroup[] = [
         label: 'GLM-4.5 Air',
         expr: 'len < 32000 && c < 200 ? tier("short_output", p * 0.8 + c * 2 + cr * 0.16) : len < 32000 && c >= 200 ? tier("long_output", p * 0.8 + c * 6 + cr * 0.16) : tier("mid_context", p * 1.2 + c * 8 + cr * 0.24)',
       },
-      {
-        key: 'doubao-seed-1.8',
-        label: 'Doubao Seed 1.8',
-        expr: 'len <= 32000 && c <= 200 ? tier("discount", p * 0.8 + c * 2 + cr * 0.16 + cc * 0.17) : len <= 32000 ? tier("short", p * 0.8 + c * 8 + cr * 0.16 + cc * 0.17) : len <= 128000 ? tier("mid", p * 1.2 + c * 16 + cr * 0.16 + cc * 0.17) : tier("long", p * 2.4 + c * 24 + cr * 0.16 + cc * 0.17)',
-      },
     ],
   },
   {
@@ -166,16 +162,6 @@ const PRESET_GROUPS: PresetGroup[] = [
         key: 'gpt-image-1-mini',
         label: 'GPT Image 1 Mini',
         expr: 'tier("base", p * 2 + c * 8 + img * 2.5)',
-      },
-      {
-        key: 'gemini-2.5-flash',
-        label: 'Gemini 2.5 Flash',
-        expr: 'tier("base", p * 0.3 + c * 2.5 + cr * 0.03 + ai * 1.0)',
-      },
-      {
-        key: 'gemini-3-pro-image',
-        label: 'Gemini 3 Pro Image',
-        expr: 'tier("base", p * 2 + c * 12 + img_o * 120)',
       },
       {
         key: 'qwen3-omni-flash',
@@ -306,7 +292,6 @@ type RawExprEditorProps = {
   exprString: string
   onChange: (value: string) => void
 }
-
 function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
   const { t } = useTranslation()
   return (
@@ -355,7 +340,6 @@ type RuleConditionRowProps = {
   onChange: (next: RequestCondition) => void
   onRemove: () => void
 }
-
 function RuleConditionRow({
   condition,
   onChange,
@@ -388,7 +372,6 @@ function RuleConditionRow({
   let sourceLabel = t('Time')
   if (condition.source === SOURCE_PARAM) sourceLabel = t('Body param')
   else if (condition.source === SOURCE_HEADER) sourceLabel = t('Header')
-
   const handleSourceChange = (source: string) => {
     if (source === SOURCE_TIME) {
       onChange(createEmptyTimeCondition())
@@ -399,18 +382,23 @@ function RuleConditionRow({
       })
     }
   }
-
   const handleModeChange = (mode: string) => {
-    onChange({ ...condition, mode } as RequestCondition)
+    onChange({
+      ...condition,
+      mode,
+    } as RequestCondition)
   }
-
   const renderTimeCondition = (timeCond: TimeCondition) => (
     <>
       <BillingTimeProbeFields
         probe={timeCond.timeFunc}
         timezone={timeCond.timezone}
         onChange={(timeFunc, timezone) =>
-          onChange({ ...timeCond, timeFunc: timeFunc as TimeFunc, timezone })
+          onChange({
+            ...timeCond,
+            timeFunc: timeFunc as TimeFunc,
+            timezone,
+          })
         }
       />
       <Select
@@ -440,14 +428,21 @@ function RuleConditionRow({
           start={timeCond.rangeStart}
           end={timeCond.rangeEnd}
           onChange={(rangeStart, rangeEnd) =>
-            onChange({ ...timeCond, rangeStart, rangeEnd })
+            onChange({
+              ...timeCond,
+              rangeStart,
+              rangeEnd,
+            })
           }
         />
       ) : (
         <DraftNumberInput
           value={timeCond.value}
           onValueChange={(value) =>
-            onChange({ ...timeCond, value: String(value) })
+            onChange({
+              ...timeCond,
+              value: String(value),
+            })
           }
           placeholder={t('Value')}
           className='w-24'
@@ -455,12 +450,16 @@ function RuleConditionRow({
       )}
     </>
   )
-
   const renderParamHeaderCondition = (phCond: ParamHeaderCondition) => (
     <>
       <Input
         value={phCond.path}
-        onChange={(event) => onChange({ ...phCond, path: event.target.value })}
+        onChange={(event) =>
+          onChange({
+            ...phCond,
+            path: event.target.value,
+          })
+        }
         placeholder={
           phCond.source === SOURCE_HEADER ? 'X-Header-Name' : 'service_tier'
         }
@@ -491,7 +490,10 @@ function RuleConditionRow({
         <Input
           value={phCond.value}
           onChange={(event) =>
-            onChange({ ...phCond, value: event.target.value })
+            onChange({
+              ...phCond,
+              value: event.target.value,
+            })
           }
           placeholder={t('Value')}
           className='w-44'
@@ -499,14 +501,22 @@ function RuleConditionRow({
       )}
     </>
   )
-
   return (
     <div className='flex flex-wrap items-center gap-2'>
       <Select
         items={[
-          { value: SOURCE_PARAM, label: t('Body param') },
-          { value: SOURCE_HEADER, label: t('Header') },
-          { value: SOURCE_TIME, label: t('Time') },
+          {
+            value: SOURCE_PARAM,
+            label: t('Body param'),
+          },
+          {
+            value: SOURCE_HEADER,
+            label: t('Header'),
+          },
+          {
+            value: SOURCE_TIME,
+            label: t('Time'),
+          },
         ]}
         value={condition.source}
         onValueChange={(v) => v !== null && handleSourceChange(v)}
@@ -553,7 +563,6 @@ type RuleGroupCardProps = {
   onChange: (next: RequestRuleGroup) => void
   onRemove: () => void
 }
-
 function RuleGroupCard({
   group,
   index,
@@ -561,16 +570,17 @@ function RuleGroupCard({
   onRemove,
 }: RuleGroupCardProps) {
   const { t } = useTranslation()
-
   const handleConditionChange = (
     conditionIndex: number,
     next: RequestCondition
   ) => {
     const conditions = [...group.conditions]
     conditions[conditionIndex] = next
-    onChange({ ...group, conditions })
+    onChange({
+      ...group,
+      conditions,
+    })
   }
-
   const handleAddCondition = (timeMode: boolean) => {
     onChange({
       ...group,
@@ -580,7 +590,6 @@ function RuleGroupCard({
       ],
     })
   }
-
   return (
     <div className='bg-muted/30 space-y-3 rounded-md border p-3'>
       <div className='flex items-center justify-between gap-2'>
@@ -641,7 +650,10 @@ function RuleGroupCard({
           step={0.000001}
           value={group.multiplier}
           onValueChange={(value) =>
-            onChange({ ...group, multiplier: String(value) })
+            onChange({
+              ...group,
+              multiplier: String(value),
+            })
           }
           className='w-32'
           placeholder='1.0'
@@ -661,13 +673,11 @@ function RuleGroupCard({
 type PresetSectionProps = {
   applyPreset: (preset: Preset) => void
 }
-
 function PresetSection({ applyPreset }: PresetSectionProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const visible = expanded ? PRESET_GROUPS : PRESET_GROUPS.slice(0, 2)
   const hasMore = PRESET_GROUPS.length > 2
-
   return (
     <div className='space-y-2'>
       <div className='flex items-center gap-2'>
@@ -719,7 +729,6 @@ type EstimatorProps = {
   effectiveExpr: string
   fullExpr: string
 }
-
 function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
   const { t } = useTranslation()
   const inputId = useId()
@@ -740,12 +749,10 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
     audioInputTokens: 0,
     audioOutputTokens: 0,
   })
-
   const usesExtras = useMemo(
     () => exprUsesExtraVars(effectiveExpr),
     [effectiveExpr]
   )
-
   const tokens = useMemo(() => {
     const values = buildEstimatorTokens(
       promptTokens,
@@ -756,7 +763,6 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
     if (lengthOverride.trim()) values.len = Number(lengthOverride)
     return values
   }, [promptTokens, completionTokens, extras, lengthOverride, effectiveExpr])
-
   const result = useMemo(
     () =>
       evalExprLocally(effectiveExpr, promptTokens, completionTokens, extras, {
@@ -765,7 +771,6 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
       }),
     [effectiveExpr, promptTokens, completionTokens, extras, tokens, billingTime]
   )
-
   if (result.error === 'task usage') {
     return (
       <Alert>
@@ -777,7 +782,6 @@ function CostEstimator({ effectiveExpr, fullExpr, currency }: EstimatorProps) {
       </Alert>
     )
   }
-
   return (
     <div className='bg-muted/30 space-y-3 rounded-md border p-3'>
       <div className='space-y-1'>
@@ -976,22 +980,18 @@ len <= 128000
 6. If cache/image/audio don't need separate pricing, omit those variables; their tokens are included in p/c automatically
 
 Please generate a billing expression based on the model information and pricing requirements provided.`
-
 type LlmPromptHelperProps = {
   modelName?: string
 }
-
 function LlmPromptHelper({ modelName }: LlmPromptHelperProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-
   const prompt = useMemo(() => {
     if (modelName) {
       return `${LLM_PROMPT_TEMPLATE}\n\nCurrent model: ${modelName}`
     }
     return LLM_PROMPT_TEMPLATE
   }, [modelName])
-
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(prompt)
@@ -1000,7 +1000,6 @@ function LlmPromptHelper({ modelName }: LlmPromptHelperProps) {
       toast.error(t('Failed to copy'))
     }
   }, [prompt, t])
-
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger
@@ -1054,15 +1053,12 @@ export type TieredPricingEditorProps = {
   onBillingExprChange: (next: string) => void
   onRequestRuleExprChange: (next: string) => void
 }
-
 type EditorMode = 'visual' | 'raw'
-
 function parseTierEditorDocument(source: string): VisualBillingDocument | null {
   return parseVisualBillingDocument(
     source || generateExprFromVisualConfig(createDefaultVisualConfig())
   )
 }
-
 export const TieredPricingEditor = memo(function TieredPricingEditor({
   currency = USD_PRICING_CURRENCY,
   modelName,
@@ -1099,7 +1095,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     setRawExpr(combineBillingExpr(currentExpr, currentRequestRuleExpr))
     setRequestRuleGroups(tryParseRequestRuleExpr(currentRequestRuleExpr) || [])
   }, [modelName, currentExpr, currentRequestRuleExpr])
-
   const serialized = useMemo(
     () =>
       visualDocument ? serializeVisualBillingDocument(visualDocument) : null,
@@ -1109,7 +1104,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
   const canUseVisualRules =
     !ruleExpr || tryParseRequestRuleExpr(ruleExpr) !== null
   const effectiveExpr = baseExpr
-
   const handleDocumentChange = useCallback(
     (next: VisualBillingDocument) => {
       setVisualDocument(next)
@@ -1121,7 +1115,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     },
     [onBillingExprChange]
   )
-
   const handleRawChange = useCallback(
     (value: string) => {
       setRawExpr(value)
@@ -1133,7 +1126,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     },
     [onBillingExprChange, onRequestRuleExprChange]
   )
-
   const handleModeChange = useCallback(
     (next: EditorMode) => {
       if (next === editorMode) return
@@ -1157,7 +1149,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     },
     [editorMode, invalidDraft, baseExpr, ruleExpr, t]
   )
-
   const applyPreset = useCallback(
     (preset: Preset) => {
       const groups = preset.requestRules || []
@@ -1174,7 +1165,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     },
     [onBillingExprChange, onRequestRuleExprChange]
   )
-
   const handleRuleGroupsChange = useCallback(
     (next: RequestRuleGroup[]) => {
       setRequestRuleGroups(next)
@@ -1184,7 +1174,6 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
     },
     [onRequestRuleExprChange]
   )
-
   return (
     <div className='space-y-5' data-billing-invalid={invalidDraft || undefined}>
       <div className='grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end'>
@@ -1192,8 +1181,14 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
           <FieldLabel>{t('Editor mode')}</FieldLabel>
           <Select
             items={[
-              { value: 'visual', label: t('Visual editor') },
-              { value: 'raw', label: t('Expression editor') },
+              {
+                value: 'visual',
+                label: t('Visual editor'),
+              },
+              {
+                value: 'raw',
+                label: t('Expression editor'),
+              },
             ]}
             value={editorMode}
             onValueChange={(value) => handleModeChange(value as EditorMode)}

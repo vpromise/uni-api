@@ -20,25 +20,20 @@ export type SystemOption = {
   key: string
   value: string
 }
-
 export type SystemOptionKey = string
-
 export type SystemOptionsResponse = {
   success: boolean
   message: string
   data: SystemOption[]
 }
-
 export type UpdateOptionRequest = {
   key: string
   value: string | boolean | number
 }
-
 export type UpdateOptionResponse = {
   success: boolean
   message: string
 }
-
 export interface PasskeyDomainChange {
   rp_id: string
   legacy_rp_ids: string
@@ -51,7 +46,6 @@ export interface PasskeyDomainChange {
   confirmation_required: boolean
   removal_confirmation: string
 }
-
 export interface UpdatePasskeyDomainsRequest {
   rp_id: string
   legacy_rp_ids: string
@@ -59,12 +53,10 @@ export interface UpdatePasskeyDomainsRequest {
   preview: boolean
   removal_confirmation?: string
 }
-
 export interface UpdatePasskeyDomainsResponse extends UpdateOptionResponse {
   code?: string
   data: PasskeyDomainChange
 }
-
 export type ConfirmPaymentComplianceResponse = {
   success: boolean
   message: string
@@ -75,9 +67,7 @@ export type ConfirmPaymentComplianceResponse = {
     confirmed_by: number
   }
 }
-
 export type SystemTaskStatus = 'pending' | 'running' | 'succeeded' | 'failed'
-
 export type SystemTask<
   TPayload = Record<string, unknown>,
   TState = Record<string, unknown>,
@@ -97,49 +87,41 @@ export type SystemTask<
   created_at: number
   updated_at: number
 }
-
 export type LogCleanupTaskPayload = {
   target_timestamp: number
   batch_size: number
 }
-
 export type LogCleanupTaskState = {
   total: number
   processed: number
   progress: number
   remaining: number
 }
-
 export type LogCleanupTaskResult = {
   deleted_count: number
 }
-
 export type LogCleanupTask = SystemTask<
   LogCleanupTaskPayload,
   LogCleanupTaskState,
   LogCleanupTaskResult
 >
-
 export type SystemTaskResponse<TTask = SystemTask | null> = {
   success: boolean
   message: string
   data?: TTask
 }
-
 export type SystemTaskListResponse = {
   success: boolean
   message: string
   data?: SystemTask[]
   total: number
 }
-
 export type SystemTaskFilters = {
   type?: string
   status?: SystemTaskStatus | ''
   scope?: 'active' | 'history'
   offset?: number
 }
-
 export type SiteSettings = {
   Notice: string
   SystemName: string
@@ -155,7 +137,6 @@ export type SiteSettings = {
   HeaderNavModules: string
   SidebarModulesAdmin: string
 }
-
 export type AuthSettings = {
   PasswordLoginEnabled: boolean
   PasswordRegisterEnabled: boolean
@@ -204,7 +185,6 @@ export type AuthSettings = {
   'passkey.user_verification': 'required' | 'preferred' | 'discouraged'
   'passkey.attachment_preference': '' | 'platform' | 'cross-platform'
 }
-
 export type ContentSettings = {
   'console_setting.api_info': string
   'console_setting.announcements': string
@@ -225,26 +205,16 @@ export type ContentSettings = {
   MjModeClearEnabled: boolean
   MjActionCheckSuccessEnabled: boolean
 }
-
 export type ModelSettings = {
   'global.pass_through_request_enabled': boolean
   'global.thinking_model_blacklist': string
   'global.chat_completions_to_responses_policy': string
   'general_setting.ping_interval_enabled': boolean
   'general_setting.ping_interval_seconds': number
-  'gemini.safety_settings': string
-  'gemini.version_settings': string
-  'gemini.supported_imagine_models': string
-  'gemini.thinking_adapter_enabled': boolean
-  'gemini.thinking_adapter_budget_tokens_percentage': number
-  'gemini.function_call_thought_signature_enabled': boolean
-  'gemini.remove_function_response_id_enabled': boolean
   'claude.model_headers_settings': string
   'claude.default_max_tokens': string
   'claude.thinking_adapter_enabled': boolean
   'claude.thinking_adapter_budget_tokens_percentage': number
-  'grok.violation_deduction_enabled': boolean
-  'grok.violation_deduction_amount': number
   ModelPrice: string
   ModelRatio: string
   CacheRatio: string
@@ -266,10 +236,7 @@ export type ModelSettings = {
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
   'group_ratio_setting.group_special_usable_group': string
-  'model_deployment.ionet.api_key': string
-  'model_deployment.ionet.enabled': boolean
 }
-
 export type BillingSettings = {
   QuotaForNewUser: number
   QuotaForInviter: number
@@ -356,7 +323,6 @@ export type BillingSettings = {
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
 }
-
 export type OperationsSettings = {
   DefaultCollapseSidebar: boolean
   DemoSiteEnabled: boolean
@@ -395,7 +361,6 @@ export type OperationsSettings = {
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
 }
-
 export type SecuritySettings = {
   ModelRequestRateLimitEnabled: boolean
   ModelRequestRateLimitCount: number
@@ -415,7 +380,6 @@ export type SecuritySettings = {
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
 }
-
 export type UpstreamChannel = {
   id: number
   name: string
@@ -423,7 +387,6 @@ export type UpstreamChannel = {
   status: number
   type?: number
 }
-
 export type RatioType =
   | 'model_ratio'
   | 'completion_ratio'
@@ -435,49 +398,44 @@ export type RatioType =
   | 'model_price'
   | 'billing_mode'
   | 'billing_expr'
-
 export type RatioDifference = {
   current: number | string | null
   upstreams: Record<string, number | string | 'same'>
   confidence: Record<string, boolean>
 }
-
 export type DifferencesMap = Record<
   string,
   Partial<Record<RatioType, RatioDifference>>
 >
-
 export type PricingSyncValues = Partial<Record<RatioType, number | string>>
 export type PricingSyncModels = Record<
   string,
-  { current: PricingSyncValues; upstreams: Record<string, PricingSyncValues> }
+  {
+    current: PricingSyncValues
+    upstreams: Record<string, PricingSyncValues>
+  }
 >
-
 export type UpstreamChannelsResponse = {
   success: boolean
   message: string
   data: UpstreamChannel[]
 }
-
 export type UpstreamConfig = {
   id: number
   name: string
   base_url: string
   endpoint: string
 }
-
 export type FetchUpstreamRatiosRequest = {
   include_unchanged?: boolean
   upstreams: UpstreamConfig[]
   timeout: number
 }
-
 export type TestResult = {
   name: string
   status: 'success' | 'error'
   error?: string
 }
-
 export type UpstreamRatiosResponse = {
   success: boolean
   message: string

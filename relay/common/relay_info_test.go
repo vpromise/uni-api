@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
@@ -37,11 +35,9 @@ func TestRelayInfoGetFinalRequestRelayFormatFallsBackToConversionChain(t *testin
 }
 
 func TestRelayInfoGetFinalRequestRelayFormatFallsBackToRelayFormat(t *testing.T) {
-	info := &RelayInfo{
-		RelayFormat: types.RelayFormatGemini,
-	}
+	info := &RelayInfo{RelayFormat: types.RelayFormatClaude}
 
-	require.Equal(t, types.RelayFormat(types.RelayFormatGemini), info.GetFinalRequestRelayFormat())
+	require.Equal(t, types.RelayFormat(types.RelayFormatClaude), info.GetFinalRequestRelayFormat())
 }
 
 func TestRelayInfoGetFinalRequestRelayFormatNilReceiver(t *testing.T) {
@@ -85,8 +81,6 @@ func TestRelayInfoMetaTypedNilReceiver(t *testing.T) {
 	require.NotNil(t, secondOptions)
 	assert.NotSame(t, firstOptions, secondOptions)
 	assert.NotNil(t, firstOptions.Claude.DefaultMaxTokens)
-	assert.NotNil(t, firstOptions.Gemini.SupportsImagine)
-	assert.NotNil(t, firstOptions.Gemini.SafetySetting)
 	assert.NotNil(t, firstOptions.PreserveThinkingSuffix)
 	assert.NotNil(t, firstOptions.PreserveEffortTail)
 }
@@ -120,13 +114,7 @@ func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {
 			request:     &dto.GeneralOpenAIRequest{Model: "gpt-5.6-sol", ReasoningEffort: " high "},
 			expected:    "high",
 		},
-		{
-			name:        "OpenRouter nested chat effort",
-			path:        "/v1/chat/completions",
-			relayFormat: types.RelayFormatOpenAI,
-			request:     &dto.GeneralOpenAIRequest{Model: "anthropic/claude", Reasoning: json.RawMessage(`{"effort":"xhigh"}`)},
-			expected:    "xhigh",
-		},
+
 		{
 			name:        "OpenAI Responses effort",
 			path:        "/v1/responses",
@@ -154,33 +142,6 @@ func TestGenRelayInfoCapturesRequestReasoningEffort(t *testing.T) {
 			relayFormat: types.RelayFormatClaude,
 			request:     &dto.ClaudeRequest{Model: "claude-opus-4-7", OutputConfig: json.RawMessage(`{"effort":"medium"}`)},
 			expected:    "medium",
-		},
-		{
-			name:        "Gemini thinking level",
-			path:        "/v1beta/models/gemini-3-pro:generateContent",
-			relayFormat: types.RelayFormatGemini,
-			request: &dto.GeminiChatRequest{GenerationConfig: dto.GeminiChatGenerationConfig{
-				ThinkingConfig: &dto.GeminiThinkingConfig{ThinkingLevel: "low"},
-			}},
-			expected: "low",
-		},
-		{
-			name:        "Gemini uppercase enum thinking level is canonicalized",
-			path:        "/v1beta/models/gemini-3.7-flash:generateContent",
-			relayFormat: types.RelayFormatGemini,
-			request: &dto.GeminiChatRequest{GenerationConfig: dto.GeminiChatGenerationConfig{
-				ThinkingConfig: &dto.GeminiThinkingConfig{ThinkingLevel: " MEDIUM "},
-			}},
-			expected: "medium",
-		},
-		{
-			name:        "Gemini unknown thinking level is recorded as sent",
-			path:        "/v1beta/models/gemini-3.7-flash:generateContent",
-			relayFormat: types.RelayFormatGemini,
-			request: &dto.GeminiChatRequest{GenerationConfig: dto.GeminiChatGenerationConfig{
-				ThinkingConfig: &dto.GeminiThinkingConfig{ThinkingLevel: "ULTRA"},
-			}},
-			expected: "ULTRA",
 		},
 	}
 
@@ -230,84 +191,6 @@ func TestInitChannelMetaRestoresRequestReasoningEffortForRetry(t *testing.T) {
 	assert.Equal(t, "max", info.ReasoningEffort)
 }
 
-func TestInitChannelMetaAppliesAdvancedCustomRoutePassThrough(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	advancedCustom := &dto.AdvancedCustomConfig{
-		Routes: []dto.AdvancedCustomRoute{
-			{
-				IncomingPath:           "/v1/chat/completions",
-				UpstreamPath:           "/v1/chat/completions",
-				Models:                 []string{"native-model"},
-				PassThroughBodyEnabled: true,
-			},
-			{
-				IncomingPath: "/v1/chat/completions",
-				UpstreamPath: "/v1/messages",
-				Converter:    relayconvert.ConverterOpenAIChatToClaudeMessages,
-			},
-		},
-	}
-	require.NoError(t, advancedCustom.Validate())
-
-	tests := []struct {
-		name            string
-		channelType     int
-		channelSetting  dto.ChannelSettings
-		model           string
-		wantPassThrough bool
-		wantEffort      string
-	}{
-		{
-			name:            "matched route enables pass-through and drops reasoning effort",
-			channelType:     constant.ChannelTypeAdvancedCustom,
-			model:           "native-model",
-			wantPassThrough: true,
-			wantEffort:      "",
-		},
-		{
-			name:            "fallback converter route keeps conversion",
-			channelType:     constant.ChannelTypeAdvancedCustom,
-			model:           "other-model",
-			wantPassThrough: false,
-			wantEffort:      "high",
-		},
-		{
-			name:            "channel-level pass-through still applies to converter route",
-			channelType:     constant.ChannelTypeAdvancedCustom,
-			channelSetting:  dto.ChannelSettings{PassThroughBodyEnabled: true},
-			model:           "other-model",
-			wantPassThrough: true,
-			wantEffort:      "",
-		},
-		{
-			name:            "route flag is ignored for other channel types",
-			channelType:     constant.ChannelTypeOpenAI,
-			model:           "native-model",
-			wantPassThrough: false,
-			wantEffort:      "high",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-			ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-			ctx.Set("original_model", tt.model)
-			common.SetContextKey(ctx, constant.ContextKeyChannelType, tt.channelType)
-			common.SetContextKey(ctx, constant.ContextKeyChannelSetting, tt.channelSetting)
-			common.SetContextKey(ctx, constant.ContextKeyChannelOtherSetting, dto.ChannelOtherSettings{AdvancedCustom: advancedCustom})
-
-			info, err := GenRelayInfo(ctx, types.RelayFormatOpenAI, &dto.GeneralOpenAIRequest{Model: tt.model, ReasoningEffort: "high"}, nil)
-			require.NoError(t, err)
-
-			info.InitChannelMeta(ctx)
-
-			assert.Equal(t, tt.wantPassThrough, info.ChannelSetting.PassThroughBodyEnabled)
-			assert.Equal(t, tt.wantEffort, info.ReasoningEffort)
-		})
-	}
-}
-
 func TestInitChannelMetaResetsPerAttemptStreamStateAndPreservesRequestState(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -337,15 +220,11 @@ func TestInitChannelMetaResetsPerAttemptStreamStateAndPreservesRequestState(t *t
 	})
 	require.NoError(t, err)
 
-	geminiState, err := relayconvert.NewResponseStreamState(types.RelayFormatOpenAI, types.RelayFormatGemini, relayconvert.ResponseStreamOptions{
-		ID:    "chatcmpl_1",
-		Model: "gpt-test",
-	})
 	require.NoError(t, err)
 
 	info.SendResponseCount = 3
 	info.ClaudeToChatStreamState = claudeState
-	info.ChatToGeminiStreamState = geminiState
+
 	info.LastError = types.NewError(assert.AnError, types.ErrorCodeBadResponseBody)
 	info.StreamStatus = NewStreamStatus()
 	info.StreamStatus.RecordError("attempt 1 soft error")
@@ -361,7 +240,6 @@ func TestInitChannelMetaResetsPerAttemptStreamStateAndPreservesRequestState(t *t
 
 	assert.Zero(t, info.SendResponseCount)
 	assert.Nil(t, info.ClaudeToChatStreamState)
-	assert.Nil(t, info.ChatToGeminiStreamState)
 
 	require.NotNil(t, info.StreamStatus)
 	assert.True(t, info.StreamStatus.HasErrors())

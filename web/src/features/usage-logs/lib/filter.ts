@@ -24,7 +24,6 @@ import type {
   LogCategory,
   LogFilters,
   CommonLogFilters,
-  DrawingLogFilters,
   TaskLogFilters,
 } from '../types'
 
@@ -40,38 +39,48 @@ export function buildSearchParams(
   logCategory: LogCategory
 ): Record<string, unknown> {
   const baseParams: Record<string, unknown> = {
-    ...(filters.startTime && { startTime: filters.startTime.getTime() }),
-    ...(filters.endTime && { endTime: filters.endTime.getTime() }),
-    ...(filters.channel && { channel: filters.channel }),
+    ...(filters.startTime && {
+      startTime: filters.startTime.getTime(),
+    }),
+    ...(filters.endTime && {
+      endTime: filters.endTime.getTime(),
+    }),
+    ...(filters.channel && {
+      channel: filters.channel,
+    }),
   }
-
   switch (logCategory) {
     case 'common': {
       const commonFilters = filters as CommonLogFilters
       return {
         ...baseParams,
-        ...(commonFilters.model && { model: commonFilters.model }),
-        ...(commonFilters.token && { token: commonFilters.token }),
-        ...(commonFilters.group && { group: commonFilters.group }),
-        ...(commonFilters.username && { username: commonFilters.username }),
-        ...(commonFilters.requestId && { requestId: commonFilters.requestId }),
+        ...(commonFilters.model && {
+          model: commonFilters.model,
+        }),
+        ...(commonFilters.token && {
+          token: commonFilters.token,
+        }),
+        ...(commonFilters.group && {
+          group: commonFilters.group,
+        }),
+        ...(commonFilters.username && {
+          username: commonFilters.username,
+        }),
+        ...(commonFilters.requestId && {
+          requestId: commonFilters.requestId,
+        }),
         ...(commonFilters.upstreamRequestId && {
           upstreamRequestId: commonFilters.upstreamRequestId,
         }),
-      }
-    }
-    case 'drawing': {
-      const drawingFilters = filters as DrawingLogFilters
-      return {
-        ...baseParams,
-        ...(drawingFilters.mjId && { filter: drawingFilters.mjId }),
       }
     }
     case 'task': {
       const taskFilters = filters as TaskLogFilters
       return {
         ...baseParams,
-        ...(taskFilters.taskId && { filter: taskFilters.taskId }),
+        ...(taskFilters.taskId && {
+          filter: taskFilters.taskId,
+        }),
       }
     }
     default:

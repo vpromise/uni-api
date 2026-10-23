@@ -11,18 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func geminiCodeExecutionRequest(t *testing.T) *dto.GeminiChatRequest {
-	t.Helper()
-	tools, err := kitutil.Marshal([]map[string]any{{"codeExecution": map[string]any{}}})
-	require.NoError(t, err)
-	return &dto.GeminiChatRequest{
-		Contents: []dto.GeminiChatContent{
-			{Role: "user", Parts: []dto.GeminiPart{{Text: "run this"}}},
-		},
-		Tools: tools,
-	}
-}
-
 func hasDiagnosticCode(diagnostics []types.ConversionDiagnostic, code string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Code == code {
@@ -30,23 +18,6 @@ func hasDiagnosticCode(diagnostics []types.ConversionDiagnostic, code string) bo
 		}
 	}
 	return false
-}
-
-func TestDefaultPolicyAllowsGeminiCodeExecutionToOpenAI(t *testing.T) {
-	t.Parallel()
-
-	_, set, err := ExtractRequest(types.RelayFormatGemini, geminiCodeExecutionRequest(t))
-	require.NoError(t, err)
-	target := &dto.GeneralOpenAIRequest{
-		Model:    "gpt-4o",
-		Messages: []dto.Message{{Role: "user", Content: "run this"}},
-	}
-
-	out, diagnostics, err := AttachRequest(types.RelayFormatOpenAI, target, set, &convmeta.Options{})
-	require.NoError(t, err)
-	require.NotNil(t, out)
-	assert.True(t, hasDiagnosticCode(diagnostics, "unsupported_hosted_tool"))
-	assert.Equal(t, types.ConversionLossPolicyAllow, (&convmeta.Options{}).EffectiveToolLossPolicy())
 }
 
 func TestResponsePhaseNeverRejectsEvenUnderStrictPolicy(t *testing.T) {
@@ -76,30 +47,6 @@ func TestResponsePhaseNeverRejectsEvenUnderStrictPolicy(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, out)
-}
-
-func TestSafePolicyRejectsRequestPhaseHostedToolLoss(t *testing.T) {
-	t.Parallel()
-
-	_, set, err := ExtractRequest(types.RelayFormatGemini, geminiCodeExecutionRequest(t))
-	require.NoError(t, err)
-	target := &dto.GeneralOpenAIRequest{
-		Model:    "gpt-4o",
-		Messages: []dto.Message{{Role: "user", Content: "run this"}},
-	}
-
-	_, diagnostics, err := AttachRequest(
-		types.RelayFormatOpenAI,
-		target,
-		set,
-		&convmeta.Options{ToolLossPolicy: types.ConversionLossPolicySafe},
-	)
-	require.Error(t, err)
-	var loss *types.ConversionLossError
-	require.ErrorAs(t, err, &loss)
-	require.NotEmpty(t, loss.Diagnostics)
-	assert.True(t, hasDiagnosticCode(loss.Diagnostics, "unsupported_hosted_tool"))
-	assert.True(t, hasDiagnosticCode(diagnostics, "unsupported_hosted_tool"))
 }
 
 func codexResponsesToolsRequest(t *testing.T, toolChoice any, extraTools ...map[string]any) *dto.OpenAIResponsesRequest {
@@ -132,12 +79,8 @@ var responsesCustomToolTargets = []struct {
 }{
 	{types.RelayFormatOpenAI, func() any { return &dto.GeneralOpenAIRequest{Model: "gpt-test"} }},
 	{types.RelayFormatClaude, func() any { return &dto.ClaudeRequest{Model: "claude-test"} }},
-	{types.RelayFormatGemini, func() any { return &dto.GeminiChatRequest{} }},
 }
 
-// attachedFunctions returns the function declarations and the tool choice
-// that AttachRequest wrote into a Chat, Claude, or Gemini request, decoded
-// from their wire JSON.
 func attachedFunctions(t *testing.T, out any) ([]map[string]any, any) {
 	t.Helper()
 	var (
@@ -157,14 +100,7 @@ func attachedFunctions(t *testing.T, out any) ([]map[string]any, any) {
 		functions, err = kitutil.Any2Type[[]map[string]any](target.Tools)
 		require.NoError(t, err)
 		choice, err = kitutil.Any2Type[any](target.ToolChoice)
-	case *dto.GeminiChatRequest:
-		var groups []struct {
-			FunctionDeclarations []map[string]any `json:"functionDeclarations"`
-		}
-		require.NoError(t, kitutil.Unmarshal(target.Tools, &groups))
-		require.Len(t, groups, 1)
-		functions = groups[0].FunctionDeclarations
-		choice, err = kitutil.Any2Type[any](target.ToolConfig)
+
 	default:
 		require.FailNow(t, "unexpected request type", "%T", out)
 	}
@@ -201,20 +137,6 @@ func TestResponsesCustomToolReachesEachTargetAsStringInputFunction(t *testing.T)
 				{"name": "wait", "input_schema": map[string]any{"type": "object", "properties": map[string]any{}}},
 			},
 			choice: map[string]any{"type": "tool", "name": "exec"},
-		},
-		// Gemini receives the cleaned OpenAPI schema without additionalProperties.
-		types.RelayFormatGemini: {
-			functions: []map[string]any{
-				{"name": "exec", "description": execDescription, "parameters": map[string]any{
-					"type": "OBJECT",
-					"properties": map[string]any{
-						"input": map[string]any{"type": "STRING", "description": "Raw input for the tool."},
-					},
-					"required": []any{"input"},
-				}},
-				{"name": "wait", "parameters": map[string]any{"type": "OBJECT"}},
-			},
-			choice: map[string]any{"functionCallingConfig": map[string]any{"mode": "ANY", "allowedFunctionNames": []any{"exec"}}},
 		},
 	}
 

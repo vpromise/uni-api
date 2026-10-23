@@ -37,14 +37,12 @@ import { formatTimestampRelative, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { SYSTEM_TASK_TYPE_LABEL } from '../constants'
-
 const STATUS_VARIANT: Record<SystemTaskStatus, 'secondary' | 'destructive'> = {
   pending: 'secondary',
   running: 'secondary',
   succeeded: 'secondary',
   failed: 'destructive',
 }
-
 const STATUS_CLASS_NAME: Record<SystemTaskStatus, string> = {
   pending:
     'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
@@ -54,38 +52,35 @@ const STATUS_CLASS_NAME: Record<SystemTaskStatus, string> = {
     'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   failed: '',
 }
-
 const STATUS_DOT_CLASS_NAME: Record<SystemTaskStatus, string> = {
   pending: 'bg-amber-500',
   running: 'bg-sky-500',
   succeeded: 'bg-emerald-500',
   failed: 'bg-destructive',
 }
-
 const PROGRESS_BAR_CLASS_NAME: Record<SystemTaskStatus, string> = {
   pending: '[&_[data-slot=progress-indicator]]:bg-amber-500',
   running: '[&_[data-slot=progress-indicator]]:bg-sky-500',
   succeeded: '[&_[data-slot=progress-indicator]]:bg-emerald-500',
   failed: '[&_[data-slot=progress-indicator]]:bg-destructive',
 }
-
-const TYPE_DISPLAY_ID: Record<string, string> = {
-  midjourney_poll: 'drawing_task_poll',
-}
-
+const TYPE_DISPLAY_ID: Record<string, string> = {}
 function getProgress(task: SystemTask): number | null {
-  const progress = (task.state as { progress?: unknown } | undefined)?.progress
+  const progress = (
+    task.state as
+      | {
+          progress?: unknown
+        }
+      | undefined
+  )?.progress
   if (typeof progress !== 'number' || Number.isNaN(progress)) return null
   return Math.min(100, Math.max(0, progress))
 }
-
 type SystemTasksTableProps = {
   tasks: SystemTask[]
 }
-
 export function SystemTasksTable(props: SystemTasksTableProps) {
   const { t, i18n } = useTranslation()
-
   return (
     <StaticDataTable tableClassName='min-w-[900px]'>
       <TableHeader>

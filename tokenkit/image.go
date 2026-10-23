@@ -10,10 +10,7 @@ type Image struct {
 	// Width and Height are the pixel dimensions. Zero or negative means
 	// unknown; where size matters, a 1024×1024 image is assumed.
 	Width, Height int
-	// Detail is the OpenAI detail level (low, high, auto, original) or the
-	// Gemini media resolution (MEDIA_RESOLUTION_LOW, _MEDIUM, _HIGH,
-	// _ULTRA_HIGH). Empty means the provider default. Each family ignores
-	// values meant for the other.
+
 	Detail string
 }
 
@@ -49,11 +46,7 @@ func ImageTokens(model string, img Image) int {
 		// High-resolution tier; each image adds 3 tokens of framing (measured).
 		w, h = claudeResizedSize(w, h, 2576, 4784)
 		return ceilDiv(w, 28)*ceilDiv(h, 28) + 3
-	case FamilyGemini:
-		if geminiUsesMediaResolution(model) {
-			return geminiMediaResolutionTokens(img.Detail)
-		}
-		return geminiTileImageTokens(w, h)
+
 	default:
 		return unknownFamilyImageTokens
 	}
@@ -69,8 +62,7 @@ func ImageNeedsSize(model, detail string) bool {
 		return rule.tileTokens == 0 || !rule.lowDetail
 	case FamilyClaude, FamilyClaude47:
 		return true
-	case FamilyGemini:
-		return !geminiUsesMediaResolution(model)
+
 	default:
 		return false
 	}
@@ -219,46 +211,6 @@ func claudeResizedSize(width, height, maxEdge, maxTokens int) (int, int) {
 
 func claudeImageFits(w, h, maxEdge, maxTokens int) bool {
 	return ceilDiv(w, 28)*28 <= maxEdge && ceilDiv(h, 28)*28 <= maxEdge && ceilDiv(w, 28)*ceilDiv(h, 28) <= maxTokens
-}
-
-// geminiUsesMediaResolution reports whether a lower-cased Gemini model bills
-// images by media resolution regardless of size (Gemini 3 and later, and names
-// without a version).
-func geminiUsesMediaResolution(model string) bool {
-	major, _, ok := modelVersion(strings.ToLower(model), "gemini-")
-	return !ok || major >= 3
-}
-
-// geminiMediaResolutionTokens returns the documented per-image cost for a
-// Gemini media resolution. Measured costs run 2-9% lower depending on aspect.
-func geminiMediaResolutionTokens(detail string) int {
-	level, ok := strings.CutPrefix(strings.ToLower(detail), "media_resolution_")
-	if !ok {
-		return 1120
-	}
-	switch level {
-	case "low":
-		return 280
-	case "medium":
-		return 560
-	case "ultra_high":
-		return 2240
-	default:
-		return 1120
-	}
-}
-
-// geminiTileImageTokens follows the Gemini 2.x rule measured on gemini-2.5-flash:
-// images up to 384px on both sides cost one 258-token tile; larger images are
-// cut into square tiles of a third less than the shortest side (256 to 768px),
-// at most 12, plus one thumbnail tile. 4K images bill below this cap.
-func geminiTileImageTokens(w, h int) int {
-	if w <= 384 && h <= 384 {
-		return 258
-	}
-	tile := min(max(min(w, h)*2/3, 256), 768)
-	tiles := min(ceilDiv(w, tile)*ceilDiv(h, tile), 12)
-	return (tiles + 1) * 258
 }
 
 // fitWithin scales an image down so neither side exceeds limit, rounding the

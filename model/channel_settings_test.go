@@ -1,14 +1,10 @@
 package model
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	filterdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -39,64 +35,6 @@ func TestChannelValidateSettingsRejectsInvalidHTTPTransport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			channel := &Channel{}
 			channel.SetSetting(tt.setting)
-			err := channel.ValidateSettings()
-			if tt.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
-		})
-	}
-}
-
-func TestAdvancedCustomChannelRequiresModelListRouteOnlyWhenUpdateChecksEnabled(t *testing.T) {
-	inferenceRoute := dto.AdvancedCustomRoute{
-		IncomingPath: "/v1/chat/completions",
-		UpstreamPath: "/v1/chat/completions",
-		Converter:    "none",
-	}
-
-	tests := []struct {
-		name          string
-		checksEnabled bool
-		routes        []dto.AdvancedCustomRoute
-		wantErr       string
-	}{
-		{
-			name:   "legacy channel without discovery route remains valid",
-			routes: []dto.AdvancedCustomRoute{inferenceRoute},
-		},
-		{
-			name:          "enabled checks require discovery route",
-			checksEnabled: true,
-			routes:        []dto.AdvancedCustomRoute{inferenceRoute},
-			wantErr:       dto.AdvancedCustomModelListPath,
-		},
-		{
-			name:          "enabled checks accept discovery route",
-			checksEnabled: true,
-			routes: []dto.AdvancedCustomRoute{
-				inferenceRoute,
-				{
-					IncomingPath: dto.AdvancedCustomModelListPath,
-					UpstreamPath: dto.AdvancedCustomModelListPath,
-					Converter:    "none",
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			channel := &Channel{Type: constant.ChannelTypeAdvancedCustom}
-			channel.SetOtherSettings(dto.ChannelOtherSettings{
-				UpstreamModelUpdateCheckEnabled: tt.checksEnabled,
-				AdvancedCustom: &dto.AdvancedCustomConfig{
-					Routes: tt.routes,
-				},
-			})
-
 			err := channel.ValidateSettings()
 			if tt.wantErr == "" {
 				require.NoError(t, err)
@@ -143,55 +81,7 @@ func TestInferencePresetSettingsAndDatabaseRoundTrip(t *testing.T) {
 				require.NoError(t, db.Raw("select version()").Scan(&version).Error)
 			}
 			t.Logf("%s version: %s", dialect, version)
-			for _, channelType := range []int{constant.ChannelTypeVLLM, constant.ChannelTypeSGLang} {
-				t.Run(fmt.Sprint(channelType), func(t *testing.T) {
-					channel := &Channel{Type: channelType, Key: "EMPTY", Name: "inference", Status: common.ChannelStatusEnabled}
-					require.NoError(t, channel.ValidateSettings())
-					require.NotNil(t, channel.GetOtherSettings().AdvancedCustom)
-					require.NoError(t, table.Create(channel).Error)
-					for range 2 {
-						var loaded Channel
-						require.NoError(t, table.First(&loaded, channel.Id).Error)
-						assert.Equal(t, channelType, loaded.Type)
-						assert.Empty(t, loaded.OtherSettings)
-						defaults := loaded.GetOtherSettings().AdvancedCustom
-						require.NotNil(t, defaults)
-						assert.True(t, defaults.SupportsPath("/v1/messages"))
-						assert.Empty(t, loaded.OtherSettings, "reading defaults must not rewrite saved settings")
-						defaults.Routes[0].UpstreamPath = "/changed-locally"
-						assert.Equal(t, "/v1/chat/completions", loaded.GetOtherSettings().AdvancedCustom.Routes[0].UpstreamPath)
-					}
-					settings := dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/chat/completions", UpstreamPath: "/custom/chat", Models: []string{"allowed"}, Auth: &dto.AdvancedCustomRouteAuth{Type: "none"}}}}}
-					channel.SetOtherSettings(settings)
-					require.NoError(t, channel.ValidateSettings())
-					require.NoError(t, table.Save(channel).Error)
-					for range 2 {
-						var loaded Channel
-						require.NoError(t, table.First(&loaded, channel.Id).Error)
-						actual := loaded.GetOtherSettings().AdvancedCustom
-						require.Equal(t, common.GetAdvancedCustomPreset(channelType), actual, "named channels must ignore editable advanced_custom overrides")
-						assert.Equal(t, channel.OtherSettings, loaded.OtherSettings)
-						for _, tc := range []struct {
-							path, model string
-							allowed     bool
-						}{
-							{"/v1/chat/completions", "allowed", true},
-							{"/v1/chat/completions", "other", true},
-							{"/v1/messages", "allowed", true},
-							{"/v1/images/generations", "allowed", false},
-						} {
-							ok, _ := ChannelSatisfiesFilters(&loaded, tc.model, []filterdto.ChannelFilter{{Kind: filterdto.FilterRequestPath, RequestPath: tc.path}})
-							assert.Equal(t, tc.allowed, ok)
-						}
-						endpoints := getPricingEndpointTypesForAbility(AbilityWithChannel{ChannelType: channelType, Ability: Ability{Model: "allowed", ChannelId: loaded.Id}}, map[int]*dto.AdvancedCustomConfig{loaded.Id: actual})
-						expectedEndpoints := []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic, constant.EndpointTypeEmbeddings}
-						if channelType == constant.ChannelTypeSGLang {
-							expectedEndpoints = append(expectedEndpoints, constant.EndpointTypeJinaRerank)
-						}
-						assert.ElementsMatch(t, expectedEndpoints, endpoints)
-					}
-				})
-			}
+
 		})
 	}
 }

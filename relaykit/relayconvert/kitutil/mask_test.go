@@ -37,12 +37,7 @@ func TestMaskSensitiveInfoMasksOnlyTheUpstreamAddress(t *testing.T) {
 			input:        `invalid api_key:AIzaSyAAAaUooTUni8AdaOkSRMda30n_Q4vrV70`,
 			want:         `invalid api_key:***`,
 		},
-		{
-			name:         "query values carry credentials on any host",
-			upstreamURLs: []string{"https://custom.base.example"},
-			input:        `Post "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=id-1&client_secret=secret-1": dial tcp: i/o timeout, see https://docs.example.org/errors?lang=en#retry`,
-			want:         `Post "https://aip.baidubce.com/oauth/2.0/token?client_id=***&client_secret=***&grant_type=***": dial tcp: i/o timeout, see https://docs.example.org/errors?lang=***#retry`,
-		},
+
 		{
 			name:         "parentheses inside a URL keep its query masked",
 			upstreamURLs: nil,

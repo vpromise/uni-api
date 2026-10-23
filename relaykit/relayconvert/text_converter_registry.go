@@ -78,40 +78,7 @@ var builtinTextConverters = []TextConverterSpec{
 			Aliases:        []string{ResponseConverterOAIChatToClaudeMessages},
 		},
 	},
-	{
-		ID:      ConverterGeminiContentToOpenAIChat,
-		From:    types.RelayFormatGemini,
-		To:      types.RelayFormatOpenAI,
-		Quality: TextConverterQualityFair,
-		Req: TextRequestSide{
-			Convert: convertGeminiRequestToOpenAI,
-		},
-		Resp: TextResponseSide{
-			Convert:            convertGeminiChatResponseToOAIChat,
-			ConvertStream:      convertGeminiChatStreamResponseToOAIChat,
-			NewStreamState:     newGeminiChatToOAIChatStreamState,
-			ConvertStreamChunk: convertGeminiChatStreamResponseChunkToOAIChat,
-			FinalizeStream:     finalizeGeminiChatStreamResponseToOAIChat,
-			Aliases:            []string{ResponseConverterGeminiChatToOAIChat},
-		},
-	},
-	{
-		ID:      ConverterOpenAIChatToGeminiContent,
-		From:    types.RelayFormatOpenAI,
-		To:      types.RelayFormatGemini,
-		Quality: TextConverterQualityFair,
-		Req: TextRequestSide{
-			Convert: convertOpenAIRequestToGemini,
-		},
-		Resp: TextResponseSide{
-			Convert:            convertOAIChatResponseToGeminiChat,
-			ConvertStream:      convertOAIChatStreamResponseToGeminiChat,
-			NewStreamState:     newOAIChatToGeminiStreamState,
-			ConvertStreamChunk: convertOAIChatStreamResponseChunkToGeminiChat,
-			FinalizeStream:     finalizeOAIChatStreamResponseToGeminiChat,
-			Aliases:            []string{ResponseConverterOAIChatToGeminiChat},
-		},
-	},
+
 	{
 		ID:      ConverterOpenAIChatToOpenAIResponses,
 		From:    types.RelayFormatOpenAI,
@@ -144,25 +111,7 @@ var builtinTextConverters = []TextConverterSpec{
 			Aliases:            []string{ResponseConverterOAIResponsesToOAIChat},
 		},
 	},
-	{
-		ID:      requestConverterClaudeToGemini,
-		From:    types.RelayFormatClaude,
-		To:      types.RelayFormatGemini,
-		Quality: TextConverterQualityDiscouraged,
-		Req: TextRequestSide{
-			StepConverters: []string{
-				ConverterClaudeMessagesToOpenAIChat,
-				ConverterOpenAIChatToGeminiContent,
-			},
-		},
-		Resp: TextResponseSide{
-			StepConverters: []string{
-				ConverterClaudeMessagesToOpenAIChat,
-				ConverterOpenAIChatToGeminiContent,
-			},
-			Aliases: []string{responseConverterClaudeToGemini},
-		},
-	},
+
 	{
 		ID:      ConverterClaudeMessagesToOpenAIResponses,
 		From:    types.RelayFormatClaude,
@@ -179,44 +128,7 @@ var builtinTextConverters = []TextConverterSpec{
 			Aliases: []string{responseConverterClaudeToResponses},
 		},
 	},
-	{
-		ID:      requestConverterGeminiToClaude,
-		From:    types.RelayFormatGemini,
-		To:      types.RelayFormatClaude,
-		Quality: TextConverterQualityDiscouraged,
-		Req: TextRequestSide{
-			StepConverters: []string{
-				ConverterGeminiContentToOpenAIChat,
-				ConverterOpenAIChatToClaudeMessages,
-			},
-		},
-		Resp: TextResponseSide{
-			StepConverters: []string{
-				ConverterGeminiContentToOpenAIChat,
-				ConverterOpenAIChatToClaudeMessages,
-			},
-			Aliases: []string{responseConverterGeminiToClaude},
-		},
-	},
-	{
-		ID:      ConverterGeminiContentToOpenAIResponses,
-		From:    types.RelayFormatGemini,
-		To:      types.RelayFormatOpenAIResponses,
-		Quality: TextConverterQualityFair,
-		Req: TextRequestSide{
-			StepConverters: []string{
-				ConverterGeminiContentToOpenAIChat,
-				ConverterOpenAIChatToOpenAIResponses,
-			},
-		},
-		Resp: TextResponseSide{
-			StepConverters: []string{
-				ConverterGeminiContentToOpenAIChat,
-				ConverterOpenAIChatToOpenAIResponses,
-			},
-			Aliases: []string{responseConverterGeminiToResponses},
-		},
-	},
+
 	{
 		ID:      ConverterOpenAIResponsesToClaudeMessages,
 		From:    types.RelayFormatOpenAIResponses,
@@ -231,22 +143,6 @@ var builtinTextConverters = []TextConverterSpec{
 			ConvertStreamChunk: convertOAIResponsesStreamResponseToClaudeMessages,
 			FinalizeStream:     finalizeOAIResponsesStreamResponseToClaudeMessages,
 			Aliases:            []string{responseConverterResponsesToClaude},
-		},
-	},
-	{
-		ID:      ConverterOpenAIResponsesToGemini,
-		From:    types.RelayFormatOpenAIResponses,
-		To:      types.RelayFormatGemini,
-		Quality: TextConverterQualityFair,
-		Req: TextRequestSide{
-			Convert: convertOpenAIResponsesRequestToGeminiChat,
-		},
-		Resp: TextResponseSide{
-			StepConverters: []string{
-				ConverterOpenAIResponsesToOpenAIChat,
-				ConverterOpenAIChatToGeminiContent,
-			},
-			Aliases: []string{responseConverterResponsesToGemini},
 		},
 	},
 }

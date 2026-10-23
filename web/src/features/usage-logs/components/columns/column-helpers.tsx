@@ -50,7 +50,6 @@ export function CacheTooltip({
   color: string
 }) {
   if (tokens <= 0) return null
-
   return (
     <TooltipProvider>
       <Tooltip>
@@ -80,7 +79,6 @@ export function createTimestampColumn<T>(config: {
   unit?: 'seconds' | 'milliseconds'
 }): ColumnDef<T> {
   const { accessorKey, title, unit = 'milliseconds' } = config
-
   return {
     accessorKey,
     header: ({ column }) => (
@@ -97,7 +95,9 @@ export function createTimestampColumn<T>(config: {
         </span>
       )
     },
-    meta: { label: title },
+    meta: {
+      label: title,
+    },
   }
 }
 
@@ -118,7 +118,6 @@ export function createDurationColumn<T>(config: {
     headerLabel,
     warningThresholdSec = 60,
   } = config
-
   return {
     id: 'duration',
     header: ({ column }) => (
@@ -131,14 +130,11 @@ export function createDurationColumn<T>(config: {
         log[finishTimeKey] as number | undefined,
         unit
       )
-
       if (!duration) {
         return <span className='text-muted-foreground/60 text-xs'>-</span>
       }
-
       const variant =
         duration.durationSec > warningThresholdSec ? 'danger' : 'success'
-
       const durationBgMap: Record<string, string> = {
         success:
           'border border-emerald-200/40 bg-emerald-50/35 !text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-950/15 dark:!text-emerald-400',
@@ -147,7 +143,6 @@ export function createDurationColumn<T>(config: {
         danger:
           'border border-rose-200/50 bg-rose-50/35 !text-red-600 dark:border-rose-900/40 dark:bg-rose-950/15 dark:!text-red-400',
       }
-
       return (
         <StatusBadge
           label={`${duration.durationSec.toFixed(1)}s`}
@@ -158,7 +153,9 @@ export function createDurationColumn<T>(config: {
         />
       )
     },
-    meta: { label: headerLabel },
+    meta: {
+      label: headerLabel,
+    },
   }
 }
 
@@ -170,7 +167,6 @@ export function createChannelColumn<T>(config: {
   headerLabel: string
 }): ColumnDef<T> {
   const { accessorKey = 'channel_id', headerLabel } = config
-
   return {
     accessorKey,
     header: ({ column }) => (
@@ -192,7 +188,9 @@ export function createChannelColumn<T>(config: {
         />
       )
     },
-    meta: { label: headerLabel },
+    meta: {
+      label: headerLabel,
+    },
   }
 }
 
@@ -205,7 +203,6 @@ export function createFailReasonColumn<T>(config: {
   cellTitle: string
 }): ColumnDef<T> {
   const { accessorKey = 'fail_reason', headerLabel, cellTitle } = config
-
   return {
     accessorKey,
     header: ({ column }) => (
@@ -218,11 +215,9 @@ export function createFailReasonColumn<T>(config: {
         row.getValue(accessorKey) as string
       )
       const [dialogOpen, setDialogOpen] = useState(false)
-
       if (!failReason) {
         return <span className='text-muted-foreground/60 text-xs'>-</span>
       }
-
       return (
         <>
           <button
@@ -243,7 +238,9 @@ export function createFailReasonColumn<T>(config: {
         </>
       )
     },
-    meta: { label: headerLabel },
+    meta: {
+      label: headerLabel,
+    },
   }
 }
 
@@ -255,7 +252,6 @@ export function createProgressColumn<T>(config: {
   headerLabel: string
 }): ColumnDef<T> {
   const { accessorKey = 'progress', headerLabel } = config
-
   return {
     accessorKey,
     header: ({ column }) => (
@@ -272,6 +268,8 @@ export function createProgressColumn<T>(config: {
         </span>
       )
     },
-    meta: { label: headerLabel },
+    meta: {
+      label: headerLabel,
+    },
   }
 }

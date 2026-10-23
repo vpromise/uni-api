@@ -23,17 +23,14 @@ import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { cn } from '@/lib/utils'
-
 interface FooterLink {
   text: string
   href: string
 }
-
 interface FooterColumnProps {
   title: string
   links: FooterLink[]
 }
-
 interface FooterProps {
   logo?: string
   name?: string
@@ -41,18 +38,15 @@ interface FooterProps {
   copyright?: string
   className?: string
 }
-
 const NEW_API_FOOTER_ATTRIBUTION_KEY = [
   'footer',
   'new' + 'api',
   'projectAttributionSuffix',
 ].join('.')
-
 function FooterLinkItem(props: { link: FooterLink }) {
   const { t } = useTranslation()
   const isExternal = props.link.href.startsWith('http')
   const label = t(props.link.text)
-
   if (isExternal) {
     return (
       <a
@@ -65,7 +59,6 @@ function FooterLinkItem(props: { link: FooterLink }) {
       </a>
     )
   }
-
   return (
     <Link
       to={props.link.href}
@@ -82,7 +75,11 @@ function FooterLinkItem(props: { link: FooterLink }) {
 function LegalLinks(props: { leadingSeparator?: boolean }) {
   const { t } = useTranslation()
   const { status } = useStatus()
-  const items: { key: string; label: string; href: string }[] = []
+  const items: {
+    key: string
+    label: string
+    href: string
+  }[] = []
   if (status?.user_agreement_enabled) {
     items.push({
       key: 'user-agreement',
@@ -148,7 +145,6 @@ function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
     </div>
   )
 }
-
 export function Footer(props: FooterProps) {
   const { t } = useTranslation()
   const {
@@ -157,12 +153,10 @@ export function Footer(props: FooterProps) {
     footerHtml,
     demoSiteEnabled,
   } = useSystemConfig()
-
   const displayLogo = systemLogo || props.logo || '/logo.png'
   const displayName = systemName || props.name || 'New API'
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
-
   const fallbackColumns = useMemo<FooterColumnProps[]>(
     () => [
       {
@@ -207,10 +201,6 @@ export function Footer(props: FooterProps) {
             href: 'https://github.com/songquanpeng/one-api',
           },
           {
-            text: t('footer.columns.related.links.midjourney'),
-            href: 'https://github.com/novicezk/midjourney-proxy',
-          },
-          {
             text: t('footer.columns.related.links.newApiKeyTool'),
             href: 'https://github.com/Calcium-Ion/new-api-key-tool',
           },
@@ -219,9 +209,7 @@ export function Footer(props: FooterProps) {
     ],
     [t]
   )
-
   const displayColumns = props.columns ?? fallbackColumns
-
   if (footerHtml) {
     return (
       <footer
@@ -234,7 +222,9 @@ export function Footer(props: FooterProps) {
           <div className='bg-muted/20 border-border/50 flex flex-col items-center justify-between gap-4 rounded-2xl border px-4 py-4 backdrop-blur-sm sm:flex-row sm:px-5'>
             <div
               className='custom-footer text-muted-foreground min-w-0 text-center text-sm sm:text-left'
-              dangerouslySetInnerHTML={{ __html: footerHtml }}
+              dangerouslySetInnerHTML={{
+                __html: footerHtml,
+              }}
             />
             <div className='border-border/60 text-muted-foreground/45 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
               <LegalLinks />
@@ -245,7 +235,6 @@ export function Footer(props: FooterProps) {
       </footer>
     )
   }
-
   return (
     <footer
       className={cn('border-border/40 relative z-10 border-t', props.className)}

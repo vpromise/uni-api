@@ -16,18 +16,8 @@ import (
 
 func TestGetTaskAdaptorMapsMigratedPlatformsToFactoryPlugins(t *testing.T) {
 	platforms := []constant.TaskPlatform{
-		constant.TaskPlatformSuno,
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeAli)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeDoubaoVideo)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeVolcEngine)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeGemini)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeMiniMax)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeJimeng)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeKling)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeVidu)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeSora)),
+
 		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
-		constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeVertexAi)),
 	}
 	for _, platform := range platforms {
 		_, isJS := GetTaskAdaptor(platform).(*jspluginadaptor.TaskAdaptor)
@@ -81,7 +71,7 @@ export function parseTaskResult() { return {status: "SUCCESS"}; }
 func TestGetTaskAdaptorForRequestPinsLegacyMappedPlugin(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/video_1/remix", nil)
-	legacyPlatform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeSora))
+	legacyPlatform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI))
 
 	platform, adaptor := getTaskAdaptorForRequest(c, legacyPlatform)
 

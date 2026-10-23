@@ -17,26 +17,12 @@ func TestFilterCandidateIDs(t *testing.T) {
 	alpha := &Channel{Id: 900001, Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Setting: &alphaSetting}
 	beta := &Channel{Id: 900002, Type: constant.ChannelTypeTaskPlugin, Status: common.ChannelStatusEnabled, Setting: &betaSetting}
 	ordinary := &Channel{Id: 900003, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled}
-	kling := &Channel{Id: 900004, Type: constant.ChannelTypeKling, Status: common.ChannelStatusEnabled}
-	jimeng := &Channel{Id: 900005, Type: constant.ChannelTypeJimeng, Status: common.ChannelStatusEnabled}
-	matchingCustom := &Channel{Id: 900010, Type: constant.ChannelTypeAdvancedCustom, Status: common.ChannelStatusEnabled}
-	matchingCustom.SetOtherSettings(kitdto.ChannelOtherSettings{
-		AdvancedCustom: &kitdto.AdvancedCustomConfig{
-			Routes: []kitdto.AdvancedCustomRoute{{
-				IncomingPath: "/v1/chat/completions",
-				Models:       []string{"gpt-4"},
-			}},
-		},
-	})
-	otherCustom := &Channel{Id: 900011, Type: constant.ChannelTypeAdvancedCustom, Status: common.ChannelStatusEnabled}
-	otherCustom.SetOtherSettings(kitdto.ChannelOtherSettings{
-		AdvancedCustom: &kitdto.AdvancedCustomConfig{
-			Routes: []kitdto.AdvancedCustomRoute{{
-				IncomingPath: "/v1/responses",
-				Models:       []string{"gpt-4"},
-			}},
-		},
-	})
+
+	jimeng := &Channel{Id: 900005, Status: common.ChannelStatusEnabled}
+	matchingCustom := &Channel{Id: 900010, Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled}
+	matchingCustom.SetOtherSettings(kitdto.ChannelOtherSettings{})
+	otherCustom := &Channel{Id: 900011, Status: common.ChannelStatusEnabled}
+	otherCustom.SetOtherSettings(kitdto.ChannelOtherSettings{})
 
 	pathFilter := dto.ChannelFilter{Kind: dto.FilterRequestPath, RequestPath: "/v1/chat/completions"}
 	emptyPathFilter := dto.ChannelFilter{Kind: dto.FilterRequestPath, RequestPath: ""}
@@ -71,20 +57,7 @@ func TestFilterCandidateIDs(t *testing.T) {
 			filters:   identityFilters("", nil),
 			wantKept:  []int{900003},
 		},
-		{
-			name:      "identity keeps matching legacy type",
-			ids:       []int{900004, 900005},
-			modelName: "legacy",
-			filters:   identityFilters("legacy-alpha", []int{constant.ChannelTypeKling}),
-			wantKept:  []int{900004},
-		},
-		{
-			name:      "identity keeps all listed legacy types",
-			ids:       []int{900004, 900005},
-			modelName: "legacy",
-			filters:   identityFilters("legacy-alpha", []int{constant.ChannelTypeKling, constant.ChannelTypeJimeng}),
-			wantKept:  []int{900004, 900005},
-		},
+
 		{
 			name:      "identity keyed with no types drops legacy",
 			ids:       []int{900004, 900005},
@@ -93,13 +66,7 @@ func TestFilterCandidateIDs(t *testing.T) {
 			wantKept:  []int{},
 			wantEmpty: dto.FilterTaskPluginIdentity,
 		},
-		{
-			name:      "identity drops missing cache entry",
-			ids:       []int{900004, 999999},
-			modelName: "legacy",
-			filters:   identityFilters("legacy-alpha", []int{constant.ChannelTypeKling}),
-			wantKept:  []int{900004},
-		},
+
 		{
 			name:      "empty request path is a passthrough including missing ids",
 			ids:       []int{900003, 900010, 999999},
@@ -131,7 +98,7 @@ func TestFilterCandidateIDs(t *testing.T) {
 		},
 		{
 			name:      "intersection attributes empty set to identity after path keeps candidates",
-			ids:       []int{900001, 900010},
+			ids:       []int{900003, 900010},
 			modelName: "gpt-4",
 			filters:   []dto.ChannelFilter{pathFilter, identityFilters("missing", nil)[0]},
 			wantKept:  []int{},
@@ -153,7 +120,7 @@ func TestFilterCandidateIDs(t *testing.T) {
 		900001: alpha,
 		900002: beta,
 		900003: ordinary,
-		900004: kling,
+
 		900005: jimeng,
 		900010: matchingCustom,
 		900011: otherCustom,
@@ -180,15 +147,8 @@ func TestChannelSatisfiesFilters(t *testing.T) {
 	alphaSetting := `{"task_plugin_key":"alpha"}`
 	alpha := &Channel{Id: 1, Type: constant.ChannelTypeTaskPlugin, Setting: &alphaSetting}
 	ordinary := &Channel{Id: 2, Type: constant.ChannelTypeOpenAI}
-	custom := &Channel{Id: 3, Type: constant.ChannelTypeAdvancedCustom}
-	custom.SetOtherSettings(kitdto.ChannelOtherSettings{
-		AdvancedCustom: &kitdto.AdvancedCustomConfig{
-			Routes: []kitdto.AdvancedCustomRoute{{
-				IncomingPath: "/v1/chat/completions",
-				Models:       []string{"gpt-4"},
-			}},
-		},
-	})
+	custom := &Channel{Id: 3}
+	custom.SetOtherSettings(kitdto.ChannelOtherSettings{})
 
 	ok, kind := ChannelSatisfiesFilters(nil, "gpt-4", nil)
 	assert.False(t, ok)

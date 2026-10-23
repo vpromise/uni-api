@@ -58,15 +58,3 @@ func ClaudeToOpenAIRequest(claudeRequest dto.ClaudeRequest, info *relaycommon.Re
 	}
 	return openAIRequest, nil
 }
-
-func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
-	result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, geminiRequest)
-	if err != nil {
-		return nil, err
-	}
-	openAIRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
-	}
-	return openAIRequest, nil
-}

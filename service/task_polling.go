@@ -126,11 +126,6 @@ type TaskPollSummary struct {
 	NullTasksFailed  int `json:"null_tasks_failed"`
 }
 
-// RunTaskPollingOnce performs one async-task (Suno/video) polling pass
-// synchronously. It honors ctx cancellation (the system-task runner cancels it
-// when the lease is lost) and, when report is non-nil, reports progress as
-// (processedPlatforms, totalPlatforms). It returns immediately if the task
-// adaptor factory has not been wired yet, to avoid a nil call during startup.
 func RunTaskPollingOnce(ctx context.Context, report func(processed, total int)) TaskPollSummary {
 	summary := TaskPollSummary{}
 	if GetTaskAdaptorFunc == nil {
@@ -206,10 +201,7 @@ func DispatchPlatformUpdate(ctx context.Context, platform constant.TaskPlatform,
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if platform == constant.TaskPlatformMidjourney {
-		// MJ 轮询由其自身处理，这里预留入口
-		return
-	}
+
 	adaptor := GetTaskAdaptorFunc(platform)
 	if batchAdaptor, ok := adaptor.(BatchTaskPollingAdaptor); ok && batchAdaptor.FetchMode() == "batch" {
 		if err := UpdateBatchTasks(ctx, batchAdaptor, taskChannelM, taskM); err != nil {
@@ -259,7 +251,7 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 			"progress":    "100%",
 		})
 		if err != nil {
-			common.SysLog(common.LogText("UpdateSunoTask error: %v", err))
+			common.SysLog(common.LogText("UpdateAsyncTask error: %v", err))
 		}
 		return err
 	}
@@ -294,7 +286,7 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		common.SysLog(common.LogText("Get Suno Task parse body error: %v", err))
+		common.SysLog(common.LogText("Get async task parse body error: %v", err))
 		return recordPollFailureForTasks(ctx, adaptor, tasks, pollClassTransport, resp.StatusCode, err.Error())
 	}
 	switch classifyPollHTTP(resp.StatusCode) {
@@ -329,13 +321,13 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 		parsedStatus := model.TaskStatus(responseItem.TaskInfo.Status)
 		if parsedStatus == model.TaskStatusUnknown || parsedStatus == "" || !knownPollStatus(parsedStatus) {
 			if err := recordPollFailure(ctx, adaptor, task, snap.Status, pollClassUnrecognized, resp.StatusCode, responseItem.TaskInfo.Reason); err != nil {
-				common.SysLog(common.LogText("UpdateSunoTask task error: %s", err.Error()))
+				common.SysLog(common.LogText("UpdateAsyncTask task error: %s", err.Error()))
 			}
 			continue
 		}
 		if httpClass == pollClassOtherClient && isNonTerminalPollStatus(parsedStatus) {
 			if err := recordPollFailure(ctx, adaptor, task, snap.Status, pollClassUnrecognized, resp.StatusCode, responseItem.TaskInfo.Reason); err != nil {
-				common.SysLog(common.LogText("UpdateSunoTask task error: %s", err.Error()))
+				common.SysLog(common.LogText("UpdateAsyncTask task error: %s", err.Error()))
 			}
 			continue
 		}
@@ -377,7 +369,7 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 		terminalTransition := isDone && snap.Status != task.Status
 		won, updateErr := task.UpdateWithStatus(snap.Status)
 		if updateErr != nil {
-			common.SysLog(common.LogText("UpdateSunoTask task error: %s", updateErr.Error()))
+			common.SysLog(common.LogText("UpdateAsyncTask task error: %s", updateErr.Error()))
 			continue
 		}
 		if !won {
@@ -584,10 +576,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 			task.FinishTime = now
 		}
 		if strings.HasPrefix(taskResult.Url, "data:") {
-			// data: URI (e.g. Vertex base64 encoded video) — keep in Data, not in ResultURL
+
 			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
 		} else if taskResult.Url != "" {
-			// Direct upstream URL (e.g. Kling, Ali, Doubao, etc.)
+
 			task.PrivateData.ResultURL = taskResult.Url
 		} else {
 			// No URL from adaptor — construct proxy URL using public task ID

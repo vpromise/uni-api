@@ -4,22 +4,21 @@ import "strings"
 
 const (
 	BillingUsageSourceClaudeMessages = "claude_messages"
-	BillingUsageSourceGeminiChat     = "gemini_chat"
-	BillingUsageSourceOAIChat        = "oai_chat"
-	BillingUsageSourceOAIResponses   = "oai_responses"
+
+	BillingUsageSourceOAIChat      = "oai_chat"
+	BillingUsageSourceOAIResponses = "oai_responses"
 
 	BillingUsageSemanticAnthropic = "anthropic"
-	BillingUsageSemanticGemini    = "gemini"
-	BillingUsageSemanticOpenAI    = "openai"
+
+	BillingUsageSemanticOpenAI = "openai"
 )
 
 type BillingUsage struct {
-	Source              string               `json:"source,omitempty"`
-	Semantic            string               `json:"semantic,omitempty"`
-	Estimated           bool                 `json:"estimated,omitempty"`
-	OpenAIUsage         *Usage               `json:"openai_usage,omitempty"`
-	ClaudeUsage         *ClaudeUsage         `json:"claude_usage,omitempty"`
-	GeminiUsageMetadata *GeminiUsageMetadata `json:"gemini_usage_metadata,omitempty"`
+	Source      string       `json:"source,omitempty"`
+	Semantic    string       `json:"semantic,omitempty"`
+	Estimated   bool         `json:"estimated,omitempty"`
+	OpenAIUsage *Usage       `json:"openai_usage,omitempty"`
+	ClaudeUsage *ClaudeUsage `json:"claude_usage,omitempty"`
 }
 
 func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
@@ -33,9 +32,6 @@ func NewClaudeMessagesBillingUsage(usage *ClaudeUsage) *BillingUsage {
 	}
 }
 
-// HasClaudeUsageTokens mirrors HasOpenAIUsageTokens/HasGeminiUsageMetadataTokens:
-// an all-zero ClaudeUsage must not become a BillingUsage, otherwise it would take
-// precedence during settlement and zero out a non-zero top-level usage.
 func HasClaudeUsageTokens(usage *ClaudeUsage) bool {
 	if usage == nil {
 		return false
@@ -117,48 +113,6 @@ func HasOpenAIUsageTokens(usage *Usage) bool {
 		usage.InputTokensDetails.AudioTokens != 0
 }
 
-func NewGeminiChatBillingUsage(metadata *GeminiUsageMetadata) *BillingUsage {
-	return newGeminiChatBillingUsage(metadata, false)
-}
-
-func NewEstimatedGeminiChatBillingUsage(usage *Usage) *BillingUsage {
-	if usage == nil {
-		return nil
-	}
-	reasoningTokens := usage.CompletionTokenDetails.ReasoningTokens
-	candidateTokens := max(usage.CompletionTokens-reasoningTokens, 0)
-	totalTokens := usage.TotalTokens
-	if totalTokens == 0 {
-		totalTokens = usage.PromptTokens + usage.CompletionTokens
-	}
-	metadata := &GeminiUsageMetadata{
-		PromptTokenCount:        usage.PromptTokens,
-		CandidatesTokenCount:    candidateTokens,
-		TotalTokenCount:         totalTokens,
-		ThoughtsTokenCount:      reasoningTokens,
-		CachedContentTokenCount: usage.PromptTokensDetails.CachedTokens,
-	}
-	for _, detail := range []GeminiPromptTokensDetails{
-		{Modality: "TEXT", TokenCount: usage.PromptTokensDetails.TextTokens},
-		{Modality: "IMAGE", TokenCount: usage.PromptTokensDetails.ImageTokens},
-		{Modality: "AUDIO", TokenCount: usage.PromptTokensDetails.AudioTokens},
-	} {
-		if detail.TokenCount != 0 {
-			metadata.PromptTokensDetails = append(metadata.PromptTokensDetails, detail)
-		}
-	}
-	for _, detail := range []GeminiPromptTokensDetails{
-		{Modality: "TEXT", TokenCount: usage.CompletionTokenDetails.TextTokens},
-		{Modality: "IMAGE", TokenCount: usage.CompletionTokenDetails.ImageTokens},
-		{Modality: "AUDIO", TokenCount: usage.CompletionTokenDetails.AudioTokens},
-	} {
-		if detail.TokenCount != 0 {
-			metadata.CandidatesTokensDetails = append(metadata.CandidatesTokensDetails, detail)
-		}
-	}
-	return newGeminiChatBillingUsage(metadata, true)
-}
-
 // CloneBillingUsageWithEstimatedCompletion preserves the original upstream
 // billing dialect and fills a missing completion count without rebuilding the
 // payload from a converted, potentially lossy Usage value.
@@ -189,35 +143,12 @@ func CloneBillingUsageWithEstimatedCompletion(usage *BillingUsage, completionTok
 			clone.ClaudeUsage.OutputTokens = completionTokens
 			updated = true
 		}
-	case clone.GeminiUsageMetadata != nil:
-		metadata := clone.GeminiUsageMetadata
-		if metadata.CandidatesTokenCount == 0 {
-			candidateTokens := max(completionTokens-metadata.ThoughtsTokenCount, 0)
-			metadata.CandidatesTokenCount = candidateTokens
-			totalTokens := metadata.PromptTokenCount + metadata.ToolUsePromptTokenCount + metadata.CandidatesTokenCount + metadata.ThoughtsTokenCount
-			if metadata.TotalTokenCount < totalTokens {
-				metadata.TotalTokenCount = totalTokens
-			}
-			updated = true
-		}
+
 	}
 	if updated {
 		clone.Estimated = true
 	}
 	return clone
-}
-
-func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *BillingUsage {
-	if !HasGeminiUsageMetadataTokens(metadata) {
-		return nil
-	}
-	usageMetadata := cloneGeminiUsageMetadata(*metadata)
-	return &BillingUsage{
-		Source:              BillingUsageSourceGeminiChat,
-		Semantic:            BillingUsageSemanticGemini,
-		Estimated:           estimated,
-		GeminiUsageMetadata: &usageMetadata,
-	}
 }
 
 func CloneBillingUsage(usage *BillingUsage) *BillingUsage {
@@ -227,10 +158,7 @@ func CloneBillingUsage(usage *BillingUsage) *BillingUsage {
 	clone := *usage
 	clone.OpenAIUsage = cloneOpenAIUsage(usage.OpenAIUsage)
 	clone.ClaudeUsage = cloneClaudeUsage(usage.ClaudeUsage)
-	if usage.GeminiUsageMetadata != nil {
-		metadata := cloneGeminiUsageMetadata(*usage.GeminiUsageMetadata)
-		clone.GeminiUsageMetadata = &metadata
-	}
+
 	return &clone
 }
 
@@ -258,11 +186,7 @@ func (usage *BillingUsage) CanonicalUsage() (*Usage, bool) {
 			strings.EqualFold(semantic, BillingUsageSemanticAnthropic)) {
 		return usage.canonicalClaudeUsage(), true
 	}
-	if HasGeminiUsageMetadataTokens(usage.GeminiUsageMetadata) &&
-		(strings.EqualFold(source, BillingUsageSourceGeminiChat) ||
-			strings.EqualFold(semantic, BillingUsageSemanticGemini)) {
-		return usage.canonicalGeminiUsage(), true
-	}
+
 	return nil, false
 }
 
@@ -330,59 +254,6 @@ func (usage *BillingUsage) canonicalClaudeUsage() *Usage {
 	return canonical
 }
 
-func (usage *BillingUsage) canonicalGeminiUsage() *Usage {
-	metadata := usage.GeminiUsageMetadata
-	promptTokens := metadata.PromptTokenCount + metadata.ToolUsePromptTokenCount
-	canonical := &Usage{
-		PromptTokens:     promptTokens,
-		CompletionTokens: metadata.CandidatesTokenCount + metadata.ThoughtsTokenCount,
-		TotalTokens:      metadata.TotalTokenCount,
-		UsageSemantic:    BillingUsageSemanticGemini,
-		UsageSource:      BillingUsageSourceGeminiChat,
-		BillingUsage:     CloneBillingUsage(usage),
-	}
-	canonical.CompletionTokenDetails.ReasoningTokens = metadata.ThoughtsTokenCount
-	canonical.PromptTokensDetails.CachedTokens = metadata.CachedContentTokenCount
-
-	for _, detail := range metadata.PromptTokensDetails {
-		addGeminiInputTokenDetail(&canonical.PromptTokensDetails, detail)
-	}
-	for _, detail := range metadata.ToolUsePromptTokensDetails {
-		addGeminiInputTokenDetail(&canonical.PromptTokensDetails, detail)
-	}
-	for _, detail := range metadata.CandidatesTokensDetails {
-		switch normalizeGeminiModality(detail.Modality) {
-		case "IMAGE":
-			canonical.CompletionTokenDetails.ImageTokens += detail.TokenCount
-		case "AUDIO":
-			canonical.CompletionTokenDetails.AudioTokens += detail.TokenCount
-		case "TEXT":
-			canonical.CompletionTokenDetails.TextTokens += detail.TokenCount
-		}
-	}
-
-	if canonical.TotalTokens == 0 {
-		canonical.TotalTokens = canonical.PromptTokens + canonical.CompletionTokens
-	} else if canonical.CompletionTokens <= 0 {
-		canonical.CompletionTokens = max(canonical.TotalTokens-canonical.PromptTokens, 0)
-	}
-	if canonical.PromptTokens > 0 && canonical.PromptTokensDetails.TextTokens == 0 && canonical.PromptTokensDetails.AudioTokens == 0 {
-		canonical.PromptTokensDetails.TextTokens = canonical.PromptTokens
-	}
-	return canonical
-}
-
-func addGeminiInputTokenDetail(details *InputTokenDetails, detail GeminiPromptTokensDetails) {
-	switch normalizeGeminiModality(detail.Modality) {
-	case "AUDIO":
-		details.AudioTokens += detail.TokenCount
-	case "IMAGE":
-		details.ImageTokens += detail.TokenCount
-	case "TEXT":
-		details.TextTokens += detail.TokenCount
-	}
-}
-
 func cloneOpenAIUsage(usage *Usage) *Usage {
 	if usage == nil {
 		return nil
@@ -412,42 +283,4 @@ func cloneClaudeUsage(usage *ClaudeUsage) *ClaudeUsage {
 		clone.ServerToolUse = &serverToolUse
 	}
 	return &clone
-}
-
-func cloneGeminiUsageMetadata(metadata GeminiUsageMetadata) GeminiUsageMetadata {
-	metadata.PromptTokensDetails = append([]GeminiPromptTokensDetails{}, metadata.PromptTokensDetails...)
-	metadata.ToolUsePromptTokensDetails = append([]GeminiPromptTokensDetails{}, metadata.ToolUsePromptTokensDetails...)
-	metadata.CandidatesTokensDetails = append([]GeminiPromptTokensDetails{}, metadata.CandidatesTokensDetails...)
-	metadata.BillingUsage = nil
-	return metadata
-}
-
-func HasGeminiUsageMetadataTokens(metadata *GeminiUsageMetadata) bool {
-	if metadata == nil {
-		return false
-	}
-	if metadata.PromptTokenCount != 0 ||
-		metadata.ToolUsePromptTokenCount != 0 ||
-		metadata.CandidatesTokenCount != 0 ||
-		metadata.TotalTokenCount != 0 ||
-		metadata.ThoughtsTokenCount != 0 ||
-		metadata.CachedContentTokenCount != 0 {
-		return true
-	}
-	for _, detail := range metadata.PromptTokensDetails {
-		if detail.TokenCount != 0 {
-			return true
-		}
-	}
-	for _, detail := range metadata.ToolUsePromptTokensDetails {
-		if detail.TokenCount != 0 {
-			return true
-		}
-	}
-	for _, detail := range metadata.CandidatesTokensDetails {
-		if detail.TokenCount != 0 {
-			return true
-		}
-	}
-	return false
 }

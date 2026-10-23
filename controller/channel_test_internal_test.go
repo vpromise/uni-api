@@ -23,33 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetChannelDefaultBaseURLsUsesBuiltInDefaults(t *testing.T) {
-	originalBaseURLs := constant.ChannelBaseURLs
-	constant.ChannelBaseURLs = append([]string(nil), originalBaseURLs...)
-	constant.ChannelBaseURLs[constant.ChannelTypeDeepSeek] = "https://deepseek.server.example"
-	t.Cleanup(func() {
-		constant.ChannelBaseURLs = originalBaseURLs
-	})
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel/default_base_urls", nil)
-	GetChannelDefaultBaseURLs(c)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-	var response struct {
-		Success bool           `json:"success"`
-		Data    map[int]string `json:"data"`
-	}
-	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
-	require.True(t, response.Success)
-	assert.Equal(t, "https://deepseek.server.example", response.Data[constant.ChannelTypeDeepSeek])
-	assert.Equal(t, "https://api.openai.com", response.Data[constant.ChannelTypeOpenAI])
-	assert.NotContains(t, response.Data, constant.ChannelTypeAzure)
-	assert.NotContains(t, response.Data, constant.ChannelTypeNewAPI)
-	assert.NotContains(t, response.Data, constant.ChannelTypeTaskPlugin)
-}
-
 func TestValidateChannelProxy(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -85,43 +58,31 @@ func TestValidateChannelProxy(t *testing.T) {
 	}
 }
 
-func TestValidateChannelRequiresNewAPIBaseURL(t *testing.T) {
-	tests := []struct {
-		name    string
-		baseURL *string
-		wantErr bool
-	}{
-		{name: "missing", wantErr: true},
-		{name: "blank", baseURL: common.GetPointer("  "), wantErr: true},
-		{name: "configured", baseURL: common.GetPointer("https://new-api.example")},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			channel := &model.Channel{
-				Type:    constant.ChannelTypeNewAPI,
-				BaseURL: test.baseURL,
+func TestValidateChannelSupportedUpstreams(t *testing.T) {
+	for _, channelType := range []int{constant.ChannelTypeOpenAI, constant.ChannelTypeAnthropic, constant.ChannelTypeCodex} {
+		t.Run(fmt.Sprintf("supported_%d", channelType), func(t *testing.T) {
+			channel := &model.Channel{Type: channelType, Key: "test-key", BaseURL: common.GetPointer("https://proxy.example")}
+			if channelType == constant.ChannelTypeCodex {
+				channel.Key = `{"access_token":"test-access-token","account_id":"test-account"}`
 			}
-
-			err := validateChannel(channel, false)
-
-			if test.wantErr {
-				require.ErrorContains(t, err, "New API channel base URL cannot be empty")
-				return
-			}
-			require.NoError(t, err)
+			require.NoError(t, validateChannel(channel, true))
+			_, supported := common.ChannelType2APIType(channelType)
+			assert.True(t, supported)
 		})
 	}
-}
-
-func TestNewAPIChannelRegistration(t *testing.T) {
-	apiType, ok := common.ChannelType2APIType(constant.ChannelTypeNewAPI)
-
-	require.True(t, ok)
-	assert.Equal(t, constant.APITypeNewAPI, apiType)
-	assert.Equal(t, "New API", constant.GetChannelTypeName(constant.ChannelTypeNewAPI))
-	require.Greater(t, len(constant.ChannelBaseURLs), constant.ChannelTypeNewAPI)
-	assert.Empty(t, constant.ChannelBaseURLs[constant.ChannelTypeNewAPI])
+	for _, channelType := range []int{-1, 0, 3, 24, 55, 58, 60, 61, 999} {
+		t.Run(fmt.Sprintf("unsupported_%d", channelType), func(t *testing.T) {
+			channel := &model.Channel{Type: channelType, Key: "never-expose-this-key"}
+			for _, isAdd := range []bool{true, false} {
+				err := validateChannel(channel, isAdd)
+				require.ErrorContains(t, err, "Unsupported channel type")
+				assert.NotContains(t, err.Error(), channel.Key)
+			}
+			apiType, supported := common.ChannelType2APIType(channelType)
+			assert.False(t, supported)
+			assert.Equal(t, -1, apiType)
+		})
+	}
 }
 
 func TestResponsesCompactChannelSupport(t *testing.T) {
@@ -132,11 +93,9 @@ func TestResponsesCompactChannelSupport(t *testing.T) {
 		want        bool
 	}{
 		{name: "OpenAI", channelType: constant.ChannelTypeOpenAI, apiType: constant.APITypeOpenAI, want: true},
-		{name: "Azure", channelType: constant.ChannelTypeAzure, apiType: constant.APITypeOpenAI, want: true},
+
 		{name: "Codex", channelType: constant.ChannelTypeCodex, apiType: constant.APITypeCodex, want: true},
-		{name: "Advanced Custom", channelType: constant.ChannelTypeAdvancedCustom, apiType: constant.APITypeAdvancedCustom, want: true},
-		{name: "Sub2API", channelType: constant.ChannelTypeSub2API, apiType: constant.APITypeSub2API, want: true},
-		{name: "New API", channelType: constant.ChannelTypeNewAPI, apiType: constant.APITypeNewAPI, want: true},
+
 		{name: "Anthropic", channelType: constant.ChannelTypeAnthropic, apiType: constant.APITypeAnthropic, want: false},
 	}
 
@@ -145,20 +104,6 @@ func TestResponsesCompactChannelSupport(t *testing.T) {
 			assert.Equal(t, test.want, common.SupportsResponsesCompact(test.channelType, test.apiType))
 		})
 	}
-}
-
-func TestMultiprotocolGatewayEndpointTypes(t *testing.T) {
-	want := []constant.EndpointType{
-		constant.EndpointTypeOpenAI,
-		constant.EndpointTypeOpenAIResponse,
-		constant.EndpointTypeOpenAIResponseCompact,
-		constant.EndpointTypeAnthropic,
-		constant.EndpointTypeGemini,
-		constant.EndpointTypeOpenAIAlphaSearch,
-	}
-
-	assert.Equal(t, want, common.GetEndpointTypesByChannelType(constant.ChannelTypeNewAPI, "gpt-5"))
-	assert.Equal(t, want, common.GetEndpointTypesByChannelType(constant.ChannelTypeSub2API, "gpt-5"))
 }
 
 func TestCopyChannelRejectsInvalidLegacyProxySettings(t *testing.T) {
@@ -492,4 +437,37 @@ func TestTestAllChannelsRejectsExistingActiveTask(t *testing.T) {
 	require.Equal(t, http.StatusConflict, recorder.Code)
 	require.Contains(t, recorder.Body.String(), existing.TaskID)
 	require.Contains(t, recorder.Body.String(), "A channel test task is already running or queued")
+}
+
+func TestUpdateRetainedChannelKeepsTypeAndAppendsUniqueKeys(t *testing.T) {
+	for _, channelType := range []int{constant.ChannelTypeOpenAI, constant.ChannelTypeAnthropic} {
+		t.Run(fmt.Sprint(channelType), func(t *testing.T) {
+			setupTaskPluginBindChannelTest(t)
+			channel := model.Channel{Type: channelType, Name: "retained", Key: "old-key\nsecond-key", Models: "custom-model", Group: "default", Status: common.ChannelStatusEnabled, ChannelInfo: model.ChannelInfo{IsMultiKey: true, MultiKeySize: 2, MultiKeyMode: constant.MultiKeyModePolling}}
+			require.NoError(t, channel.Insert())
+			for _, body := range []string{
+				fmt.Sprintf(`{"id":%d,"priority":12}`, channel.Id),
+				fmt.Sprintf(`{"id":%d,"key":"second-key\n new-key \nnew-key","key_mode":"append"}`, channel.Id),
+			} {
+				recorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(recorder)
+				ctx.Set("id", 1)
+				ctx.Set("role", common.RoleRootUser)
+				ctx.Request = httptest.NewRequest(http.MethodPut, "/api/channel/", bytes.NewBufferString(body))
+				ctx.Request.Header.Set("Content-Type", "application/json")
+				UpdateChannel(ctx)
+				var response struct {
+					Success bool `json:"success"`
+				}
+				require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+				require.True(t, response.Success, recorder.Body.String())
+			}
+			stored, err := model.GetChannelById(channel.Id, true)
+			require.NoError(t, err)
+			assert.Equal(t, channelType, stored.Type)
+			assert.Equal(t, "old-key\nsecond-key\nnew-key", stored.Key)
+			require.NotNil(t, stored.Priority)
+			assert.EqualValues(t, 12, *stored.Priority)
+		})
+	}
 }

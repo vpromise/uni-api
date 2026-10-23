@@ -147,13 +147,7 @@ func TestUpstreamAddressesMaskOnlyConfiguredAddresses(t *testing.T) {
 			message:     "request to https://api.anthropic.com/v1/messages failed, see https://platform.claude.com/docs/en/build-with-claude/task-budgets",
 			want:        "request to https://api.anthropic.com/v1/messages failed, see https://platform.claude.com/docs/en/build-with-claude/task-budgets",
 		},
-		{
-			name:        "official endpoint built by the adaptor stays readable",
-			channelType: constant.ChannelTypeVertexAi,
-			origin:      "https://us-central1-aiplatform.googleapis.com",
-			message:     "request to https://us-central1-aiplatform.googleapis.com/v1/projects failed",
-			want:        "request to https://us-central1-aiplatform.googleapis.com/v1/projects failed",
-		},
+
 		{
 			name:        "configured base URL is masked",
 			channelType: constant.ChannelTypeOpenAI,
@@ -162,13 +156,7 @@ func TestUpstreamAddressesMaskOnlyConfiguredAddresses(t *testing.T) {
 			message:     "request to https://relay.private.example/v1/chat/completions failed",
 			want:        "request to https://***.example/***/***/*** failed",
 		},
-		{
-			name:        "absolute Advanced Custom route is masked",
-			channelType: constant.ChannelTypeAdvancedCustom,
-			origin:      "https://route.private.example",
-			message:     "dial tcp: lookup route.private.example: no such host",
-			want:        "dial tcp: lookup ***.***.example: no such host",
-		},
+
 		{
 			name:        "environment proxy is masked on a preset channel",
 			channelType: constant.ChannelTypeAnthropic,

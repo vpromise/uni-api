@@ -719,7 +719,7 @@ func PrepareTaskPluginEndpoint() gin.HandlerFunc {
 			} else if model, _ := result["model"].(string); strings.TrimSpace(model) == "" {
 				reason = "invalid_model"
 				detail = "decoded request is missing a model"
-			} else if model != pinned.Model || (pinned.MappedModel == "" && !slices.Contains(candidate.Plugin.Meta.Models, model)) {
+			} else if model != pinned.Model || pinned.MappedModel == "" && !slices.Contains(candidate.Plugin.Meta.Models, model) {
 				reason = "resolved_model_not_owned"
 				detail = fmt.Sprintf("model %q is not served by this plugin", model)
 			}
@@ -1078,12 +1078,7 @@ type originTaskIntentError struct {
 // channels stored Platform "1").
 func taskPluginLegacyPlatforms(meta pluginruntime.Meta) []constant.TaskPlatform {
 	platforms := []constant.TaskPlatform{constant.TaskPlatform(meta.Key)}
-	// The sunoapi plugin (adapter for the Suno-API proxy project) was renamed
-	// from "suno"; historical rows carry that named Platform value, which
-	// predates the numeric channel-type convention below.
-	if meta.Key == "sunoapi" {
-		platforms = append(platforms, constant.TaskPlatformSuno)
-	}
+
 	for _, channelType := range meta.ChannelTypes {
 		if channelType <= 0 || channelType == constant.ChannelTypeTaskPlugin {
 			continue
@@ -1451,8 +1446,7 @@ func logTaskPluginChannelDecision(c *gin.Context, channel *model.Channel, modelN
 	switch channel.Type {
 	case constant.ChannelTypeTaskPlugin:
 		identityMode = "type59_setting"
-	case constant.ChannelTypeNewAPI:
-		identityMode = "type60_setting"
+
 	}
 	logger.LogDebug(
 		c,

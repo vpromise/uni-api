@@ -28,11 +28,14 @@ import {
   LogsFilterToolbar,
 } from '../../components/logs-filter-toolbar'
 import type { AuditFilters, AuditLog } from '../api'
-
 function AuditFilterSelect(props: {
   label: string
   value: string
-  options: { value: string; label: string; disabled?: boolean }[]
+  options: {
+    value: string
+    label: string
+    disabled?: boolean
+  }[]
   onChange: (value: string) => void
 }) {
   return (
@@ -49,7 +52,6 @@ function AuditFilterSelect(props: {
     </LogsFilterField>
   )
 }
-
 export function AuditLogFilterBar(props: {
   table: Table<AuditLog>
   filters: AuditFilters
@@ -95,12 +97,23 @@ export function AuditLogFilterBar(props: {
         label={t('Result')}
         value={props.filters.success ?? 'all'}
         options={[
-          { value: 'all', label: t('All results') },
-          { value: 'true', label: t('Success') },
-          { value: 'false', label: t('Failed') },
+          {
+            value: 'all',
+            label: t('All results'),
+          },
+          {
+            value: 'true',
+            label: t('Success'),
+          },
+          {
+            value: 'false',
+            label: t('Failed'),
+          },
         ]}
         onChange={(value) =>
-          props.onChange({ success: value === 'all' ? undefined : value })
+          props.onChange({
+            success: value === 'all' ? undefined : value,
+          })
         }
       />
       {props.accessOnly ? (
@@ -108,7 +121,10 @@ export function AuditLogFilterBar(props: {
           label={t('Token scope')}
           value={props.tokenScope}
           options={[
-            { value: 'all', label: t('All tokens') },
+            {
+              value: 'all',
+              label: t('All tokens'),
+            },
             {
               value: 'current',
               label: t('Current token'),
@@ -127,14 +143,31 @@ export function AuditLogFilterBar(props: {
           label={t('Category')}
           value={props.filters.category ?? 'all'}
           options={[
-            { value: 'all', label: t('All categories') },
-            { value: 'login', label: t('Login') },
-            { value: 'security', label: t('Account security') },
-            { value: 'operation', label: t('Operation audit') },
-            { value: 'access_token', label: t('Access Token') },
+            {
+              value: 'all',
+              label: t('All categories'),
+            },
+            {
+              value: 'login',
+              label: t('Login'),
+            },
+            {
+              value: 'security',
+              label: t('Account security'),
+            },
+            {
+              value: 'operation',
+              label: t('Operation audit'),
+            },
+            {
+              value: 'access_token',
+              label: t('Access Token'),
+            },
           ]}
           onChange={(value) =>
-            props.onChange({ category: value === 'all' ? undefined : value })
+            props.onChange({
+              category: value === 'all' ? undefined : value,
+            })
           }
         />
       )}
@@ -151,7 +184,9 @@ export function AuditLogFilterBar(props: {
                 placeholder={t('Token identifier')}
                 value={props.filters.token_ref ?? ''}
                 onChange={(event) =>
-                  props.onChange({ token_ref: event.target.value || undefined })
+                  props.onChange({
+                    token_ref: event.target.value || undefined,
+                  })
                 }
               />
             </LogsFilterField>
@@ -176,7 +211,9 @@ export function AuditLogFilterBar(props: {
               placeholder={t('Username')}
               value={props.filters.username ?? ''}
               onChange={(event) =>
-                props.onChange({ username: event.target.value || undefined })
+                props.onChange({
+                  username: event.target.value || undefined,
+                })
               }
             />
           </LogsFilterField>

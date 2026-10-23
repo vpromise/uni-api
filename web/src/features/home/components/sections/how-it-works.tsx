@@ -37,7 +37,7 @@ export function HowItWorks() {
       num: '2',
       title: t('Connect'),
       desc: t(
-        'Connect through OpenAI, Claude, Gemini, and other compatible API routes'
+        'Connect through OpenAI Chat Completions, Responses, and Anthropic Messages'
       ),
       icon: <Zap className='size-6' strokeWidth={1.5} />,
     },

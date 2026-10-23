@@ -17,14 +17,9 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	"github.com/QuantumNous/new-api/relay/channel/advancedcustom"
-	"github.com/QuantumNous/new-api/relay/channel/gemini"
-	"github.com/QuantumNous/new-api/relay/channel/ollama"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+
 	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
@@ -306,34 +301,6 @@ func sanitizeFetchModelsError(err error, key string) error {
 	return errors.New(message)
 }
 
-func sanitizeAdvancedCustomRequestError(err error, key string, requestURL string) error {
-	err = sanitizeFetchModelsError(err, key)
-	if err == nil {
-		return nil
-	}
-	parsedURL, parseErr := url.Parse(requestURL)
-	if parseErr != nil {
-		return err
-	}
-	message := err.Error()
-	for _, value := range parsedURL.Query() {
-		for _, secret := range value {
-			if secret == "" {
-				continue
-			}
-			message = strings.ReplaceAll(message, secret, "[REDACTED]")
-			message = strings.ReplaceAll(message, url.QueryEscape(secret), "[REDACTED]")
-			message = strings.ReplaceAll(message, url.PathEscape(secret), "[REDACTED]")
-		}
-	}
-	if key != "" {
-		message = strings.ReplaceAll(message, key, "[REDACTED]")
-		message = strings.ReplaceAll(message, url.QueryEscape(key), "[REDACTED]")
-		message = strings.ReplaceAll(message, url.PathEscape(key), "[REDACTED]")
-	}
-	return errors.New(message)
-}
-
 func getFetchModelsResponseBody(method string, requestURL string, channel *model.Channel, headers http.Header) ([]byte, error) {
 	request, err := http.NewRequest(method, requestURL, nil)
 	if err != nil {
@@ -364,44 +331,16 @@ func getFetchModelsResponseBody(method string, requestURL string, channel *model
 }
 
 func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
-	if channel.Type == constant.ChannelTypeTaskPlugin {
-		plugin, ok := jsplugin.DefaultRegistry.Get(channel.GetSetting().TaskPluginKey)
-		if !ok {
-			return nil, fmt.Errorf("task plugin %q is not registered", channel.GetSetting().TaskPluginKey)
-		}
-		return normalizeModelNames(plugin.Meta.Models), nil
+	if channel == nil {
+		return nil, common.NewMessage("Invalid parameters")
 	}
+	if !constant.IsSupportedChannelType(channel.Type) {
+		return nil, common.NewMessage("Unsupported channel type: {{type}}", map[string]any{"type": channel.Type})
+	}
+
 	baseURL := constant.GetChannelBaseURL(channel.Type)
 	if channel.GetBaseURL() != "" {
 		baseURL = channel.GetBaseURL()
-	}
-
-	if channel.Type == constant.ChannelTypeOllama {
-		key := strings.TrimSpace(strings.Split(channel.Key, "\n")[0])
-		models, err := ollama.FetchOllamaModels(baseURL, key)
-		if err != nil {
-			return nil, err
-		}
-		return normalizeModelNames(lo.Map(models, func(item ollama.OllamaModel, _ int) string {
-			return item.Name
-		})), nil
-	}
-
-	if channel.Type == constant.ChannelTypeGemini {
-		key, _, apiErr := channel.GetNextEnabledKey()
-		if apiErr != nil {
-			return nil, fmt.Errorf("failed to get channel key: %w", apiErr)
-		}
-		key = strings.TrimSpace(key)
-		models, err := gemini.FetchGeminiModels(baseURL, key, channel.GetSetting())
-		if err != nil {
-			return nil, err
-		}
-		return normalizeModelNames(models), nil
-	}
-
-	if constant.IsAdvancedCustomChannel(channel.Type) {
-		return fetchAdvancedCustomUpstreamModelIDs(channel, baseURL)
 	}
 
 	if channel.Type == constant.ChannelTypeCodex {
@@ -410,29 +349,7 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 
 	var url string
 	switch channel.Type {
-	case constant.ChannelTypeAli:
-		url = fmt.Sprintf("%s/compatible-mode/v1/models", baseURL)
-	case constant.ChannelTypeZhipu_v4:
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/api/paas/v4/models", baseURL)
-		}
-	case constant.ChannelTypeVolcEngine:
-		// 火山方舟 OpenAI 兼容 API 根路径是 /api/v3（chat/embeddings 均为
-		// {base}/api/v3/...，见 relay/channel/volcengine 的 GetRequestURL），
-		// 不存在 /v1/models 端点。原拼接会导致「获取模型列表」固定 404 失败。
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/v1/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/api/v3/models", baseURL)
-		}
-	case constant.ChannelTypeMoonshot:
-		if plan, ok := constant.ChannelSpecialBases[baseURL]; ok && plan.OpenAIBaseURL != "" {
-			url = fmt.Sprintf("%s/models", plan.OpenAIBaseURL)
-		} else {
-			url = fmt.Sprintf("%s/v1/models", baseURL)
-		}
+
 	default:
 		url = fmt.Sprintf("%s/v1/models", baseURL)
 	}
@@ -450,7 +367,7 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 
 	body, err := getFetchModelsResponseBody(http.MethodGet, url, channel, headers)
 	if err != nil {
-		return nil, sanitizeAdvancedCustomRequestError(err, key, url)
+		return nil, sanitizeFetchModelsError(err, key)
 	}
 
 	var result OpenAIModelsResponse
@@ -458,47 +375,10 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		return nil, err
 	}
 	ids := lo.Map(result.Data, func(item OpenAIModel, _ int) string {
-		if channel.Type == constant.ChannelTypeGemini {
-			return strings.TrimPrefix(item.ID, "models/")
-		}
+
 		return item.ID
 	})
 	return normalizeModelNames(ids), nil
-}
-
-func fetchAdvancedCustomUpstreamModelIDs(channel *model.Channel, baseURL string) ([]string, error) {
-	key, _, apiErr := channel.GetNextEnabledKey()
-	if apiErr != nil {
-		return nil, fmt.Errorf("failed to get channel key: %w", apiErr)
-	}
-	key = strings.TrimSpace(key)
-
-	info := &relaycommon.RelayInfo{
-		RelayFormat:    types.RelayFormatOpenAI,
-		RelayMode:      relayconstant.RelayModeUnknown,
-		RequestURLPath: dto.AdvancedCustomModelListPath,
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType:          channel.Type,
-			ChannelBaseUrl:       baseURL,
-			ApiKey:               key,
-			ChannelOtherSettings: channel.GetOtherSettings(),
-		},
-	}
-
-	adaptor := &advancedcustom.Adaptor{}
-	url, headers, err := adaptor.BuildModelListRequest(info)
-	if err != nil {
-		return nil, sanitizeFetchModelsError(err, key)
-	}
-	if err := applyFetchModelsHeaderOverrides(channel, key, headers); err != nil {
-		return nil, sanitizeFetchModelsError(err, key)
-	}
-
-	body, err := getFetchModelsResponseBody(http.MethodGet, url, channel, headers)
-	if err != nil {
-		return nil, sanitizeFetchModelsError(err, key)
-	}
-	return parseOpenAIModelIDs(body)
 }
 
 func updateChannelUpstreamModelSettings(channel *model.Channel, settings dto.ChannelOtherSettings, updateModels bool) error {
